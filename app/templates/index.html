@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="hero section">
+  <div class="container hero-content">
+    <p class="eyebrow">线下小众兴趣活动聚合与同好匹配</p>
+    <h1>找到同频的人，一起把兴趣带到现场。</h1>
+    <p class="hero-text">
+      Gatherly 帮助你发现胶片摄影、城市骑行、手冲咖啡、独立出版等小众兴趣活动，
+      也让组织者更轻松地发布活动、连接参与者。
+    </p>
+    <div class="hero-actions">
+      <a class="button" href="#activity-list">浏览活动</a>
+      <a class="button button-secondary" href="{{ url_for('activity.create_activity') }}">发布活动</a>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container section-heading">
+    <p class="eyebrow">Featured Activities</p>
+    <h2>近期推荐活动</h2>
+  </div>
+  <div id="activity-list" class="container card-grid">
+    {% for activity in activities %}
+    <article class="activity-card">
+      <div class="card-body">
+        <span class="tag">{{ activity.category }}</span>
+        <h3>{{ activity.title }}</h3>
+        <p>{{ activity.description }}</p>
+        <div class="card-meta">{{ activity.time }} · {{ activity.location }}</div>
+        <a class="text-link" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">查看详情</a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

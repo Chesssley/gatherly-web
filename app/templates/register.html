@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}注册 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container narrow-page">
+    <div class="page-title">
+      <p class="eyebrow">Register</p>
+      <h1>创建账号</h1>
+      <p>加入 Gatherly，发现本地兴趣活动并认识同频同好。</p>
+    </div>
+    <form class="form-card" method="post" action="#">
+      <label for="name">昵称</label>
+      <input id="name" name="name" type="text" placeholder="请输入昵称">
+
+      <label for="email">邮箱</label>
+      <input id="email" name="email" type="email" placeholder="name@example.com">
+
+      <label for="password">密码</label>
+      <input id="password" name="password" type="password" placeholder="至少 8 位字符">
+
+      <button class="button" type="button">注册</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

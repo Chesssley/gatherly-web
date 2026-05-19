@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}{{ activity.title }} - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+  <article class="container detail-layout">
+    <div>
+      <span class="tag">{{ activity.category }}</span>
+      <h1>{{ activity.title }}</h1>
+      <p class="lead">{{ activity.description }}</p>
+      <h2>活动说明</h2>
+      <p>{{ activity.detail }}</p>
+    </div>
+    <aside class="info-panel">
+      <h2>活动信息</h2>
+      <p><strong>时间：</strong>{{ activity.time }}</p>
+      <p><strong>地点：</strong>{{ activity.location }}</p>
+      <p><strong>人数：</strong>{{ activity.capacity }}</p>
+      <a class="button" href="{{ url_for('auth.login') }}">报名参加</a>
+    </aside>
+  </article>
+</section>
+{% endblock %}

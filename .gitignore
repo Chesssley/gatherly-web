@@ -12,3 +12,12 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# Python / Flask
+__pycache__/
+*.pyc
+.venv/
+venv/
+instance/
+.env
+.flaskenv
