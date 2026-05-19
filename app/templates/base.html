@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Gatherly{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar container">
+      <a class="brand" href="{{ url_for('activity.index') }}">Gatherly</a>
+      <ul class="nav-links">
+        <li><a href="{{ url_for('activity.index') }}">首页</a></li>
+        <li><a href="{{ url_for('activity.create_activity') }}">发布活动</a></li>
+        <li><a href="{{ url_for('circle.circle_list') }}">同好圈</a></li>
+        <li><a href="{{ url_for('auth.login') }}">登录</a></li>
+        <li><a class="button button-small" href="{{ url_for('auth.register') }}">注册</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>&copy; 2026 Gatherly</p>
+      <p>为小众兴趣爱好者连接真实的线下相遇。</p>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

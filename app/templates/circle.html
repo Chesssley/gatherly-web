@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}同好圈 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container page-title">
+    <p class="eyebrow">Circles</p>
+    <h1>同好圈</h1>
+    <p>根据兴趣加入圈子，持续发现同频活动和同好。</p>
+  </div>
+  <div class="container card-grid">
+    {% for circle in circles %}
+    <article class="activity-card">
+      <div class="card-body">
+        <span class="tag">{{ circle.tag }}</span>
+        <h3>{{ circle.name }}</h3>
+        <p>{{ circle.summary }}</p>
+        <div class="card-meta">{{ circle.members }} 位成员</div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
