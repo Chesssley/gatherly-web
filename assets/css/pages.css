@@ -1,0 +1,57 @@
+.hero {
+  background: linear-gradient(180deg, #fffaf2 0%, var(--color-bg) 100%);
+}
+
+.hero-content {
+  max-width: 760px;
+}
+
+.hero h1 {
+  margin-bottom: 18px;
+  font-size: clamp(36px, 6vw, 64px);
+  line-height: 1.1;
+}
+
+.hero-text,
+.lead,
+.page-title p,
+.content-page p {
+  color: var(--color-muted);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.section-heading,
+.page-title {
+  margin-bottom: 28px;
+}
+
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 32px;
+}
+
+.info-panel {
+  align-self: start;
+  padding: 24px;
+}
+
+.narrow-page {
+  max-width: 720px;
+}
+
+.content-page {
+  max-width: 800px;
+}
+
+@media (max-width: 860px) {
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
+}
