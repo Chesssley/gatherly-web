@@ -3,25 +3,23 @@
 {% block title %}注册 - Gatherly{% endblock %}
 
 {% block content %}
-<section class="section">
-  <div class="container narrow-page">
-    <div class="page-title">
-      <p class="eyebrow">Register</p>
-      <h1>创建账号</h1>
-      <p>加入 Gatherly，发现本地兴趣活动并认识同频同好。</p>
+<section class="section narrow-page">
+    <p class="eyebrow">Register</p>
+    <h1>用户注册</h1>
+
+    <!-- TODO: TASK-004 登录注册负责人完成注册表单 -->
+    <!-- 字段建议：
+        1. 昵称
+        2. 邮箱
+        3. 密码
+        4. 确认密码
+        5. 兴趣标签
+        6. 注册按钮
+        7. 跳转登录页
+    -->
+
+    <div class="placeholder-box">
+        注册表单待完成。
     </div>
-    <form class="form-card" method="post" action="#">
-      <label for="name">昵称</label>
-      <input id="name" name="name" type="text" placeholder="请输入昵称">
-
-      <label for="email">邮箱</label>
-      <input id="email" name="email" type="email" placeholder="name@example.com">
-
-      <label for="password">密码</label>
-      <input id="password" name="password" type="password" placeholder="至少 8 位字符">
-
-      <button class="button" type="button">注册</button>
-    </form>
-  </div>
 </section>
 {% endblock %}
