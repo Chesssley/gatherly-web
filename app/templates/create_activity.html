@@ -3,31 +3,25 @@
 {% block title %}发布活动 - Gatherly{% endblock %}
 
 {% block content %}
-<section class="section">
-  <div class="container narrow-page">
-    <div class="page-title">
-      <p class="eyebrow">Create</p>
-      <h1>发布活动</h1>
-      <p>填写基础信息，帮助同好了解活动主题、时间、地点和适合人群。</p>
+<section class="section narrow-page">
+    <p class="eyebrow">Create Activity</p>
+    <h1>发布活动</h1>
+
+    <!-- TODO: TASK-003 发布活动负责人完成活动发布表单 -->
+    <!-- 表单字段建议：
+        1. 活动标题
+        2. 活动介绍
+        3. 活动时间
+        4. 活动地点
+        5. 人数上限
+        6. 活动费用
+        7. 兴趣标签
+        8. 所需准备事项
+        9. 提交按钮
+    -->
+
+    <div class="placeholder-box">
+        活动发布表单待完成。
     </div>
-    <form class="form-card" method="post" action="#">
-      <label for="title">活动名称</label>
-      <input id="title" name="title" type="text" placeholder="例如：周末街头胶片漫步">
-
-      <label for="category">兴趣分类</label>
-      <input id="category" name="category" type="text" placeholder="例如：胶片摄影">
-
-      <label for="time">活动时间</label>
-      <input id="time" name="time" type="text" placeholder="例如：周六 14:00">
-
-      <label for="location">活动地点</label>
-      <input id="location" name="location" type="text" placeholder="例如：老城书店门口">
-
-      <label for="description">活动介绍</label>
-      <textarea id="description" name="description" rows="5" placeholder="介绍活动内容、适合人群和注意事项"></textarea>
-
-      <button class="button" type="button">保存草稿</button>
-    </form>
-  </div>
 </section>
 {% endblock %}

@@ -275,3 +275,13 @@ img {
     flex-wrap: wrap;
   }
 }
+/* TODO placeholder style for member tasks */
+.placeholder-box {
+    margin-top: 1rem;
+    padding: 2rem;
+    border: 2px dashed #b9c8c2;
+    border-radius: 16px;
+    background: #f7faf8;
+    color: #557067;
+    font-size: 0.95rem;
+}
