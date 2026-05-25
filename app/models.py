@@ -1,11 +1,92 @@
-"""
-Gatherly 项目临时数据模型。
+from datetime import datetime
 
-当前阶段不连接数据库，只保留最小模拟数据，方便 Flask 页面正常运行。
-后续由组员根据 Issues 继续完善用户、活动、报名、圈子、帖子、评分等数据结构。
-"""
+from flask_sqlalchemy import SQLAlchemy
 
-# TODO: TASK-002 数据负责人完善活动数据结构
+
+db = SQLAlchemy()
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(255), nullable=False)
+    avatar = db.Column(db.String(255))
+    interests = db.Column(db.Text)
+    role = db.Column(db.String(20), default="user", nullable=False)
+    trust_score = db.Column(db.Integer, default=100, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    activities = db.relationship("Activity", back_populates="organizer")
+    registrations = db.relationship("Registration", back_populates="user")
+    posts = db.relationship("Post", back_populates="user")
+    reviews = db.relationship("Review", back_populates="user")
+
+
+class Activity(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text)
+    location = db.Column(db.String(255))
+    start_time = db.Column(db.DateTime)
+    max_participants = db.Column(db.Integer)
+    image = db.Column(db.String(255))
+    fee = db.Column(db.Float, default=0, nullable=False)
+    status = db.Column(db.String(20), default="open", nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    organizer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    organizer = db.relationship("User", back_populates="activities")
+    registrations = db.relationship("Registration", back_populates="activity")
+    reviews = db.relationship("Review", back_populates="activity")
+
+
+class Registration(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
+    status = db.Column(db.String(20), default="registered", nullable=False)
+    registered_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship("User", back_populates="registrations")
+    activity = db.relationship("Activity", back_populates="registrations")
+
+
+class Circle(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    tag = db.Column(db.String(50))
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    posts = db.relationship("Post", back_populates="circle")
+
+
+class Post(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    circle_id = db.Column(db.Integer, db.ForeignKey("circle.id"), nullable=False)
+
+    user = db.relationship("User", back_populates="posts")
+    circle = db.relationship("Circle", back_populates="posts")
+
+
+class Review(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    activity = db.relationship("Activity", back_populates="reviews")
+    user = db.relationship("User", back_populates="reviews")
+
+
+# Temporary data kept only so the existing page routes can run before database
+# query logic is implemented in later tasks.
 activities = [
     {
         "id": 1,
@@ -19,7 +100,6 @@ activities = [
     }
 ]
 
-# TODO: TASK-005 同好圈负责人完善圈子数据结构
 circles = [
     {
         "id": 1,
@@ -29,9 +109,3 @@ circles = [
         "members": 0,
     }
 ]
-
-# TODO: 后续可补充 users、registrations、posts、reviews 等模拟数据
-users = []
-registrations = []
-posts = []
-reviews = []

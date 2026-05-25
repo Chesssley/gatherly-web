@@ -1,8 +1,15 @@
 from flask import Flask
 
+from app.models import db
+
 
 def create_app():
     app = Flask(__name__)
+    app.config["SECRET_KEY"] = "dev-secret-key"
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///gatherly.db"
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    db.init_app(app)
 
     from app.routes.activity import activity_bp
     from app.routes.admin import admin_bp
@@ -15,5 +22,3 @@ def create_app():
     app.register_blueprint(admin_bp)
 
     return app
-
-    #test1
