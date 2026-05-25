@@ -4,52 +4,92 @@
 
 {% block content %}
 <section class="hero">
-    <p class="eyebrow">线下小众兴趣活动聚合与同好匹配</p>
-    <h1>找到同频的人，一起把兴趣带到现场。</h1>
-    <p class="hero-text">
-        这里保留首页主视觉区域，后续由首页负责人完善。
-    </p>
-
-    <div class="hero-actions">
-        <a class="btn primary" href="{{ url_for('activity.create_activity') }}">发布活动</a>
-        <a class="btn secondary" href="{{ url_for('circle.circles') }}">浏览同好圈</a>
+    <div class="hero-content container">
+        <p class="eyebrow">线下小众兴趣活动聚合与同好匹配</p>
+        <h1>找到同频的人，一起把兴趣带到现场。</h1>
+        
+        <!-- 搜索栏：US-01-01 首页体验增强 -->
+        <div class="search-bar">
+            <input type="text" placeholder="搜索活动、兴趣或城市..." class="search-input">
+            <button class="button">搜索</button>
+        </div>
+        
+        <!-- 兴趣标签 chip：US-06 将接入筛选逻辑，当前仅展示 -->
+        <div class="tag-chips">
+            <span class="tag-chip active" data-tag="all">全部活动</span>
+            <span class="tag-chip" data-tag="胶片摄影">胶片摄影</span>
+            <span class="tag-chip" data-tag="城市骑行">城市骑行</span>
+            <span class="tag-chip" data-tag="手冲咖啡">手冲咖啡</span>
+            <span class="tag-chip" data-tag="独立出版">独立出版</span>
+        </div>
+        
+        <div class="hero-actions">
+            <a class="button" href="{{ url_for('activity.create_activity') }}">发布活动</a>
+            <a class="button button-secondary" href="{{ url_for('circle.circles') }}">浏览同好圈</a>
+        </div>
     </div>
 </section>
 
 <section class="section">
-    <p class="eyebrow">Featured Activities</p>
-    <h2>近期推荐活动</h2>
+    <div class="container">
+        <div class="section-heading">
+            <p class="eyebrow">Featured Activities</p>
+            <h2>近期推荐活动</h2>
+        </div>
 
-    <!-- US-03-01 验收要求：用户可以从首页进入详情页 -->
-    {% if activities %}
-    <div class="card-grid">
-        {% for activity in activities %}
-        <a href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}" class="activity-card">
-            <div class="card-body">
-                <span class="tag">{{ activity.category }}</span>
-                <h3>{{ activity.title }}</h3>
-                <div class="card-meta">
-                    <p>{{ activity.time }} · {{ activity.location }}</p>
-                    <p>{{ activity.current_people }}/{{ activity.max_people }}人 · {{ activity.signup_status }}</p>
+        {% if activities %}
+        <div class="card-grid">
+            {% for activity in activities %}
+            <a href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}" class="activity-card">
+                <!-- 活动封面图：US-01-01 要求展示图片 -->
+                <div class="card-image">
+                    <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" 
+                         alt="{{ activity.title }}"
+                         onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
                 </div>
-                <span class="text-link">查看详情 →</span>
-            </div>
-        </a>
-        {% endfor %}
-    </div>
-    {% else %}
-    <div class="placeholder-box">
-        暂无活动，快去发布第一个活动吧！
-    </div>
-    {% endif %}
-</section>
-
-<section class="section">
-    <p class="eyebrow">Interest Tags</p>
-    <h2>兴趣标签</h2>
-
-    <div class="placeholder-box">
-        兴趣标签区域待完成。
+                <div class="card-body">
+                    <!-- 兴趣标签：支持多标签列表或单 category 回退 -->
+                    <div class="card-tags">
+                        {% if activity.tags %}
+                            {% for tag in activity.tags %}
+                            <span class="tag">{{ tag }}</span>
+                            {% endfor %}
+                        {% elif activity.category %}
+                            <span class="tag">{{ activity.category }}</span>
+                        {% endif %}
+                    </div>
+                    
+                    <h3>{{ activity.title }}</h3>
+                    
+                    <div class="card-meta">
+                        <p class="meta-main">{{ activity.time }} · {{ activity.location }}</p>
+                        <p class="meta-sub">
+                            <span class="meta-people">{{ activity.current_people }}/{{ activity.max_people }}人</span>
+                            <span class="meta-divider">·</span>
+                            {% if activity.fee %}
+                            <span class="meta-fee">¥{{ activity.fee }}</span>
+                            {% else %}
+                            <span class="meta-fee free">免费</span>
+                            {% endif %}
+                            <span class="meta-divider">·</span>
+                            <span class="meta-status">{{ activity.signup_status }}</span>
+                        </p>
+                    </div>
+                    
+                    <!-- 主办方信息 -->
+                    <p class="card-host">主办方：{{ activity.host or '未知主办方' }}</p>
+                    
+                    <span class="text-link">查看详情 →</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>暂无活动，快去发布第一个活动吧！</p>
+            <a class="button" href="{{ url_for('activity.create_activity') }}">发布活动</a>
+        </div>
+        {% endif %}
     </div>
 </section>
 {% endblock %}
