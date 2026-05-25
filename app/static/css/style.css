@@ -400,3 +400,224 @@ img {
   color: #557067;
   font-size: 0.95rem;
 }
+
+/* ============================================
+   首页活动卡片增强样式 (US-01-01)
+   ============================================ */
+
+/* 修复 hero-content 居中 */
+.hero-content {
+  margin: 0 auto;
+  padding: 48px 0;
+  text-align: center;
+}
+
+/* 搜索栏 */
+.search-bar {
+  display: flex;
+  gap: 12px;
+  max-width: 560px;
+  margin: 24px auto 0;
+}
+
+.search-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 15px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--color-primary);
+}
+
+/* 兴趣标签 chip */
+.tag-chips {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.tag-chip {
+  padding: 8px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  font-size: 14px;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.tag-chip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.tag-chip.active {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+}
+
+/* 卡片图片区域 */
+.card-image {
+  width: 100%;
+  height: 180px;
+  overflow: hidden;
+  background: #f0ece6;
+}
+
+.card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.activity-card:hover .card-image img {
+  transform: scale(1.05);
+}
+
+/* 卡片内标签列表 */
+.card-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.card-tags .tag {
+  margin-right: 0;
+}
+
+/* 元信息增强 */
+.meta-main {
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.meta-sub {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.meta-divider {
+  color: var(--color-border);
+}
+
+.meta-fee {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.meta-fee.free {
+  color: #52c41a;
+  font-weight: 600;
+}
+
+.meta-status {
+  font-weight: 600;
+}
+
+/* 主办方 */
+.card-host {
+  margin-top: auto;
+  padding-top: 10px;
+  font-size: 13px;
+  color: var(--color-muted);
+  border-top: 1px solid var(--color-border);
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  border: 2px dashed var(--color-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.empty-state p {
+  color: var(--color-muted);
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+/* 兼容 .btn 类名（如果 HTML 中使用了 btn primary/secondary） */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--color-primary);
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.btn:hover {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+}
+
+.btn.secondary {
+  background: transparent;
+  color: var(--color-primary);
+}
+
+.btn.secondary:hover {
+  background: #e8f0ed;
+  color: var(--color-primary-dark);
+}
+
+/* 移动端适配增强 */
+@media (max-width: 860px) {
+  .search-bar {
+    flex-direction: column;
+  }
+  
+  .search-bar .button {
+    width: 100%;
+  }
+  
+  .card-image {
+    height: 200px;
+  }
+  
+  .hero-content {
+    padding: 32px 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .tag-chips {
+    gap: 8px;
+  }
+  
+  .tag-chip {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  
+  .meta-sub {
+    font-size: 13px;
+  }
+}
