@@ -16,6 +16,7 @@ temp/
 # Python / Flask
 __pycache__/
 *.pyc
+*.db
 .venv/
 venv/
 instance/
