@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, abort
 
 from app.models import activities
 
@@ -14,17 +14,17 @@ def index():
     return render_template("index.html", activities=activities)
 
 
-@activity_bp.route("/activities/<int:activity_id>")
+# US-03-01: 活动详情页路由 —— 用户查看活动完整介绍
+@activity_bp.route("/activity/<int:activity_id>")
 def activity_detail(activity_id):
     """
-    活动详情页路由。
-    TODO: TASK-002 活动详情负责人完善详情展示。
-    TODO: TASK-003 报名负责人后续补充报名状态。
+    活动详情页。
+    根据 activity_id 从 activities 列表中查找对应活动。
+    找不到则返回 404。
     """
-    activity = next(
-        (item for item in activities if item.get("id") == activity_id),
-        activities[0]
-    )
+    activity = next((a for a in activities if a.get("id") == activity_id), None)
+    if activity is None:
+        abort(404)
     return render_template("activity_detail.html", activity=activity)
 
 

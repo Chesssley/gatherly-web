@@ -1,36 +1,82 @@
 {% extends "base.html" %}
 
-{% block title %}活动详情 - Gatherly{% endblock %}
+{% block title %}{{ activity.title }} - Gatherly{% endblock %}
 
 {% block content %}
 <section class="section narrow-page">
     <p class="eyebrow">Activity Detail</p>
-    <h1>活动详情页</h1>
+    <h1>{{ activity.title }}</h1>
 
-    <!-- TODO: TASK-002 活动详情负责人完成活动完整介绍 -->
-    <!-- 对应内容：
-        1. 活动标题
-        2. 活动分类 / 兴趣标签
-        3. 活动时间
-        4. 活动地点
-        5. 人数上限
-        6. 报名状态
-        7. 活动准备事项
-        8. 活动详细介绍
-    -->
+    <!-- 活动完整信息展示 -->
+    <div class="activity-meta">
+        <!-- 分类/兴趣标签 -->
+        <div class="tag-group">
+            <span class="tag">{{ activity.category }}</span>
+            {% if activity.tags %}
+                {% for tag in activity.tags %}
+                    <span class="tag">{{ tag }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
 
-    <div class="placeholder-box">
-        活动详情内容待完成。
+        <!-- 核心信息行（时间/地点/人数/状态） -->
+        <div class="meta-row">
+            <div class="meta-item">
+                <strong>活动时间：</strong>
+                <span>{{ activity.time }}</span>
+            </div>
+            <div class="meta-item">
+                <strong>活动地点：</strong>
+                <span>{{ activity.location }}</span>
+            </div>
+            <div class="meta-item">
+                <strong>人数上限：</strong>
+                <span>{{ activity.max_people }} 人（当前{{ activity.current_people }}人）</span>
+            </div>
+            <div class="meta-item">
+                <strong>报名状态：</strong>
+                <span class="status-{{ activity.signup_status }}">
+                    {{ activity.signup_status }}
+                </span>
+            </div>
+        </div>
+
+        <!-- 活动准备事项 -->
+        {% if activity.preparations %}
+        <div class="preparations">
+            <h3>活动准备事项</h3>
+            <ul>
+                {% for item in activity.preparations %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- 活动详细介绍 (US-03-01 核心验收内容) -->
+        <div class="description">
+            <h3>活动详细介绍</h3>
+            <div class="desc-content">{{ activity.description }}</div>
+        </div>
     </div>
 </section>
 
 <section class="section narrow-page">
     <h2>报名区域</h2>
 
-    <!-- TODO: TASK-002 或 TASK-003 负责人完成“立即报名”按钮和报名状态展示 -->
-
-    <div class="placeholder-box">
-        报名按钮和报名状态待完成。
+    <!-- 报名按钮+状态 -->
+    <div class="signup-area">
+        {% if activity.signup_status == '可报名' %}
+            <button class="button" type="button">立即报名</button>
+        {% elif activity.signup_status == '已满' %}
+            <button class="button btn-disabled-full" type="button" disabled>报名已满</button>
+        {% else %}
+            <button class="button btn-disabled-expired" type="button" disabled>活动已结束</button>
+        {% endif %}
+        
+        <p class="signup-note">
+            报名成功后会收到短信通知，请确保填写的联系方式准确。
+        </p>
     </div>
 </section>
 {% endblock %}

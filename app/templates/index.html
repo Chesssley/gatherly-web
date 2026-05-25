@@ -7,7 +7,6 @@
     <p class="eyebrow">线下小众兴趣活动聚合与同好匹配</p>
     <h1>找到同频的人，一起把兴趣带到现场。</h1>
     <p class="hero-text">
-        <!-- TODO: TASK-001 首页负责人补充项目介绍文案 -->
         这里保留首页主视觉区域，后续由首页负责人完善。
     </p>
 
@@ -21,25 +20,33 @@
     <p class="eyebrow">Featured Activities</p>
     <h2>近期推荐活动</h2>
 
-    <!-- TODO: TASK-001 首页负责人完成活动卡片列表 -->
-    <!-- 要求：
-        1. 展示活动标题
-        2. 展示兴趣标签
-        3. 展示时间、地点、人数
-        4. 展示“查看详情”按钮
-        5. 页面风格参考当前 Gatherly 首页
-    -->
-
-    <div class="placeholder-box">
-        首页活动卡片区域待完成。
+    <!-- US-03-01 验收要求：用户可以从首页进入详情页 -->
+    {% if activities %}
+    <div class="card-grid">
+        {% for activity in activities %}
+        <a href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}" class="activity-card">
+            <div class="card-body">
+                <span class="tag">{{ activity.category }}</span>
+                <h3>{{ activity.title }}</h3>
+                <div class="card-meta">
+                    <p>{{ activity.time }} · {{ activity.location }}</p>
+                    <p>{{ activity.current_people }}/{{ activity.max_people }}人 · {{ activity.signup_status }}</p>
+                </div>
+                <span class="text-link">查看详情 →</span>
+            </div>
+        </a>
+        {% endfor %}
     </div>
+    {% else %}
+    <div class="placeholder-box">
+        暂无活动，快去发布第一个活动吧！
+    </div>
+    {% endif %}
 </section>
 
 <section class="section">
     <p class="eyebrow">Interest Tags</p>
     <h2>兴趣标签</h2>
-
-    <!-- TODO: TASK-001 或 TASK-006 负责人完成兴趣标签展示与筛选入口 -->
 
     <div class="placeholder-box">
         兴趣标签区域待完成。

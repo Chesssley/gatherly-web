@@ -184,6 +184,7 @@ img {
   padding: 4px 10px;
   border-radius: 999px;
   background: #e8f0ed;
+  margin-right: 8px;
 }
 
 .form-card {
@@ -254,6 +255,7 @@ img {
 
 .narrow-page {
   max-width: 720px;
+  margin: 0 auto;
 }
 
 @media (max-width: 860px) {
@@ -275,13 +277,126 @@ img {
     flex-wrap: wrap;
   }
 }
-/* TODO placeholder style for member tasks */
+
+/* ============================================
+   活动详情页样式 (US-03-01)
+   ============================================ */
+
+/* 介绍区域容器 */
+.description {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.description h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  margin-bottom: 1rem;
+}
+
+/* 介绍正文：确保清晰可读 */
+.desc-content {
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--color-text);
+  white-space: pre-line;
+  word-wrap: break-word;
+}
+
+/* 活动元信息区域 */
+.activity-meta {
+  margin: 2rem 0;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.meta-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 报名状态颜色 */
+.status-可报名 {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.status-已满 {
+  color: #e63946;
+  font-weight: 600;
+}
+
+.status-已结束 {
+  color: #fca311;
+  font-weight: 600;
+}
+
+/* 准备事项 */
+.preparations {
+  margin-top: 1rem;
+}
+
+.preparations h3 {
+  font-size: 1.125rem;
+  color: var(--color-primary-dark);
+  margin-bottom: 0.8rem;
+}
+
+.preparations ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: var(--color-muted);
+  line-height: 1.8;
+}
+
+/* 报名区域 */
+.signup-area {
+  margin-top: 1rem;
+}
+
+.btn-disabled-full {
+  background: var(--color-muted) !important;
+  border-color: var(--color-muted) !important;
+  cursor: not-allowed !important;
+}
+
+.btn-disabled-expired {
+  background: #fca311 !important;
+  border-color: #fca311 !important;
+  cursor: not-allowed !important;
+}
+
+.signup-note {
+  margin-top: 1rem;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+/* 占位符样式（保留） */
 .placeholder-box {
-    margin-top: 1rem;
-    padding: 2rem;
-    border: 2px dashed #b9c8c2;
-    border-radius: 16px;
-    background: #f7faf8;
-    color: #557067;
-    font-size: 0.95rem;
+  margin-top: 1rem;
+  padding: 2rem;
+  border: 2px dashed #b9c8c2;
+  border-radius: 16px;
+  background: #f7faf8;
+  color: #557067;
+  font-size: 0.95rem;
 }
