@@ -41,14 +41,14 @@
         <div class="card-grid">
             {% for activity in activities %}
             <a href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}" class="activity-card">
-                <!-- 活动封面图：US-01-01 要求展示图片 -->
+                <!-- 活动封面图 -->
                 <div class="card-image">
                     <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" 
                          alt="{{ activity.title }}"
                          onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
                 </div>
                 <div class="card-body">
-                    <!-- 兴趣标签：支持多标签列表或单 category 回退 -->
+                    <!-- 兴趣标签 -->
                     <div class="card-tags">
                         {% if activity.tags %}
                             {% for tag in activity.tags %}
@@ -59,27 +59,13 @@
                         {% endif %}
                     </div>
                     
-                    <h3>{{ activity.title }}</h3>
+                    <h3 class="card-title">{{ activity.title }}</h3>
                     
                     <div class="card-meta">
-                        <p class="meta-main">{{ activity.time }} · {{ activity.location }}</p>
-                        <p class="meta-sub">
-                            <span class="meta-people">{{ activity.current_people }}/{{ activity.max_people }}人</span>
-                            <span class="meta-divider">·</span>
-                            {% if activity.fee %}
-                            <span class="meta-fee">¥{{ activity.fee }}</span>
-                            {% else %}
-                            <span class="meta-fee free">免费</span>
-                            {% endif %}
-                            <span class="meta-divider">·</span>
-                            <span class="meta-status">{{ activity.signup_status }}</span>
-                        </p>
+                        <p class="meta-time">{{ activity.time }}</p>
+                        <p class="meta-location">{{ activity.location }}</p>
+                        <p class="meta-people">{{ activity.current_people }}/{{ activity.max_people }}人</p>
                     </div>
-                    
-                    <!-- 主办方信息 -->
-                    <p class="card-host">主办方：{{ activity.host or '未知主办方' }}</p>
-                    
-                    <span class="text-link">查看详情 →</span>
                 </div>
             </a>
             {% endfor %}
