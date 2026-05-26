@@ -14,4 +14,18 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
   }
+
+  const tagToggle = document.querySelector("[data-tag-toggle]");
+  if (tagToggle) {
+    tagToggle.addEventListener("click", () => {
+      const interestSection = tagToggle.closest(".interest-section");
+      if (!interestSection) {
+        return;
+      }
+
+      const isExpanded = interestSection.classList.toggle("is-expanded");
+      tagToggle.setAttribute("aria-expanded", String(isExpanded));
+      tagToggle.textContent = isExpanded ? "收起标签" : "展开更多兴趣";
+    });
+  }
 });

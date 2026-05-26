@@ -14,14 +14,6 @@
             <button class="button">搜索</button>
         </div>
 
-        <!-- 兴趣标签 chip：US-06 标签筛选状态由后端同步 -->
-        <div class="tag-chips">
-            <a class="tag-chip {% if not selected_tag %}is-active{% endif %}" href="{{ url_for('activity.index') }}" data-tag="all">全部活动</a>
-            {% for category in categories %}
-            <a class="tag-chip {% if selected_tag == category %}is-active{% endif %}" href="{{ url_for('activity.index', tag=category) }}" data-tag="{{ category }}">{{ category }}</a>
-            {% endfor %}
-        </div>
-
         <div class="hero-actions">
             <a class="button" href="{{ url_for('activity.create_activity') }}">发布活动</a>
             <a class="button button-secondary" href="{{ url_for('circle.circles') }}">浏览同好圈</a>
@@ -36,20 +28,42 @@
             <h2>近期推荐活动</h2>
         </div>
 
-        <div class="tag-filter" aria-label="活动分类筛选">
-            <div class="tag-filter-list">
-                <a class="tag-chip {% if not selected_tag %}is-active{% endif %}" href="{{ url_for('activity.index') }}">全部活动</a>
-                {% for category in categories %}
-                <a class="tag-chip {% if selected_tag == category %}is-active{% endif %}" href="{{ url_for('activity.index', tag=category) }}">{{ category }}</a>
-                {% endfor %}
+        <section class="interest-section {% if expand_tags_by_default %}is-expanded{% endif %}" aria-labelledby="interest-title">
+            <div class="interest-header">
+                <p class="eyebrow">Interest Tags</p>
+                <h2 class="interest-title" id="interest-title">发现兴趣</h2>
+                <p class="interest-subtitle">从小众兴趣开始，找到附近适合你的线下活动。</p>
             </div>
-            {% if selected_tag %}
-            <p class="filter-status">
-                当前正在浏览：{{ selected_tag }}
-                <a href="{{ url_for('activity.index') }}">查看全部活动 / 清除筛选</a>
-            </p>
+
+            <div class="interest-tags">
+                <a class="interest-chip {% if not selected_tag %}is-active{% endif %}" href="{{ url_for('activity.index') }}">全部活动</a>
+                {% if interest_tags %}
+                {% for tag in interest_tags %}
+                <a class="interest-chip {% if loop.index > visible_tag_count %}is-extra-tag{% endif %} {% if selected_tag == tag %}is-active{% endif %}" href="{{ url_for('activity.index', tag=tag) }}">{{ tag }}</a>
+                {% endfor %}
+                {% else %}
+                <span class="interest-subtitle">暂无兴趣标签</span>
+                {% endif %}
+            </div>
+
+            {% if interest_tags|length > visible_tag_count %}
+            <button type="button"
+                    class="interest-toggle"
+                    data-tag-toggle
+                    aria-expanded="{{ 'true' if expand_tags_by_default else 'false' }}">
+                {{ '收起标签' if expand_tags_by_default else '展开更多兴趣' }}
+            </button>
             {% endif %}
-        </div>
+
+            <div class="filter-status">
+                {% if selected_tag %}
+                <span>当前正在浏览：{{ selected_tag }}</span>
+                <a href="{{ url_for('activity.index') }}">查看全部活动 / 清除筛选</a>
+                {% else %}
+                <span>当前正在浏览：全部活动</span>
+                {% endif %}
+            </div>
+        </section>
 
         {% if activities %}
         <div class="card-grid">
