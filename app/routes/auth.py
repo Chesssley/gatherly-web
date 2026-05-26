@@ -17,29 +17,32 @@ def login():
     POST：验证登录表单
     """
     if request.method == "POST":
-        email = request.form.get("email", "").strip()
+        identifier = request.form.get("email", "").strip()
         password = request.form.get("password", "").strip()
         
         # 表单非空校验
-        if not email or not password:
-            flash("邮箱和密码不能为空", "error")
+        if not identifier or not password:
+            flash("账号或邮箱和密码不能为空", "error")
             return render_template("login.html")
         
         # 查询用户
-        user = User.query.filter_by(email=email).first()
+        user = User.query.filter(
+            (User.username == identifier) | (User.email == identifier)
+        ).first()
         
         if not user:
-            flash("邮箱或密码错误", "error")
+            flash("账号、邮箱或密码错误", "error")
             return render_template("login.html")
         
         # 验证密码（使用 werkzeug.security.check_password_hash）
         from werkzeug.security import check_password_hash
         if not check_password_hash(user.password, password):
-            flash("邮箱或密码错误", "error")
+            flash("账号、邮箱或密码错误", "error")
             return render_template("login.html")
         
         # 登录成功（TODO: 后续添加 session 管理）
-        flash(f"欢迎回来，{user.nickname}！登录成功。", "success")
+        display_name = user.nickname or user.username
+        flash(f"欢迎回来，{display_name}！登录成功。", "success")
         # 暂时重定向到首页
         return redirect(url_for("activity.index"))
     
@@ -56,14 +59,18 @@ def register():
     form = RegistrationForm()
 
     if form.validate_on_submit():
+        username = form.username.data.strip()
+        nickname = request.form.get("nickname", "").strip() or username
+        email = form.email.data.strip()
+
         # 检查用户名是否已存在
-        existing_user = User.query.filter_by(username=form.username.data).first()
+        existing_user = User.query.filter_by(username=username).first()
         if existing_user:
             flash("该用户名已被注册，请选择其他用户名", "error")
             return render_template("register.html", form=form)
         
         # 检查邮箱是否已存在
-        existing_email = User.query.filter_by(email=form.email.data).first()
+        existing_email = User.query.filter_by(email=email).first()
         if existing_email:
             flash("该邮箱已被注册，请使用其他邮箱或直接登录", "error")
             return render_template("register.html", form=form)
@@ -73,9 +80,9 @@ def register():
 
         # 创建新用户
         new_user = User(
-            username=form.username.data,
-            nickname=form.nickname.data,
-            email=form.email.data,
+            username=username,
+            nickname=nickname,
+            email=email,
             password=hashed_password,
             role="user",
             trust_score=100,
