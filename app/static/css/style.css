@@ -621,3 +621,63 @@ img {
     font-size: 13px;
   }
 }
+
+/* ============================================
+   登录/注册表单样式 (US-02-01)
+   ============================================ */
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--color-text);
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 15px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.form-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(47, 111, 99, 0.12);
+}
+
+.form-error {
+  margin: 6px 0 0;
+  color: #e63946;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.flash-messages {
+  margin-bottom: 20px;
+}
+
+.flash-msg {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.flash-msg.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+.flash-msg.error {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
+}
