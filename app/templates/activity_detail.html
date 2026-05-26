@@ -41,13 +41,21 @@
             <div class="detail-info-row">
                 <span class="detail-info-label">活动人数</span>
                 <span class="detail-info-value people-value">
+<<<<<<< Updated upstream
                     已报名 {{ registration_count }} 人{% if max_participants %} / 上限 {{ max_participants }} 人{% endif %}
+=======
+                    已报名 {{ registration_count }} 人 / 上限 {{ max_participants }} 人
+>>>>>>> Stashed changes
                 </span>
             </div>
             <div class="detail-info-row">
                 <span class="detail-info-label">报名状态</span>
                 <span class="detail-info-value status-value">
+<<<<<<< Updated upstream
                     {% if max_participants and registration_count >= max_participants %}
+=======
+                    {% if registration_count >= max_participants %}
+>>>>>>> Stashed changes
                         <span class="status-badge status-full">已满员</span>
                     {% elif user_registered %}
                         <span class="status-badge status-registered">已报名</span>
