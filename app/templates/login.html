@@ -10,10 +10,10 @@
 
     <div class="form-card" style="margin-top: 24px;">
         <form method="POST" action="{{ url_for('auth.login') }}">
-            <!-- 邮箱 -->
+            <!-- 账号 ID / 邮箱 -->
             <div style="margin-bottom: 16px;">
-                <label for="email" class="form-label">邮箱</label>
-                <input type="email" id="email" name="email" class="form-input" placeholder="请输入注册邮箱" required>
+                <label for="email" class="form-label">账号 ID / 邮箱</label>
+                <input type="text" id="email" name="email" class="form-input" placeholder="请输入登录账号或注册邮箱" required>
             </div>
 
             <!-- 密码 -->

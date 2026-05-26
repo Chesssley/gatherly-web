@@ -12,9 +12,9 @@
         <form method="POST">
             {{ form.hidden_tag() }}
 
-            <!-- 用户名 -->
+            <!-- 账号 ID / 登录账号 -->
             <div style="margin-bottom: 16px;">
-                {{ form.username.label(class="form-label") }}
+                <label for="{{ form.username.id }}" class="form-label">账号 ID / 登录账号</label>
                 {{ form.username(class="form-input", placeholder="用于登录的唯一用户名") }}
                 {% for error in form.username.errors %}
                     <p class="form-error">{{ error }}</p>
@@ -23,11 +23,8 @@
 
             <!-- 昵称 -->
             <div style="margin-bottom: 16px;">
-                {{ form.nickname.label(class="form-label") }}
-                {{ form.nickname(class="form-input", placeholder="在社区中显示的称呼") }}
-                {% for error in form.nickname.errors %}
-                    <p class="form-error">{{ error }}</p>
-                {% endfor %}
+                <label for="nickname" class="form-label">昵称</label>
+                <input type="text" id="nickname" name="nickname" class="form-input" placeholder="用于页面展示，可与登录账号不同">
             </div>
 
             <!-- 邮箱 -->

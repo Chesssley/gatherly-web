@@ -18,14 +18,6 @@ class RegistrationForm(FlaskForm):
         ],
     )
 
-    nickname = StringField(
-        "昵称",
-        validators=[
-            DataRequired(message="昵称不能为空"),
-            Length(min=2, max=80, message="昵称长度需在 2-80 个字符之间"),
-        ],
-    )
-
     email = StringField(
         "邮箱",
         validators=[
