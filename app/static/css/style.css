@@ -684,6 +684,48 @@ img {
   color: var(--color-primary);
 }
 
+/* ============================================
+   活动时间和地点样式优化 (US-03-02)
+   ============================================ */
+
+/* 时间信息样式 - 参考Meetup风格 */
+.detail-info-value.time-value {
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  font-size: 15px;
+}
+
+.detail-info-value.time-value::before {
+  content: "🕐 ";
+  margin-right: 4px;
+  font-size: 14px;
+}
+
+/* 地点信息样式 - 参考Meetup风格 */
+.detail-info-value.location-value {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.detail-info-value.location-value::before {
+  content: "📍 ";
+  margin-right: 4px;
+  font-size: 14px;
+}
+
+/* 移动端适配 */
+@media (max-width: 720px) {
+  .detail-info-value.time-value,
+  .detail-info-value.location-value {
+    font-size: 14px;
+  }
+  
+  .detail-info-value.time-value::before,
+  .detail-info-value.location-value::before {
+    font-size: 13px;
+  }
+}
+
 /* 详情页封面图 */
 .detail-image {
   width: 100%;
