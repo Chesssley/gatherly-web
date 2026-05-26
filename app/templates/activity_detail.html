@@ -3,80 +3,62 @@
 {% block title %}{{ activity.title }} - Gatherly{% endblock %}
 
 {% block content %}
-<section class="section narrow-page">
-    <p class="eyebrow">Activity Detail</p>
-    <h1>{{ activity.title }}</h1>
+<section class="section">
+    <div class="container narrow-page">
+        <!-- 返回首页 -->
+        <a href="{{ url_for('activity.index') }}" class="back-link">← 返回活动列表</a>
 
-    <!-- 活动完整信息展示 -->
-    <div class="activity-meta">
-        <!-- 分类/兴趣标签 -->
+        <!-- 活动封面图 -->
+        {% if activity.image_url %}
+        <div class="detail-image">
+            <img src="{{ activity.image_url }}" alt="{{ activity.title }}">
+        </div>
+        {% endif %}
+
+        <!-- 兴趣标签 -->
         <div class="tag-group">
-            <span class="tag">{{ activity.category }}</span>
             {% if activity.tags %}
                 {% for tag in activity.tags %}
                     <span class="tag">{{ tag }}</span>
                 {% endfor %}
+            {% elif activity.category %}
+                <span class="tag">{{ activity.category }}</span>
             {% endif %}
         </div>
 
-        <!-- 核心信息行（时间/地点/人数/状态） -->
-        <div class="meta-row">
-            <div class="meta-item">
-                <strong>活动时间：</strong>
-                <span>{{ activity.time }}</span>
+        <h1 class="detail-title">{{ activity.title }}</h1>
+
+        <!-- 基础信息卡片 -->
+        <div class="detail-info-card">
+            <div class="detail-info-row">
+                <span class="detail-info-label">活动时间</span>
+                <span class="detail-info-value">{{ activity.time }}</span>
             </div>
-            <div class="meta-item">
-                <strong>活动地点：</strong>
-                <span>{{ activity.location }}</span>
+            <div class="detail-info-row">
+                <span class="detail-info-label">活动地点</span>
+                <span class="detail-info-value">{{ activity.location }}</span>
             </div>
-            <div class="meta-item">
-                <strong>人数上限：</strong>
-                <span>{{ activity.max_people }} 人（当前{{ activity.current_people }}人）</span>
-            </div>
-            <div class="meta-item">
-                <strong>报名状态：</strong>
-                <span class="status-{{ activity.signup_status }}">
-                    {{ activity.signup_status }}
+            <div class="detail-info-row">
+                <span class="detail-info-label">参与人数</span>
+                <span class="detail-info-value">
+                    {% if activity.current_people is defined and activity.max_people is defined %}
+                        {{ activity.current_people }}/{{ activity.max_people }} 人
+                    {% elif activity.capacity %}
+                        {{ activity.capacity }}
+                    {% else %}
+                        待定
+                    {% endif %}
                 </span>
             </div>
         </div>
 
-        <!-- 活动准备事项 -->
-        {% if activity.preparations %}
-        <div class="preparations">
-            <h3>活动准备事项</h3>
-            <ul>
-                {% for item in activity.preparations %}
-                    <li>{{ item }}</li>
-                {% endfor %}
-            </ul>
+        <!-- 活动描述 -->
+        {% if activity.description or activity.detail %}
+        <div class="detail-description">
+            <h3>活动介绍</h3>
+            <p>{{ activity.description or activity.detail }}</p>
         </div>
         {% endif %}
-
-        <!-- 活动详细介绍 (US-03-01 核心验收内容) -->
-        <div class="description">
-            <h3>活动详细介绍</h3>
-            <div class="desc-content">{{ activity.description }}</div>
-        </div>
-    </div>
-</section>
-
-<section class="section narrow-page">
-    <h2>报名区域</h2>
-
-    <!-- 报名按钮+状态 -->
-    <div class="signup-area">
-        {% if activity.signup_status == '可报名' %}
-            <button class="button" type="button">立即报名</button>
-        {% elif activity.signup_status == '已满' %}
-            <button class="button btn-disabled-full" type="button" disabled>报名已满</button>
-        {% else %}
-            <button class="button btn-disabled-expired" type="button" disabled>活动已结束</button>
-        {% endif %}
-        
-        <p class="signup-note">
-            报名成功后会收到短信通知，请确保填写的联系方式准确。
-        </p>
     </div>
 </section>
 {% endblock %}
