@@ -7,22 +7,21 @@
     <div class="hero-content container">
         <p class="eyebrow">线下小众兴趣活动聚合与同好匹配</p>
         <h1>找到同频的人，一起把兴趣带到现场。</h1>
-        
+
         <!-- 搜索栏：US-01-01 首页体验增强 -->
         <div class="search-bar">
             <input type="text" placeholder="搜索活动、兴趣或城市..." class="search-input">
             <button class="button">搜索</button>
         </div>
-        
-        <!-- 兴趣标签 chip：US-06 将接入筛选逻辑，当前仅展示 -->
+
+        <!-- 兴趣标签 chip：US-06 标签筛选状态由后端同步 -->
         <div class="tag-chips">
-            <span class="tag-chip active" data-tag="all">全部活动</span>
-            <span class="tag-chip" data-tag="胶片摄影">胶片摄影</span>
-            <span class="tag-chip" data-tag="城市骑行">城市骑行</span>
-            <span class="tag-chip" data-tag="手冲咖啡">手冲咖啡</span>
-            <span class="tag-chip" data-tag="独立出版">独立出版</span>
+            <a class="tag-chip {% if not selected_tag %}is-active{% endif %}" href="{{ url_for('activity.index') }}" data-tag="all">全部活动</a>
+            {% for category in categories %}
+            <a class="tag-chip {% if selected_tag == category %}is-active{% endif %}" href="{{ url_for('activity.index', tag=category) }}" data-tag="{{ category }}">{{ category }}</a>
+            {% endfor %}
         </div>
-        
+
         <div class="hero-actions">
             <a class="button" href="{{ url_for('activity.create_activity') }}">发布活动</a>
             <a class="button button-secondary" href="{{ url_for('circle.circles') }}">浏览同好圈</a>
@@ -37,13 +36,28 @@
             <h2>近期推荐活动</h2>
         </div>
 
+        <div class="tag-filter" aria-label="活动分类筛选">
+            <div class="tag-filter-list">
+                <a class="tag-chip {% if not selected_tag %}is-active{% endif %}" href="{{ url_for('activity.index') }}">全部活动</a>
+                {% for category in categories %}
+                <a class="tag-chip {% if selected_tag == category %}is-active{% endif %}" href="{{ url_for('activity.index', tag=category) }}">{{ category }}</a>
+                {% endfor %}
+            </div>
+            {% if selected_tag %}
+            <p class="filter-status">
+                当前正在浏览：{{ selected_tag }}
+                <a href="{{ url_for('activity.index') }}">查看全部活动 / 清除筛选</a>
+            </p>
+            {% endif %}
+        </div>
+
         {% if activities %}
         <div class="card-grid">
             {% for activity in activities %}
             <a href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}" class="activity-card">
                 <!-- 活动封面图 -->
                 <div class="card-image">
-                    <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" 
+                    <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
                          alt="{{ activity.title }}"
                          onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
                 </div>
@@ -58,9 +72,9 @@
                             <span class="tag">{{ activity.category }}</span>
                         {% endif %}
                     </div>
-                    
+
                     <h3 class="card-title">{{ activity.title }}</h3>
-                    
+
                     <div class="card-meta">
                         <p class="meta-time">{{ activity.time }}</p>
                         <p class="meta-location">{{ activity.location }}</p>
