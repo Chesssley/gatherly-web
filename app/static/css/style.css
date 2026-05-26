@@ -484,6 +484,9 @@ img {
 }
 
 .tag-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 8px 16px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -500,10 +503,44 @@ img {
   color: var(--color-primary);
 }
 
-.tag-chip.active {
+.tag-chip.active,
+.tag-chip.is-active {
   background: var(--color-primary);
   color: #ffffff;
-  border-color: var(--color-primary);
+  border-color: var(--color-primary-dark);
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(47, 111, 99, 0.22);
+}
+
+.tag-filter {
+  margin: 0 0 28px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.tag-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filter-status {
+  margin: 14px 0 0;
+  color: var(--color-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.filter-status a {
+  margin-left: 8px;
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.filter-status a:hover {
+  color: var(--color-primary);
 }
 
 /* 卡片图片区域 */
@@ -647,10 +684,28 @@ img {
   .tag-chips {
     gap: 8px;
   }
+
+  .tag-filter {
+    padding: 14px;
+  }
+
+  .tag-filter-list {
+    gap: 8px;
+  }
   
   .tag-chip {
     padding: 6px 12px;
     font-size: 13px;
+  }
+
+  .filter-status {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .filter-status a {
+    margin-left: 0;
   }
 
   .card-body {
@@ -725,7 +780,9 @@ img {
   background: #ffebee;
   color: #c62828;
   border: 1px solid #ffcdd2;
-=======
+}
+
+/* ============================================
    活动详情页基础信息样式 (US-01-04)
    ============================================ */
 
@@ -950,4 +1007,5 @@ img {
 
   .detail-image img {
     max-height: 240px;
-  }}
+  }
+}
