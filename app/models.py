@@ -8,7 +8,8 @@ db = SQLAlchemy()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), nullable=False)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    nickname = db.Column(db.String(80), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     avatar = db.Column(db.String(255))
@@ -21,6 +22,11 @@ class User(db.Model):
     registrations = db.relationship("Registration", back_populates="user")
     posts = db.relationship("Post", back_populates="user")
     reviews = db.relationship("Review", back_populates="user")
+
+    def __init__(self, **kwargs):
+        if "nickname" not in kwargs and "username" in kwargs:
+            kwargs["nickname"] = kwargs["username"]
+        super().__init__(**kwargs)
 
 
 class Activity(db.Model):

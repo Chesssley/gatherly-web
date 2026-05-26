@@ -5,21 +5,64 @@
 {% block content %}
 <section class="section narrow-page">
     <p class="eyebrow">Register</p>
-    <h1>用户注册</h1>
+    <h1>创建你的 Gatherly 账号</h1>
+    <p class="lead">注册后即可发布活动、报名参与、加入同好圈。</p>
 
-    <!-- TODO: TASK-004 登录注册负责人完成注册表单 -->
-    <!-- 字段建议：
-        1. 昵称
-        2. 邮箱
-        3. 密码
-        4. 确认密码
-        5. 兴趣标签
-        6. 注册按钮
-        7. 跳转登录页
-    -->
+    <div class="form-card" style="margin-top: 24px;">
+        <form method="POST">
+            {{ form.hidden_tag() }}
 
-    <div class="placeholder-box">
-        注册表单待完成。
+            <!-- 用户名 -->
+            <div style="margin-bottom: 16px;">
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-input", placeholder="用于登录的唯一用户名") }}
+                {% for error in form.username.errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <!-- 昵称 -->
+            <div style="margin-bottom: 16px;">
+                {{ form.nickname.label(class="form-label") }}
+                {{ form.nickname(class="form-input", placeholder="在社区中显示的称呼") }}
+                {% for error in form.nickname.errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <!-- 邮箱 -->
+            <div style="margin-bottom: 16px;">
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-input", placeholder="用于接收通知和找回密码") }}
+                {% for error in form.email.errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <!-- 密码 -->
+            <div style="margin-bottom: 16px;">
+                {{ form.password.label(class="form-label") }}
+                {{ form.password(class="form-input", placeholder="至少6个字符") }}
+                {% for error in form.password.errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <!-- 确认密码 -->
+            <div style="margin-bottom: 24px;">
+                {{ form.confirm_password.label(class="form-label") }}
+                {{ form.confirm_password(class="form-input", placeholder="再次输入密码以确认") }}
+                {% for error in form.confirm_password.errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            {{ form.submit(class="button", style="width: 100%;") }}
+        </form>
+
+        <p style="margin-top: 16px; color: var(--color-muted); font-size: 14px; text-align: center;">
+            已有账号？<a href="{{ url_for('auth.login') }}" class="text-link">立即登录</a>
+        </p>
     </div>
 </section>
 {% endblock %}
