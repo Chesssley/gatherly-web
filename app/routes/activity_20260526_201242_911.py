@@ -1,10 +1,6 @@
 from flask import Blueprint, render_template, abort
 
-<<<<<<< Updated upstream
 from app.models import db, Activity, Registration, activities
-=======
-from app.models import db, Activity, Registration, User, activities
->>>>>>> Stashed changes
 
 activity_bp = Blueprint("activity", __name__)
 
@@ -24,50 +20,31 @@ def index():
 def activity_detail(activity_id):
     """
     活动详情页。
-    根据 activity_id 查找对应活动，同时查询 DB 获取报名数据。
+    根据 activity_id 从 activities 列表中查找对应活动。
     找不到则返回 404。
-    同时查询 Registration 表获取报名人数，Activity 模型获取上限。
+    同时查询 DB 获取报名人数和报名上限。
     """
     activity = next((a for a in activities if a.get("id") == activity_id), None)
     if activity is None:
         abort(404)
 
-<<<<<<< Updated upstream
-    # US-03-03: 获取报名人数和报名状态
-    registration_count = Registration.query.filter_by(activity_id=activity_id).count()
-    db_activity = Activity.query.get(activity_id)
-    max_participants = db_activity.max_participants if db_activity else None
-=======
     # US-03-03: 查询报名人数
     registration_count = Registration.query.filter_by(activity_id=activity_id).count()
 
-    # 查询或自动初始化活动DB记录
+    # 查询或初始化活动DB记录
     db_activity = Activity.query.get(activity_id)
     if db_activity is None:
-        # 确保存在默认用户作为组织者
-        default_user = User.query.first()
-        if default_user is None:
-            default_user = User(
-                username="default_organizer",
-                email="organizer@gatherly.local",
-                password="placeholder",
-            )
-            db.session.add(default_user)
-            db.session.flush()
-
         db_activity = Activity(
             id=activity_id,
             title=activity.get("title", ""),
             description=activity.get("description") or activity.get("detail", ""),
             location=activity.get("location", ""),
             max_participants=30,
-            organizer_id=default_user.id,
         )
         db.session.add(db_activity)
         db.session.commit()
 
     max_participants = db_activity.max_participants
->>>>>>> Stashed changes
     user_registered = False
 
     return render_template(

@@ -696,7 +696,7 @@ img {
 }
 
 .detail-info-value.time-value::before {
-  content: "🕐 ";
+  content: "\1F550 ";
   margin-right: 4px;
   font-size: 14px;
 }
@@ -708,9 +708,55 @@ img {
 }
 
 .detail-info-value.location-value::before {
-  content: "📍 ";
+  content: "\1F4CD ";
   margin-right: 4px;
   font-size: 14px;
+}
+
+/* ============================================
+   活动人数和报名状态样式 (US-03-03)
+   ============================================ */
+
+/* 人数信息 */
+.detail-info-value.people-value {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* 报名状态容器 */
+.detail-info-value.status-value {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* 状态徽章通用样式 */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* 可报名 - 品牌绿色 */
+.status-open {
+  background: #e8f0ed;
+  color: var(--color-primary);
+}
+
+/* 已满员 - 警示红色 */
+.status-full {
+  background: #fdecea;
+  color: #d32f2f;
+}
+
+/* 已报名 - 蓝色确认 */
+.status-registered {
+  background: #e3f0fd;
+  color: #1565c0;
 }
 
 /* 移动端适配 */
@@ -719,10 +765,77 @@ img {
   .detail-info-value.location-value {
     font-size: 14px;
   }
-  
+
   .detail-info-value.time-value::before,
   .detail-info-value.location-value::before {
     font-size: 13px;
+  }
+
+  .detail-info-value.people-value {
+    font-size: 14px;
+  }
+
+  .status-badge {
+    font-size: 12px;
+    padding: 2px 8px;
+  }
+}
+
+/* ============================================
+   活动人数和报名状态样式 (US-03-03)
+   ============================================ */
+
+/* 人数信息 */
+.detail-info-value.people-value {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* 报名状态容器 */
+.detail-info-value.status-value {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* 状态徽章通用样式 - 胶囊型 */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* 可报名 */
+.status-open {
+  background: #e8f0ed;
+  color: var(--color-primary);
+}
+
+/* 已满员 */
+.status-full {
+  background: #fdecea;
+  color: #d32f2f;
+}
+
+/* 已报名 */
+.status-registered {
+  background: #e3f0fd;
+  color: #1565c0;
+}
+
+/* 移动端适配 */
+@media (max-width: 720px) {
+  .detail-info-value.people-value {
+    font-size: 14px;
+  }
+
+  .status-badge {
+    font-size: 12px;
+    padding: 2px 8px;
   }
 }
 
