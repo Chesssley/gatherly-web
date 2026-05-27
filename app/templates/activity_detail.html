@@ -28,6 +28,15 @@
 
         <h1 class="detail-title">{{ activity.title }}</h1>
 
+        <!-- Flash 消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
         <!-- 基础信息卡片 -->
         <div class="detail-info-card">
             <div class="detail-info-row">
@@ -41,13 +50,13 @@
             <div class="detail-info-row">
                 <span class="detail-info-label">活动人数</span>
                 <span class="detail-info-value people-value">
-                    已报名 {{ registration_count }} 人{% if max_participants %} / 上限 {{ max_participants }} 人{% endif %}
+                    已报名 {{ registration_count }} 人{% if max_participants is not none %} / 上限 {{ max_participants }} 人{% endif %}
                 </span>
             </div>
             <div class="detail-info-row">
                 <span class="detail-info-label">报名状态</span>
                 <span class="detail-info-value status-value">
-                    {% if max_participants and registration_count >= max_participants %}
+                    {% if max_participants is not none and registration_count >= max_participants %}
                         <span class="status-badge status-full">已满员</span>
                     {% elif user_registered %}
                         <span class="status-badge status-registered">已报名</span>
@@ -56,6 +65,19 @@
                     {% endif %}
                 </span>
             </div>
+        </div>
+
+        <!-- 报名按钮区域 -->
+        <div class="registration-action">
+            {% if max_participants is not none and registration_count >= max_participants %}
+                <button class="btn btn-register btn-disabled" disabled>已满员，无法报名</button>
+            {% elif user_registered %}
+                <button class="btn btn-register btn-disabled" disabled>您已报名该活动</button>
+            {% else %}
+                <form action="{{ url_for('activity.register_activity', activity_id=activity.id) }}" method="post">
+                    <button type="submit" class="btn btn-register">立即报名</button>
+                </form>
+            {% endif %}
         </div>
 
         <!-- 活动描述 -->
