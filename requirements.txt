@@ -1,2 +1,4 @@
 Flask>=3.0
 Flask-SQLAlchemy
+Flask-WTF
+Werkzeug

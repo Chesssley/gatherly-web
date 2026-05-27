@@ -7,22 +7,13 @@
     <div class="hero-content container">
         <p class="eyebrow">线下小众兴趣活动聚合与同好匹配</p>
         <h1>找到同频的人，一起把兴趣带到现场。</h1>
-        
+
         <!-- 搜索栏：US-01-01 首页体验增强 -->
         <div class="search-bar">
             <input type="text" placeholder="搜索活动、兴趣或城市..." class="search-input">
             <button class="button">搜索</button>
         </div>
-        
-        <!-- 兴趣标签 chip：US-06 将接入筛选逻辑，当前仅展示 -->
-        <div class="tag-chips">
-            <span class="tag-chip active" data-tag="all">全部活动</span>
-            <span class="tag-chip" data-tag="胶片摄影">胶片摄影</span>
-            <span class="tag-chip" data-tag="城市骑行">城市骑行</span>
-            <span class="tag-chip" data-tag="手冲咖啡">手冲咖啡</span>
-            <span class="tag-chip" data-tag="独立出版">独立出版</span>
-        </div>
-        
+
         <div class="hero-actions">
             <a class="button" href="{{ url_for('activity.create_activity') }}">发布活动</a>
             <a class="button button-secondary" href="{{ url_for('circle.circles') }}">浏览同好圈</a>
@@ -37,18 +28,55 @@
             <h2>近期推荐活动</h2>
         </div>
 
+        <section class="interest-section {% if expand_tags_by_default %}is-expanded{% endif %}" aria-labelledby="interest-title">
+            <div class="interest-header">
+                <p class="eyebrow">Interest Tags</p>
+                <h2 class="interest-title" id="interest-title">发现兴趣</h2>
+                <p class="interest-subtitle">从小众兴趣开始，找到附近适合你的线下活动。</p>
+            </div>
+
+            <div class="interest-tags">
+                <a class="interest-chip {% if not selected_tag %}is-active{% endif %}" href="{{ url_for('activity.index') }}" data-tag="全部活动">全部活动</a>
+                {% if interest_tags %}
+                {% for tag in interest_tags %}
+                <a class="interest-chip {% if loop.index > visible_tag_count %}is-extra-tag{% endif %} {% if selected_tag == tag %}is-active{% endif %}" href="{{ url_for('activity.index', tag=tag) }}" data-tag="{{ tag }}">{{ tag }}</a>
+                {% endfor %}
+                {% else %}
+                <span class="interest-subtitle">暂无兴趣标签</span>
+                {% endif %}
+            </div>
+
+            {% if interest_tags|length > visible_tag_count %}
+            <button type="button"
+                    class="interest-toggle"
+                    data-tag-toggle
+                    aria-expanded="{{ 'true' if expand_tags_by_default else 'false' }}">
+                {{ '收起标签' if expand_tags_by_default else '展开更多兴趣' }}
+            </button>
+            {% endif %}
+
+            <div class="filter-status">
+                {% if selected_tag %}
+                <span>当前正在浏览：{{ selected_tag }}</span>
+                <a href="{{ url_for('activity.index') }}">查看全部活动 / 清除筛选</a>
+                {% else %}
+                <span>当前正在浏览：全部活动</span>
+                {% endif %}
+            </div>
+        </section>
+
         {% if activities %}
         <div class="card-grid">
             {% for activity in activities %}
-            <a href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}" class="activity-card">
-                <!-- 活动封面图：US-01-01 要求展示图片 -->
+            <a href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}" class="activity-card" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}">
+                <!-- 活动封面图 -->
                 <div class="card-image">
-                    <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" 
+                    <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
                          alt="{{ activity.title }}"
                          onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
                 </div>
                 <div class="card-body">
-                    <!-- 兴趣标签：支持多标签列表或单 category 回退 -->
+                    <!-- 兴趣标签 -->
                     <div class="card-tags">
                         {% if activity.tags %}
                             {% for tag in activity.tags %}
@@ -58,28 +86,14 @@
                             <span class="tag">{{ activity.category }}</span>
                         {% endif %}
                     </div>
-                    
-                    <h3>{{ activity.title }}</h3>
-                    
+
+                    <h3 class="card-title">{{ activity.title }}</h3>
+
                     <div class="card-meta">
-                        <p class="meta-main">{{ activity.time }} · {{ activity.location }}</p>
-                        <p class="meta-sub">
-                            <span class="meta-people">{{ activity.current_people }}/{{ activity.max_people }}人</span>
-                            <span class="meta-divider">·</span>
-                            {% if activity.fee %}
-                            <span class="meta-fee">¥{{ activity.fee }}</span>
-                            {% else %}
-                            <span class="meta-fee free">免费</span>
-                            {% endif %}
-                            <span class="meta-divider">·</span>
-                            <span class="meta-status">{{ activity.signup_status }}</span>
-                        </p>
+                        <p class="meta-time">{{ activity.time }}</p>
+                        <p class="meta-location">{{ activity.location }}</p>
+                        <p class="meta-people">{{ activity.current_people }}/{{ activity.max_people }}人</p>
                     </div>
-                    
-                    <!-- 主办方信息 -->
-                    <p class="card-host">主办方：{{ activity.host or '未知主办方' }}</p>
-                    
-                    <span class="text-link">查看详情 →</span>
                 </div>
             </a>
             {% endfor %}

@@ -3,21 +3,74 @@
 {% block title %}登录 - Gatherly{% endblock %}
 
 {% block content %}
+
 <section class="section narrow-page">
     <p class="eyebrow">Login</p>
     <h1>用户登录</h1>
+    <p class="lead">登录后即可管理你的活动、报名参与、加入同好圈。</p>
 
-    <!-- TODO: TASK-004 登录注册负责人完成登录表单 -->
-    <!-- 字段建议：
-        1. 邮箱
-        2. 密码
-        3. 登录按钮
-        4. 跳转注册页
-        5. 登录失败提示
-    -->
+<script>
+  (function () {
+    var flashArea = document.querySelector(".flash-messages");
+    if (!flashArea) return;
 
-    <div class="placeholder-box">
-        登录表单待完成。
+    // 查找第一条包含"请先登录"的 flash 消息
+    var messages = flashArea.querySelectorAll(".flash-msg");
+    var loginMsg = null;
+    for (var i = 0; i < messages.length; i++) {
+      if (messages[i].textContent.indexOf("请先登录") !== -1) {
+        loginMsg = messages[i].textContent;
+        break;
+      }
+    }
+    if (!loginMsg) return;
+
+    // 隐藏 base.html 的 flash 消息区域
+    flashArea.style.display = "none";
+
+    // 动态创建居中 Toast 弹窗
+    var toast = document.createElement("div");
+    toast.className = "toast-container";
+    toast.id = "login-toast";
+    var msgDiv = document.createElement("div");
+    msgDiv.className = "toast-msg";
+    msgDiv.textContent = loginMsg;
+    toast.appendChild(msgDiv);
+    document.body.appendChild(toast);
+
+    // 2.5 秒后淡出
+    setTimeout(function () {
+      msgDiv.classList.add("toast-fade-out");
+      setTimeout(function () {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 800);
+    }, 2500);
+  })();
+</script>
+
+    <div class="form-card" style="margin-top: 24px;">
+        <form method="POST" action="{{ url_for('auth.login') }}">
+            <!-- 账号 ID / 邮箱 -->
+            <div style="margin-bottom: 16px;">
+                <label for="email" class="form-label">账号 ID / 邮箱</label>
+                <input type="text" id="email" name="email" class="form-input" placeholder="请输入登录账号或注册邮箱" required>
+            </div>
+
+            <!-- 密码 -->
+            <div style="margin-bottom: 24px;">
+                <label for="password" class="form-label">密码</label>
+                <input type="password" id="password" name="password" class="form-input" placeholder="请输入密码" required>
+            </div>
+
+            <button type="submit" class="button" style="width: 100%;">登录</button>
+            <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+        </form>
+
+        <p style="margin-top: 16px; color: var(--color-muted); font-size: 14px; text-align: center;">
+            还没有账号？<a href="{{ url_for('auth.register') }}" class="text-link">立即注册</a>
+        </p>
     </div>
 </section>
 {% endblock %}

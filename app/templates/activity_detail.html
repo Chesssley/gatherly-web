@@ -3,80 +3,93 @@
 {% block title %}{{ activity.title }} - Gatherly{% endblock %}
 
 {% block content %}
-<section class="section narrow-page">
-    <p class="eyebrow">Activity Detail</p>
-    <h1>{{ activity.title }}</h1>
+<section class="section">
+    <div class="container narrow-page">
+        <!-- 返回首页 -->
+        <a href="{{ url_for('activity.index') }}" class="back-link">← 返回活动列表</a>
 
-    <!-- 活动完整信息展示 -->
-    <div class="activity-meta">
-        <!-- 分类/兴趣标签 -->
+        <!-- 活动封面图 -->
+        {% if activity.image_url %}
+        <div class="detail-image">
+            <img src="{{ activity.image_url }}" alt="{{ activity.title }}">
+        </div>
+        {% endif %}
+
+        <!-- 兴趣标签 -->
         <div class="tag-group">
-            <span class="tag">{{ activity.category }}</span>
             {% if activity.tags %}
                 {% for tag in activity.tags %}
                     <span class="tag">{{ tag }}</span>
                 {% endfor %}
+            {% elif activity.category %}
+                <span class="tag">{{ activity.category }}</span>
             {% endif %}
         </div>
 
-        <!-- 核心信息行（时间/地点/人数/状态） -->
-        <div class="meta-row">
-            <div class="meta-item">
-                <strong>活动时间：</strong>
-                <span>{{ activity.time }}</span>
+        <h1 class="detail-title">{{ activity.title }}</h1>
+
+        <!-- Flash 消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- 基础信息卡片 -->
+        <div class="detail-info-card">
+            <div class="detail-info-row">
+                <span class="detail-info-label">活动时间</span>
+                <span class="detail-info-value time-value">{{ activity.time }}</span>
             </div>
-            <div class="meta-item">
-                <strong>活动地点：</strong>
-                <span>{{ activity.location }}</span>
+            <div class="detail-info-row">
+                <span class="detail-info-label">活动地点</span>
+                <span class="detail-info-value location-value">{{ activity.location }}</span>
             </div>
-            <div class="meta-item">
-                <strong>人数上限：</strong>
-                <span>{{ activity.max_people }} 人（当前{{ activity.current_people }}人）</span>
+            <div class="detail-info-row">
+                <span class="detail-info-label">活动人数</span>
+                <span class="detail-info-value people-value">
+                    已报名 {{ registration_count }} 人{% if max_participants is not none %} / 上限 {{ max_participants }} 人{% endif %}
+                </span>
             </div>
-            <div class="meta-item">
-                <strong>报名状态：</strong>
-                <span class="status-{{ activity.signup_status }}">
-                    {{ activity.signup_status }}
+            <div class="detail-info-row">
+                <span class="detail-info-label">报名状态</span>
+                <span class="detail-info-value status-value">
+                    {% if max_participants is not none and registration_count >= max_participants %}
+                        <span class="status-badge status-full">已满员</span>
+                    {% elif user_registered %}
+                        <span class="status-badge status-registered">已报名</span>
+                    {% else %}
+                        <span class="status-badge status-open">可报名</span>
+                    {% endif %}
                 </span>
             </div>
         </div>
 
-        <!-- 活动准备事项 -->
-        {% if activity.preparations %}
-        <div class="preparations">
-            <h3>活动准备事项</h3>
-            <ul>
-                {% for item in activity.preparations %}
-                    <li>{{ item }}</li>
-                {% endfor %}
-            </ul>
+        <!-- 报名按钮区域 -->
+        <div class="registration-action">
+            {% if max_participants is not none and registration_count >= max_participants %}
+                <button class="btn btn-register btn-disabled" disabled>已满员，无法报名</button>
+            {% elif user_registered %}
+                <button class="btn btn-register btn-disabled" disabled>您已报名该活动</button>
+            {% elif session.get('user_id') %}
+                <form action="{{ url_for('activity.register_activity', activity_id=activity.id) }}" method="post">
+                    <button type="submit" class="btn btn-register">立即报名</button>
+                </form>
+            {% else %}
+                {% set next_url = url_for('activity.activity_detail', activity_id=activity.id) %}
+                <a href="{{ url_for('auth.login', next=next_url) }}" class="btn btn-register">立即报名</a>
+            {% endif %}
+        </div>
+
+        <!-- 活动描述 -->
+        {% if activity.description or activity.detail %}
+        <div class="detail-description">
+            <h3>活动介绍</h3>
+            <p>{{ activity.description or activity.detail }}</p>
         </div>
         {% endif %}
-
-        <!-- 活动详细介绍 (US-03-01 核心验收内容) -->
-        <div class="description">
-            <h3>活动详细介绍</h3>
-            <div class="desc-content">{{ activity.description }}</div>
-        </div>
-    </div>
-</section>
-
-<section class="section narrow-page">
-    <h2>报名区域</h2>
-
-    <!-- 报名按钮+状态 -->
-    <div class="signup-area">
-        {% if activity.signup_status == '可报名' %}
-            <button class="button" type="button">立即报名</button>
-        {% elif activity.signup_status == '已满' %}
-            <button class="button btn-disabled-full" type="button" disabled>报名已满</button>
-        {% else %}
-            <button class="button btn-disabled-expired" type="button" disabled>活动已结束</button>
-        {% endif %}
-        
-        <p class="signup-note">
-            报名成功后会收到短信通知，请确保填写的联系方式准确。
-        </p>
     </div>
 </section>
 {% endblock %}

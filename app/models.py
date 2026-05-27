@@ -8,7 +8,8 @@ db = SQLAlchemy()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), nullable=False)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    nickname = db.Column(db.String(80), nullable=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     avatar = db.Column(db.String(255))
@@ -21,7 +22,6 @@ class User(db.Model):
     registrations = db.relationship("Registration", back_populates="user")
     posts = db.relationship("Post", back_populates="user")
     reviews = db.relationship("Review", back_populates="user")
-
 
 class Activity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -46,7 +46,7 @@ class Registration(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
     status = db.Column(db.String(20), default="registered", nullable=False)
-    registered_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    register_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     user = db.relationship("User", back_populates="registrations")
     activity = db.relationship("Activity", back_populates="registrations")
