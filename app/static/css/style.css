@@ -699,6 +699,15 @@ img {
   border-color: var(--color-primary-dark);
 }
 
+/* 禁用按钮样式 (US-05-04) */
+.btn-disabled,
+.btn-disabled:hover {
+  background: var(--color-muted) !important;
+  border-color: var(--color-muted) !important;
+  cursor: not-allowed !important;
+  opacity: 0.65;
+}
+
 .btn.secondary {
   background: transparent;
   color: var(--color-primary);
