@@ -46,7 +46,7 @@ class Registration(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
     status = db.Column(db.String(20), default="registered", nullable=False)
-    registered_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    register_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     user = db.relationship("User", back_populates="registrations")
     activity = db.relationship("Activity", back_populates="registrations")
