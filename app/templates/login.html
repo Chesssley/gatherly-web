@@ -3,46 +3,52 @@
 {% block title %}登录 - Gatherly{% endblock %}
 
 {% block content %}
-<script>
-(function () {
-    var flashArea = document.querySelector('.flash-messages');
-    if (!flashArea) return;
 
-    var msgs = flashArea.querySelectorAll('.flash-msg');
-    var toastMsg = null;
-    for (var i = 0; i < msgs.length; i++) {
-        if (msgs[i].textContent.indexOf('请先登录') !== -1) {
-            toastMsg = msgs[i].textContent.trim();
-            break;
-        }
-    }
-    if (!toastMsg) return;
-
-    // 隐藏左上角 flash 区域，避免重复
-    flashArea.style.display = 'none';
-
-    // 创建居中 toast 弹窗
-    var toast = document.createElement('div');
-    toast.className = 'toast-popup';
-    toast.textContent = toastMsg;
-    document.body.appendChild(toast);
-
-    // 2.5 秒后触发淡出
-    setTimeout(function () {
-        toast.classList.add('toast-fade-out');
-        // 0.8 秒后（与 CSS transition 同步）移除 DOM
-        setTimeout(function () {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
-            }
-        }, 800);
-    }, 2500);
-})();
-</script>
 <section class="section narrow-page">
     <p class="eyebrow">Login</p>
     <h1>用户登录</h1>
     <p class="lead">登录后即可管理你的活动、报名参与、加入同好圈。</p>
+
+<script>
+  (function () {
+    var flashArea = document.querySelector(".flash-messages");
+    if (!flashArea) return;
+
+    // 查找第一条包含"请先登录"的 flash 消息
+    var messages = flashArea.querySelectorAll(".flash-msg");
+    var loginMsg = null;
+    for (var i = 0; i < messages.length; i++) {
+      if (messages[i].textContent.indexOf("请先登录") !== -1) {
+        loginMsg = messages[i].textContent;
+        break;
+      }
+    }
+    if (!loginMsg) return;
+
+    // 隐藏 base.html 的 flash 消息区域
+    flashArea.style.display = "none";
+
+    // 动态创建居中 Toast 弹窗
+    var toast = document.createElement("div");
+    toast.className = "toast-container";
+    toast.id = "login-toast";
+    var msgDiv = document.createElement("div");
+    msgDiv.className = "toast-msg";
+    msgDiv.textContent = loginMsg;
+    toast.appendChild(msgDiv);
+    document.body.appendChild(toast);
+
+    // 2.5 秒后淡出
+    setTimeout(function () {
+      msgDiv.classList.add("toast-fade-out");
+      setTimeout(function () {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 800);
+    }, 2500);
+  })();
+</script>
 
     <div class="form-card" style="margin-top: 24px;">
         <form method="POST" action="{{ url_for('auth.login') }}">

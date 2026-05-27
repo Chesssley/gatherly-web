@@ -1100,26 +1100,36 @@ img {
   }
 }
 
-/* Toast 弹窗 (US-05-05 登录提示) */
-.toast-popup {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 9999;
-    background: rgba(34, 34, 34, 0.88);
-    color: #fff;
-    padding: 16px 28px;
-    border-radius: 12px;
-    font-size: 16px;
-    white-space: nowrap;
-    opacity: 1;
-    transition: opacity 0.8s ease;
-    pointer-events: none;
+/* ============================================
+   登录页 Toast 弹窗样式
+   ============================================ */
+
+.toast-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  pointer-events: none;
 }
 
-.toast-popup.toast-fade-out {
-    opacity: 0;
+.toast-msg {
+  padding: 16px 32px;
+  border-radius: 12px;
+  background: rgba(34, 34, 34, 0.85);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  opacity: 1;
+  transition: opacity 0.8s ease;
+}
+
+.toast-msg.toast-fade-out {
+  opacity: 0;
 }
 
 /* 无匹配结果提示 (US-06-02 客户端筛选) */

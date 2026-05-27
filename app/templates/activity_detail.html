@@ -73,10 +73,13 @@
                 <button class="btn btn-register btn-disabled" disabled>已满员，无法报名</button>
             {% elif user_registered %}
                 <button class="btn btn-register btn-disabled" disabled>您已报名该活动</button>
-            {% else %}
+            {% elif session.get('user_id') %}
                 <form action="{{ url_for('activity.register_activity', activity_id=activity.id) }}" method="post">
                     <button type="submit" class="btn btn-register">立即报名</button>
                 </form>
+            {% else %}
+                {% set next_url = url_for('activity.activity_detail', activity_id=activity.id) %}
+                <a href="{{ url_for('auth.login', next=next_url) }}" class="btn btn-register">立即报名</a>
             {% endif %}
         </div>
 
