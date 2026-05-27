@@ -8,7 +8,7 @@ Gatherly Web 是一个面向小众兴趣爱好者的线下活动聚合与同好�
 
 - 首页活动流展示和兴趣标签筛选。
 - 活动详情查看，展示地点、时间、人数上限和报名状态。
-- 用户注册、登录、退出和基础登录态判断。
+- 用户注册、登录和基础登录态判断。
 - 登录用户可报名活动，并避免重复报名、过期报名和满员报名。
 - 发布活动页面和后台管理页面占位。
 - 同好圈列表页面，用于后续兴趣圈和帖子功能扩展。
@@ -36,6 +36,7 @@ gatherly-web/
 │   ├── git-guide.md
 │   ├── issue-rules.md
 │   ├── meeting-notes.md
+│   ├── project-plan.md
 │   ├── product-backlog.md
 │   ├── register-feature.md
 │   ├── style-guide.md
@@ -44,6 +45,7 @@ gatherly-web/
 ├── instance/
 │   └── gatherly.db        # 本地生成，不提交 Git
 ├── scripts/
+│   └── add_nickname_column.py
 ├── init_db.py
 ├── requirements.txt
 ├── run.py
@@ -95,7 +97,6 @@ http://127.0.0.1:5000
 | `/activities/create` | 发布活动页 |
 | `/login` | 登录页 |
 | `/register` | 注册页 |
-| `/logout` | 退出登录 |
 | `/circles` | 同好圈列表页 |
 | `/admin` | 后台管理占位页 |
 
@@ -132,7 +133,7 @@ http://127.0.0.1:5000
 - Jinja2 模板和公共静态资源目录。
 - 首页、活动详情、发布活动、登录、注册、同好圈、后台占位页面。
 - 用户注册表单、密码哈希存储和基础错误提示。
-- 登录、退出和基础 session 登录态。
+- 登录和基础 session 登录态。
 - 活动报名基础逻辑，包括重复报名、过期活动和满员检查。
 - Product Backlog、会议记录、Git 协作规则和页面风格规范文档。
 
