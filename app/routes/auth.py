@@ -2,7 +2,7 @@
 """认证相关路由（登录 / 注册）"""
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 from app.models import db, User
 from app.forms import RegistrationForm
 
@@ -41,16 +41,16 @@ def login():
             flash("账号、邮箱或密码错误", "error")
             return render_template("login.html")
         
-        # 验证密码（使用 werkzeug.security.check_password_hash）
-        from werkzeug.security import check_password_hash
+        # 验证密码
         if not check_password_hash(user.password, password):
             flash("账号、邮箱或密码错误", "error")
             return render_template("login.html")
         
         # 登录成功，写入 session
+        session.clear()
         session["user_id"] = user.id
-        display_name = user.nickname or user.username
-        flash(f"欢迎回来，{display_name}！登录成功。", "success")
+        session["nickname"] = user.nickname or user.username
+        flash(f"欢迎回来，{session['nickname']}！", "success")
 
         # 如果存在 next 参数且不为空，跳转到指定页面
         if next_page:
@@ -58,6 +58,14 @@ def login():
         return redirect(url_for("activity.index"))
     
     return render_template("login.html")
+
+
+@auth_bp.route("/logout")
+def logout():
+    """退出登录，清除 session 并重定向到首页"""
+    session.clear()
+    flash("您已退出登录", "info")
+    return redirect(url_for("activity.index"))
 
 
 @auth_bp.route("/register", methods=["GET", "POST"])

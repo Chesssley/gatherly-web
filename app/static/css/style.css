@@ -1144,3 +1144,39 @@ img {
     font-size: 15px;
     line-height: 1.5;
 }
+
+/* 活动详情页报名按钮 (US-05-01) */
+.registration-action {
+    margin-top: 28px;
+}
+
+.btn-register {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 48px;
+    padding: 0 24px;
+    border: none;
+    border-radius: 8px;
+    background: var(--color-primary);
+    color: #ffffff;
+    cursor: pointer;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1;
+    transition: background 0.2s ease;
+}
+
+.btn-register:hover {
+    background: var(--color-primary-dark);
+}
+
+.btn-disabled,
+.btn-disabled:hover {
+    background: #ccc;
+    color: #888;
+    cursor: not-allowed;
+    box-shadow: none;
+}
