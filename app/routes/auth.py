@@ -17,8 +17,8 @@ def login():
     POST：验证登录表单
     支持 next 参数：登录成功后跳转到 next 指定的页面
     """
-    # 从查询字符串中获取 next 参数（POST 时 query string 仍然可用）
-    next_page = request.args.get("next", "")
+    # 优先从 query string 读取 next，POST 时回退到表单隐藏字段
+    next_page = request.args.get("next") or request.form.get("next", "")
 
     if request.method == "GET" and next_page:
         flash("请先登录后再报名活动", "info")

@@ -36,10 +36,10 @@
             </div>
 
             <div class="interest-tags">
-                <a class="interest-chip {% if not selected_tag %}is-active{% endif %}" href="{{ url_for('activity.index') }}">全部活动</a>
+                <a class="interest-chip {% if not selected_tag %}is-active{% endif %}" href="{{ url_for('activity.index') }}" data-tag="全部活动">全部活动</a>
                 {% if interest_tags %}
                 {% for tag in interest_tags %}
-                <a class="interest-chip {% if loop.index > visible_tag_count %}is-extra-tag{% endif %} {% if selected_tag == tag %}is-active{% endif %}" href="{{ url_for('activity.index', tag=tag) }}">{{ tag }}</a>
+                <a class="interest-chip {% if loop.index > visible_tag_count %}is-extra-tag{% endif %} {% if selected_tag == tag %}is-active{% endif %}" href="{{ url_for('activity.index', tag=tag) }}" data-tag="{{ tag }}">{{ tag }}</a>
                 {% endfor %}
                 {% else %}
                 <span class="interest-subtitle">暂无兴趣标签</span>
@@ -68,7 +68,7 @@
         {% if activities %}
         <div class="card-grid">
             {% for activity in activities %}
-            <a href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}" class="activity-card">
+            <a href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}" class="activity-card" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}">
                 <!-- 活动封面图 -->
                 <div class="card-image">
                     <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"

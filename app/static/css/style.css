@@ -1131,3 +1131,16 @@ img {
 .toast-msg.toast-fade-out {
   opacity: 0;
 }
+
+/* 无匹配结果提示 (US-06-02 客户端筛选) */
+.no-match-tip {
+    margin-top: 20px;
+    padding: 16px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    color: #6c757d;
+    text-align: center;
+    font-size: 15px;
+    line-height: 1.5;
+}

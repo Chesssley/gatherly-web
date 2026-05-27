@@ -65,6 +65,7 @@
             </div>
 
             <button type="submit" class="button" style="width: 100%;">登录</button>
+            <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
         </form>
 
         <p style="margin-top: 16px; color: var(--color-muted); font-size: 14px; text-align: center;">
