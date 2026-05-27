@@ -15,7 +15,14 @@ def login():
     登录页路由。
     GET：显示登录表单
     POST：验证登录表单
+    支持 next 参数：登录成功后跳转到 next 指定的页面
     """
+    # 从查询字符串中获取 next 参数（POST 时 query string 仍然可用）
+    next_page = request.args.get("next", "")
+
+    if request.method == "GET" and next_page:
+        flash("请先登录后再报名活动", "info")
+
     if request.method == "POST":
         identifier = request.form.get("email", "").strip()
         password = request.form.get("password", "").strip()
@@ -44,6 +51,10 @@ def login():
         session["user_id"] = user.id
         display_name = user.nickname or user.username
         flash(f"欢迎回来，{display_name}！登录成功。", "success")
+
+        # 如果存在 next 参数且不为空，跳转到指定页面
+        if next_page:
+            return redirect(next_page)
         return redirect(url_for("activity.index"))
     
     return render_template("login.html")

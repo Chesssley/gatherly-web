@@ -143,9 +143,14 @@ def create_activity():
     return render_template("create_activity.html")
 
 @activity_bp.route("/activity/<int:activity_id>/register", methods=["POST"])
-@login_required
 def register_activity(activity_id):
     """活动报名路由"""
+    # 检查用户是否登录，未登录则重定向到登录页并带上next参数
+    if "user_id" not in session:
+        flash("请先登录后再报名活动", "error")
+        next_url = url_for("activity.activity_detail", activity_id=activity_id)
+        return redirect(url_for("auth.login", next=next_url))
+
     activity = next((a for a in activities if a.get("id") == activity_id), None)
     if activity is None:
         abort(404)
