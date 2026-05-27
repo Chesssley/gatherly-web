@@ -1099,3 +1099,35 @@ img {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================
+   登录页 Toast 弹窗样式
+   ============================================ */
+
+.toast-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.toast-msg {
+  padding: 16px 32px;
+  border-radius: 12px;
+  background: rgba(34, 34, 34, 0.85);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  opacity: 1;
+  transition: opacity 0.8s ease;
+}
+
+.toast-msg.toast-fade-out {
+  opacity: 0;
+}
