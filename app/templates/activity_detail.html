@@ -58,6 +58,19 @@
             </div>
         </div>
 
+        <!-- 报名按钮区域 -->
+        <div class="register-action">
+            {% if max_participants is not none and registration_count >= max_participants %}
+                <button class="button button-full" disabled>已满员</button>
+            {% elif user_registered %}
+                <button class="button button-registered" disabled>已报名</button>
+            {% else %}
+                <form method="POST" action="{{ url_for('activity.register_activity', activity_id=activity.id) }}">
+                    <button type="submit" class="button button-primary">立即报名</button>
+                </form>
+            {% endif %}
+        </div>
+
         <!-- 活动描述 -->
         {% if activity.description or activity.detail %}
         <div class="detail-description">

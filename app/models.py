@@ -23,6 +23,7 @@ class User(db.Model):
     posts = db.relationship("Post", back_populates="user")
     reviews = db.relationship("Review", back_populates="user")
 
+
 class Activity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(120), nullable=False)
@@ -46,7 +47,8 @@ class Registration(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
     status = db.Column(db.String(20), default="registered", nullable=False)
-    registered_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    # [修改] registered_at → register_time，与需求规格一致
+    register_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     user = db.relationship("User", back_populates="registrations")
     activity = db.relationship("Activity", back_populates="registrations")
@@ -97,6 +99,9 @@ activities = [
         "capacity": "待补充",
         "description": "待补充活动简介",
         "detail": "待补充活动详情",
+        # [新增] 首页卡片渲染所需字段
+        "current_people": 0,
+        "max_people": "不限",
     }
 ]
 

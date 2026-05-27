@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """认证相关路由（登录 / 注册）"""
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from werkzeug.security import generate_password_hash
 from app.models import db, User
 from app.forms import RegistrationForm
@@ -40,10 +40,10 @@ def login():
             flash("账号、邮箱或密码错误", "error")
             return render_template("login.html")
         
-        # 登录成功（TODO: 后续添加 session 管理）
+        # 登录成功
+        session["user_id"] = user.id
         display_name = user.nickname or user.username
         flash(f"欢迎回来，{display_name}！登录成功。", "success")
-        # 暂时重定向到首页
         return redirect(url_for("activity.index"))
     
     return render_template("login.html")
