@@ -621,3 +621,46 @@ img {
     font-size: 13px;
   }
 }
+
+/* ============================================
+   同好圈列表页样式 (US-07-02)
+   ============================================ */
+
+.circle-card {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 4px 16px rgba(34, 34, 34, 0.06);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  cursor: default;
+}
+
+.circle-card:hover {
+  box-shadow: 0 8px 24px rgba(34, 34, 34, 0.1);
+  transform: translateY(-2px);
+}
+
+.circle-card .card-body {
+  min-height: 160px;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.circle-name {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  line-height: 1.4;
+}
+
+.circle-desc {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-muted);
+  line-height: 1.7;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

@@ -1,25 +1,31 @@
 {% extends "base.html" %}
 
-{% block title %}注册 - Gatherly{% endblock %}
+{% block title %}同好圈 - Gatherly{% endblock %}
 
 {% block content %}
-<section class="section narrow-page">
-    <p class="eyebrow">Register</p>
-    <h1>用户注册</h1>
+<section class="section">
+    <div class="container">
+        <div class="section-heading">
+            <p class="eyebrow">Circles</p>
+            <h2>同好圈</h2>
+        </div>
 
-    <!-- TODO: TASK-004 登录注册负责人完成注册表单 -->
-    <!-- 字段建议：
-        1. 昵称
-        2. 邮箱
-        3. 密码
-        4. 确认密码
-        5. 兴趣标签
-        6. 注册按钮
-        7. 跳转登录页
-    -->
-
-    <div class="placeholder-box">
-        注册表单待完成。
+        {% if circles %}
+        <div class="card-grid">
+            {% for circle in circles %}
+            <div class="circle-card">
+                <div class="card-body">
+                    <h3 class="circle-name">{{ circle.name }}</h3>
+                    <p class="circle-desc">{{ circle.description or '暂无简介' }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>暂无同好圈，敬请期待！</p>
+        </div>
+        {% endif %}
     </div>
 </section>
 {% endblock %}
