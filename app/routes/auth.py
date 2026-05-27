@@ -16,6 +16,12 @@ def login():
     GET：显示登录表单
     POST：验证登录表单
     """
+    # 优先从 query string 读取 next，POST 时回退到表单隐藏字段
+    next_page = request.args.get("next") or request.form.get("next", "")
+
+    if request.method == "GET" and next_page:
+        flash("请先登录后再报名活动", "info")
+
     if request.method == "POST":
         identifier = request.form.get("email", "").strip()
         password = request.form.get("password", "").strip()
@@ -44,6 +50,9 @@ def login():
         session["user_id"] = user.id
         display_name = user.nickname or user.username
         flash(f"欢迎回来，{display_name}！登录成功。", "success")
+
+        if next_page:
+            return redirect(next_page)
         return redirect(url_for("activity.index"))
     
     return render_template("login.html")

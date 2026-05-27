@@ -1099,3 +1099,38 @@ img {
     grid-template-columns: 1fr;
   }
 }
+
+/* Toast 弹窗 (US-05-05 登录提示) */
+.toast-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    background: rgba(34, 34, 34, 0.88);
+    color: #fff;
+    padding: 16px 28px;
+    border-radius: 12px;
+    font-size: 16px;
+    white-space: nowrap;
+    opacity: 1;
+    transition: opacity 0.8s ease;
+    pointer-events: none;
+}
+
+.toast-popup.toast-fade-out {
+    opacity: 0;
+}
+
+/* 无匹配结果提示 (US-06-02 客户端筛选) */
+.no-match-tip {
+    margin-top: 20px;
+    padding: 16px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    color: #6c757d;
+    text-align: center;
+    font-size: 15px;
+    line-height: 1.5;
+}
