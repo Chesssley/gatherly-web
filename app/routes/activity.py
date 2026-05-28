@@ -106,16 +106,36 @@ def _get_rating_stats(activity_id):
 def index():
     selected_tag = request.args.get("tag", "").strip()
     interest_tags = OFFICIAL_INTEREST_TAGS
-    categories = interest_tags
     visible_tag_count = len(interest_tags)
+
+    # 硬编码示例活动（兼容过渡期）
     normalized_activities = [_with_official_activity_tags(activity) for activity in activities]
+
+    # 数据库活动（最新在前）
+    db_activities = Activity.query.order_by(Activity.id.desc()).all()
+    db_activity_dicts = []
+    for act in db_activities:
+        db_activity_dicts.append({
+            "id": act.id,
+            "title": act.title,
+            "category": DEFAULT_ACTIVITY_TAG,
+            "tags": [DEFAULT_ACTIVITY_TAG],
+            "time": act.start_time.strftime("%Y-%m-%d %H:%M") if act.start_time else "待定",
+            "location": act.location or "待补充",
+            "max_people": act.max_participants or 0,
+            "image_url": act.image or "",
+            "description": act.description or "",
+        })
+
+    # 合并：数据库活动在前，硬编码示例在后
+    all_activities = db_activity_dicts + normalized_activities
 
     if selected_tag and selected_tag in interest_tags:
         filtered_activities = [
-            activity for activity in normalized_activities if activity["category"] == selected_tag
+            a for a in all_activities if a.get("category") == selected_tag
         ]
     else:
-        filtered_activities = normalized_activities
+        filtered_activities = all_activities
         selected_tag = ""
 
     expand_tags_by_default = (
@@ -123,7 +143,7 @@ def index():
         and interest_tags.index(selected_tag) >= visible_tag_count
     )
 
-    # 合并真实报名人数到硬编码活动数据
+    # 合并真实报名人数
     reg_counts = dict(
         db.session.query(Registration.activity_id, func.count(Registration.id))
         .group_by(Registration.activity_id)
@@ -135,7 +155,7 @@ def index():
     return render_template(
         "index.html",
         activities=filtered_activities,
-        categories=categories,
+        categories=interest_tags,
         expand_tags_by_default=expand_tags_by_default,
         interest_tags=interest_tags,
         selected_tag=selected_tag,
@@ -201,9 +221,78 @@ def activity_detail(activity_id):
     )
 
 
-@activity_bp.route("/activities/create")
-@login_required  # 登录校验
+@activity_bp.route("/activities/create", methods=["GET", "POST"])
+@login_required
 def create_activity():
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        start_time_str = request.form.get("start_time", "").strip()
+        location = request.form.get("location", "").strip()
+        max_participants_str = request.form.get("max_participants", "").strip()
+        fee_str = request.form.get("fee", "").strip()
+        preparation = request.form.get("preparation", "").strip()
+        tags = request.form.getlist("tags[]")
+
+        # 基本校验
+        errors = []
+        if not title:
+            errors.append("活动标题不能为空")
+        if not description:
+            errors.append("活动介绍不能为空")
+        if not start_time_str:
+            errors.append("活动时间不能为空")
+        if not location:
+            errors.append("活动地点不能为空")
+        if not max_participants_str:
+            errors.append("人数上限不能为空")
+        if not fee_str:
+            errors.append("活动费用不能为空")
+        if not preparation:
+            errors.append("准备事项不能为空")
+
+        start_time = None
+        if start_time_str:
+            try:
+                start_time = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M")
+            except ValueError:
+                errors.append("活动时间格式不正确")
+
+        max_participants = None
+        if max_participants_str:
+            try:
+                max_participants = int(max_participants_str)
+                if max_participants < 1:
+                    errors.append("人数上限必须大于0")
+            except ValueError:
+                errors.append("人数上限必须是数字")
+
+        if errors:
+            for err in errors:
+                flash(err, "error")
+            return render_template("activity_create.html")
+
+        new_activity = Activity(
+            title=title,
+            description=description,
+            start_time=start_time,
+            location=location,
+            max_participants=max_participants,
+            fee=0.0,
+            preparation=preparation,
+            organizer_id=session["user_id"],
+        )
+
+        try:
+            db.session.add(new_activity)
+            db.session.commit()
+            flash("活动发布成功！", "success")
+            return redirect(url_for("activity.index"))
+        except Exception:
+            db.session.rollback()
+            flash("发布失败，请稍后重试", "error")
+            return render_template("activity_create.html")
+
     return render_template("activity_create.html")
 
 @activity_bp.route("/activity/<int:activity_id>/register", methods=["POST"])
