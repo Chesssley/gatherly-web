@@ -121,26 +121,24 @@ def activity_detail(activity_id):
         max_participants = db_activity.max_participants if db_activity else None
         preparation = db_activity.preparation if db_activity else None
         user_registered = False
+        has_rated = False
+        can_rate = False
         if "user_id" in session:
             user_registered = Registration.query.filter_by(
                 user_id=session["user_id"], activity_id=activity_id
             ).first() is not None
+            has_rated = Rating.query.filter_by(
+                user_id=session["user_id"], activity_id=activity_id
+            ).first() is not None
+            if not has_rated and user_registered and db_activity and db_activity.start_time:
+                can_rate = db_activity.start_time < datetime.utcnow()
     except Exception:
         registration_count = 0
         max_participants = None
         preparation = None
         user_registered = False
-
-    has_rated = False
-    can_rate = False
-    if "user_id" in session:
-        has_rated = Rating.query.filter_by(
-            user_id=session["user_id"], activity_id=activity_id
-        ).first() is not None
-        if not has_rated and user_registered:
-            db_activity = Activity.query.get(activity_id)
-            if db_activity and db_activity.start_time:
-                can_rate = db_activity.start_time < datetime.utcnow()
+        has_rated = False
+        can_rate = False
 
     return render_template(
         "activity_detail.html",
