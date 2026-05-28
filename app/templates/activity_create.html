@@ -21,7 +21,7 @@
 
         <!-- 活动发布表单卡片 -->
         <div class="form-card">
-            <form method="post" action="#">
+            <form method="post" action="{{ url_for('activity.create_activity') }}">
                 <!-- 活动标题 -->
                 <div class="form-group">
                     <label for="title" class="form-label">
@@ -78,32 +78,52 @@
                     <span class="form-label">兴趣标签</span>
                     <div class="tags-grid">
                         <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="胶片摄影">
-                            <span>胶片摄影</span>
+                            <input type="checkbox" name="tags[]" value="影像摄影">
+                            <span>影像摄影</span>
                         </label>
                         <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="城市骑行">
-                            <span>城市骑行</span>
+                            <input type="checkbox" name="tags[]" value="运动户外">
+                            <span>运动户外</span>
                         </label>
                         <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="手冲咖啡">
-                            <span>手冲咖啡</span>
+                            <input type="checkbox" name="tags[]" value="咖啡茶饮">
+                            <span>咖啡茶饮</span>
                         </label>
                         <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="独立出版">
-                            <span>独立出版</span>
+                            <input type="checkbox" name="tags[]" value="阅读出版">
+                            <span>阅读出版</span>
                         </label>
                         <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="桌游">
-                            <span>桌游</span>
+                            <input type="checkbox" name="tags[]" value="手作艺术">
+                            <span>手作艺术</span>
                         </label>
                         <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="徒步">
-                            <span>徒步</span>
+                            <input type="checkbox" name="tags[]" value="音乐演出">
+                            <span>音乐演出</span>
                         </label>
                         <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="音乐现场">
-                            <span>音乐现场</span>
+                            <input type="checkbox" name="tags[]" value="观影戏剧">
+                            <span>观影戏剧</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="城市探索">
+                            <span>城市探索</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="游戏桌游">
+                            <span>游戏桌游</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="科技数码">
+                            <span>科技数码</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="美食烘培">
+                            <span>美食烘培</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="公益志愿">
+                            <span>公益志愿</span>
                         </label>
                     </div>
                     <p class="form-hint">选择与活动相关的兴趣标签，可多选</p>
@@ -122,8 +142,7 @@
 
                 <!-- 表单按钮 -->
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-register" disabled>发布活动（功能待实现）</button>
-                    <p class="form-note">本页面仅用于展示，提交功能将在后续任务中实现</p>
+                    <button type="submit" class="btn btn-register">发布活动</button>
                 </div>
             </form>
         </div>
