@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}发布帖子 - {{ circle.name }}{% endblock %}
+
+{% block content %}
+<section class="section narrow-page">
+  <p class="eyebrow">New Post</p>
+  <h1>发布帖子</h1>
+
+  <div class="form-card">
+    <form method="POST" action="">
+      <div style="margin-bottom: 20px;">
+        <label class="form-label" for="title">帖子标题</label>
+        <input
+          class="form-input"
+          type="text"
+          id="title"
+          name="title"
+          required
+          maxlength="100"
+          placeholder="请输入帖子标题"
+        >
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label class="form-label" for="content">帖子内容</label>
+        <textarea
+          class="form-input"
+          id="content"
+          name="content"
+          required
+          rows="8"
+          placeholder="分享你的经验、提出问题或发起约伴..."
+        ></textarea>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <label class="form-label" for="type">帖子类型</label>
+        <select class="form-input" id="type" name="type">
+          <option value="share">经验分享</option>
+          <option value="question">提问求助</option>
+          <option value="meetup">临时约伴</option>
+        </select>
+      </div>
+
+      <button class="button" type="submit">发布帖子</button>
+    </form>
+  </div>
+
+  <a class="back-link" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">返回圈子详情</a>
+</section>
+{% endblock %}
