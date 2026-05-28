@@ -1376,16 +1376,43 @@ img {
 }
 
 /* ============================================
-   活动发布表单样式 (US-04-01)
+活动发布表单样式 (US-04-01/04-02)
    ============================================ */
 
 .form-group {
     margin-bottom: 24px;
 }
 
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--color-text);
+}
+
 .form-required {
     color: #e63946;
     font-weight: 700;
+    margin-left: 2px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 15px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(47, 111, 99, 0.12);
 }
 
 .form-input[type="datetime-local"] {
@@ -1401,6 +1428,14 @@ textarea.form-input {
     min-height: 100px;
     line-height: 1.6;
 }
+
+.form-input:disabled {
+    background: #f8f7f4;
+    color: #a8a298;
+    cursor: not-allowed;
+    border-color: #e0dcd3;
+}
+
 
 .form-hint {
     margin: 6px 0 0;
@@ -1435,7 +1470,7 @@ textarea.form-input {
     box-shadow: none;
 }
 
-/* 移动端表单适配 */
+/* 移动端适配 */
 @media (max-width: 720px) {
     .form-group {
         margin-bottom: 20px;
