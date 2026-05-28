@@ -131,10 +131,14 @@ img {
   color: var(--color-primary-dark);
 }
 
-.button-small {
+.button.button-small {
   min-height: 36px;
   padding: 0 14px;
-  color: #ffffff !important;
+  color: #ffffff;
+}
+
+.button.button-small.button-secondary {
+  color: var(--color-primary);
 }
 
 .tag {

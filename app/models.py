@@ -22,6 +22,7 @@ class User(db.Model):
     registrations = db.relationship("Registration", back_populates="user")
     posts = db.relationship("Post", back_populates="user")
     reviews = db.relationship("Review", back_populates="user")
+    ratings = db.relationship("Rating", back_populates="user")
 
 class Activity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -40,6 +41,7 @@ class Activity(db.Model):
     organizer = db.relationship("User", back_populates="activities")
     registrations = db.relationship("Registration", back_populates="activity")
     reviews = db.relationship("Review", back_populates="activity")
+    ratings = db.relationship("Rating", back_populates="activity")
 
 
 class Registration(db.Model):
@@ -84,6 +86,20 @@ class Review(db.Model):
 
     activity = db.relationship("Activity", back_populates="reviews")
     user = db.relationship("User", back_populates="reviews")
+
+
+class Rating(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    organization_score = db.Column(db.Integer, nullable=False)
+    venue_score = db.Column(db.Integer, nullable=False)
+    experience_score = db.Column(db.Integer, nullable=False)
+    average_score = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    activity = db.relationship("Activity", back_populates="ratings")
+    user = db.relationship("User", back_populates="ratings")
 
 
 # Temporary data kept only so the existing page routes can run before database
