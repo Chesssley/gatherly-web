@@ -3,41 +3,7 @@
 {% block title %}{{ activity.title }} - Gatherly{% endblock %}
 
 {% block content %}
-<style>
-.star-rating {
-    display: flex;
-    flex-direction: row-reverse;
-    justify-content: flex-end;
-}
-.star-rating input {
-    display: none;
-}
-.star-rating label {
-    font-size: 24px;
-    color: #ccc;
-    cursor: pointer;
-    padding: 0 2px;
-}
-.star-rating input:checked ~ label,
-.star-rating label:hover,
-.star-rating label:hover ~ label {
-    color: #ffc107;
-}
-.rating-section {
-    margin-top: 24px;
-    padding: 20px;
-    background: #f9f9f9;
-    border-radius: 8px;
-}
-.rating-dimension {
-    margin-bottom: 16px;
-}
-.rating-dimension h4 {
-    margin-bottom: 8px;
-    font-size: 16px;
-    color: #333;
-}
-</style>
+
 <section class="section">
     <div class="container narrow-page">
         <!-- 返回首页 -->
@@ -137,49 +103,78 @@
         </div>
 
         <!-- 多维度评分 -->
-        {% if can_rate %}
         <div class="rating-section">
-            <h3>活动评分</h3>
-            <form method="post" action="{{ url_for('activity.submit_rating', activity_id=activity.id) }}">
+            <div class="rating-header">
+                <h3>活动评分</h3>
+                {% if rating_stats.count %}
+                    <span class="rating-count">{{ rating_stats.count }} 人已评分</span>
+                {% endif %}
+            </div>
+
+            {% if rating_stats.count %}
+            <div class="rating-summary">
+                <div class="rating-overall">
+                    <span class="rating-overall-label">综合平均分</span>
+                    <strong>{{ rating_stats.overall_avg }}</strong>
+                    <span>/ 5</span>
+                </div>
+                <div class="rating-averages">
+                    <div class="rating-average-item">
+                        <span>组织能力</span>
+                        <strong>{{ rating_stats.organization_avg }}</strong>
+                    </div>
+                    <div class="rating-average-item">
+                        <span>场地环境</span>
+                        <strong>{{ rating_stats.venue_avg }}</strong>
+                    </div>
+                    <div class="rating-average-item">
+                        <span>活动体验</span>
+                        <strong>{{ rating_stats.experience_avg }}</strong>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+                <p class="rating-empty">暂无评分</p>
+            {% endif %}
+
+            {% if can_rate %}
+            <form class="rating-form" method="post" action="{{ url_for('activity.submit_rating', activity_id=activity.id) }}">
                 <div class="rating-dimension">
                     <h4>组织能力</h4>
-                    <div class="star-rating">
-                        <input type="radio" id="org5" name="organization_score" value="5"><label for="org5">★</label>
-                        <input type="radio" id="org4" name="organization_score" value="4"><label for="org4">★</label>
-                        <input type="radio" id="org3" name="organization_score" value="3"><label for="org3">★</label>
-                        <input type="radio" id="org2" name="organization_score" value="2"><label for="org2">★</label>
-                        <input type="radio" id="org1" name="organization_score" value="1"><label for="org1">★</label>
+                    <div class="star-rating" aria-label="组织能力评分">
+                        <input type="radio" id="org5" name="organization_score" value="5" required><label for="org5">&#9733;</label>
+                        <input type="radio" id="org4" name="organization_score" value="4"><label for="org4">&#9733;</label>
+                        <input type="radio" id="org3" name="organization_score" value="3"><label for="org3">&#9733;</label>
+                        <input type="radio" id="org2" name="organization_score" value="2"><label for="org2">&#9733;</label>
+                        <input type="radio" id="org1" name="organization_score" value="1"><label for="org1">&#9733;</label>
                     </div>
                 </div>
                 <div class="rating-dimension">
                     <h4>场地环境</h4>
-                    <div class="star-rating">
-                        <input type="radio" id="venue5" name="venue_score" value="5"><label for="venue5">★</label>
-                        <input type="radio" id="venue4" name="venue_score" value="4"><label for="venue4">★</label>
-                        <input type="radio" id="venue3" name="venue_score" value="3"><label for="venue3">★</label>
-                        <input type="radio" id="venue2" name="venue_score" value="2"><label for="venue2">★</label>
-                        <input type="radio" id="venue1" name="venue_score" value="1"><label for="venue1">★</label>
+                    <div class="star-rating" aria-label="场地环境评分">
+                        <input type="radio" id="venue5" name="venue_score" value="5" required><label for="venue5">&#9733;</label>
+                        <input type="radio" id="venue4" name="venue_score" value="4"><label for="venue4">&#9733;</label>
+                        <input type="radio" id="venue3" name="venue_score" value="3"><label for="venue3">&#9733;</label>
+                        <input type="radio" id="venue2" name="venue_score" value="2"><label for="venue2">&#9733;</label>
+                        <input type="radio" id="venue1" name="venue_score" value="1"><label for="venue1">&#9733;</label>
                     </div>
                 </div>
                 <div class="rating-dimension">
                     <h4>活动体验</h4>
-                    <div class="star-rating">
-                        <input type="radio" id="exp5" name="experience_score" value="5"><label for="exp5">★</label>
-                        <input type="radio" id="exp4" name="experience_score" value="4"><label for="exp4">★</label>
-                        <input type="radio" id="exp3" name="experience_score" value="3"><label for="exp3">★</label>
-                        <input type="radio" id="exp2" name="experience_score" value="2"><label for="exp2">★</label>
-                        <input type="radio" id="exp1" name="experience_score" value="1"><label for="exp1">★</label>
+                    <div class="star-rating" aria-label="活动体验评分">
+                        <input type="radio" id="exp5" name="experience_score" value="5" required><label for="exp5">&#9733;</label>
+                        <input type="radio" id="exp4" name="experience_score" value="4"><label for="exp4">&#9733;</label>
+                        <input type="radio" id="exp3" name="experience_score" value="3"><label for="exp3">&#9733;</label>
+                        <input type="radio" id="exp2" name="experience_score" value="2"><label for="exp2">&#9733;</label>
+                        <input type="radio" id="exp1" name="experience_score" value="1"><label for="exp1">&#9733;</label>
                     </div>
                 </div>
-                <button type="submit" class="btn" style="background-color:#28a745;color:#fff;border:none;padding:10px 24px;border-radius:4px;cursor:pointer;font-size:16px;">提交评分</button>
+                <button type="submit" class="btn rating-submit">提交评分</button>
             </form>
+            {% elif rating_notice %}
+                <p class="rating-notice">{{ rating_notice }}</p>
+            {% endif %}
         </div>
-        {% endif %}
-        {% if has_rated %}
-        <div class="rating-section">
-            <p style="color:#28a745;font-size:16px;">感谢您的评分！</p>
-        </div>
-        {% endif %}
     </div>
 </section>
 {% endblock %}
