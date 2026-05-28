@@ -1,8 +1,10 @@
 from flask import Blueprint, abort, render_template, request, session, redirect, url_for, flash
 from functools import wraps
 from datetime import datetime
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
-from app.models import db, Activity, Registration, activities
+from app.models import db, Activity, Registration, Rating, activities
 
 def login_required(f):
     """登录态检查装饰器，未登录重定向到登录页"""
@@ -16,6 +18,52 @@ def login_required(f):
 
 
 activity_bp = Blueprint("activity", __name__)
+
+
+RATING_ELIGIBLE_STATUSES = {"registered", "attended", "completed"}
+
+
+def _parse_rating_score(field_name):
+    raw_value = request.form.get(field_name)
+    if raw_value is None or raw_value == "":
+        raise ValueError("missing")
+
+    score = int(raw_value)
+    if score < 1 or score > 5:
+        raise ValueError("out_of_range")
+    return score
+
+
+def _get_rating_stats(activity_id):
+    stats = (
+        db.session.query(
+            func.count(Rating.id).label("rating_count"),
+            func.avg(Rating.organization_score).label("organization_avg"),
+            func.avg(Rating.venue_score).label("venue_avg"),
+            func.avg(Rating.experience_score).label("experience_avg"),
+            func.avg(Rating.average_score).label("overall_avg"),
+        )
+        .filter(Rating.activity_id == activity_id)
+        .one()
+    )
+
+    rating_count = int(stats.rating_count or 0)
+    if rating_count == 0:
+        return {
+            "count": 0,
+            "organization_avg": None,
+            "venue_avg": None,
+            "experience_avg": None,
+            "overall_avg": None,
+        }
+
+    return {
+        "count": rating_count,
+        "organization_avg": round(float(stats.organization_avg), 1),
+        "venue_avg": round(float(stats.venue_avg), 1),
+        "experience_avg": round(float(stats.experience_avg), 1),
+        "overall_avg": round(float(stats.overall_avg), 1),
+    }
 
 
 @activity_bp.route("/")
@@ -89,7 +137,6 @@ def index():
     )
 
     # 合并真实报名人数到硬编码活动数据
-    from sqlalchemy import func
     reg_counts = dict(
         db.session.query(Registration.activity_id, func.count(Registration.id))
         .group_by(Registration.activity_id)
@@ -115,30 +162,42 @@ def activity_detail(activity_id):
     if activity is None:
         abort(404)
 
-    try:
-        registration_count = Registration.query.filter_by(activity_id=activity_id).count()
-        db_activity = Activity.query.get(activity_id)
-        max_participants = db_activity.max_participants if db_activity else None
-        preparation = db_activity.preparation if db_activity else None
-        user_registered = False
-        has_rated = False
-        can_rate = False
-        if "user_id" in session:
-            user_registered = Registration.query.filter_by(
-                user_id=session["user_id"], activity_id=activity_id
-            ).first() is not None
-            has_rated = Rating.query.filter_by(
-                user_id=session["user_id"], activity_id=activity_id
-            ).first() is not None
-            if not has_rated and user_registered and db_activity and db_activity.start_time:
-                can_rate = db_activity.start_time < datetime.utcnow()
-    except Exception:
-        registration_count = 0
-        max_participants = None
-        preparation = None
-        user_registered = False
-        has_rated = False
-        can_rate = False
+    registration_count = Registration.query.filter_by(activity_id=activity_id).count()
+    db_activity = Activity.query.get(activity_id)
+    max_participants = db_activity.max_participants if db_activity else None
+    preparation = db_activity.preparation if db_activity else None
+    rating_stats = _get_rating_stats(activity_id)
+
+    user_registered = False
+    has_rated = False
+    can_rate = False
+    rating_notice = "登录并报名参加活动后，可在活动结束后评分。"
+
+    if "user_id" not in session:
+        rating_notice = "请先登录后再评分。"
+    else:
+        registration = Registration.query.filter_by(
+            user_id=session["user_id"], activity_id=activity_id
+        ).first()
+        user_registered = (
+            registration is not None
+            and registration.status in RATING_ELIGIBLE_STATUSES
+        )
+        has_rated = Rating.query.filter_by(
+            user_id=session["user_id"], activity_id=activity_id
+        ).first() is not None
+
+        if not user_registered:
+            rating_notice = "只有已报名并参加该活动的用户可以评分。"
+        elif has_rated:
+            rating_notice = "您已提交过评分，不能重复评分。"
+        elif not db_activity or not db_activity.start_time:
+            rating_notice = "活动时间未确认，暂不能评分。"
+        elif db_activity.start_time >= datetime.utcnow():
+            rating_notice = "活动尚未结束，暂不能评分。"
+        else:
+            can_rate = True
+            rating_notice = ""
 
     return render_template(
         "activity_detail.html",
@@ -149,6 +208,8 @@ def activity_detail(activity_id):
         user_registered=user_registered,
         has_rated=has_rated,
         can_rate=can_rate,
+        rating_notice=rating_notice,
+        rating_stats=rating_stats,
     )
 
 
@@ -222,39 +283,33 @@ def submit_rating(activity_id):
 
     user_id = session["user_id"]
 
-    # 重复评分检查
+    db_activity = Activity.query.get(activity_id)
+    if not db_activity or not db_activity.start_time:
+        flash("活动时间未确认，暂不能评分", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    if db_activity.start_time >= datetime.utcnow():
+        flash("活动尚未结束，暂不能评分", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    registered = Registration.query.filter_by(
+        user_id=user_id, activity_id=activity_id
+    ).first()
+    if not registered or registered.status not in RATING_ELIGIBLE_STATUSES:
+        flash("只有已报名并参加该活动的用户可以评分", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
     existing = Rating.query.filter_by(user_id=user_id, activity_id=activity_id).first()
     if existing:
-        flash("您已对该活动评过分了", "error")
+        flash("您已提交过评分，不能重复评分", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    # 活动时间检查
-    db_activity = Activity.query.get(activity_id)
-    if db_activity and db_activity.start_time and db_activity.start_time >= datetime.utcnow():
-        flash("活动尚未开始，暂不能评分", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    # 报名状态检查
-    registered = Registration.query.filter_by(user_id=user_id, activity_id=activity_id).first()
-    if not registered:
-        flash("您未报名该活动，无法评分", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    # 获取三维度评分
-    org_score_raw = request.form.get("organization_score", 0)
-    venue_score_raw = request.form.get("venue_score", 0)
-    exp_score_raw = request.form.get("experience_score", 0)
 
     try:
-        org_score = int(org_score_raw)
-        venue_score = int(venue_score_raw)
-        exp_score = int(exp_score_raw)
+        org_score = _parse_rating_score("organization_score")
+        venue_score = _parse_rating_score("venue_score")
+        exp_score = _parse_rating_score("experience_score")
     except (TypeError, ValueError):
-        flash("评分值必须为数字", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    if not (1 <= org_score <= 5 and 1 <= venue_score <= 5 and 1 <= exp_score <= 5):
-        flash("评分值必须在1-5之间", "error")
+        flash("每个评分必须是 1 到 5 的整数", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     avg_score = round((org_score + venue_score + exp_score) / 3, 1)
@@ -271,7 +326,10 @@ def submit_rating(activity_id):
     try:
         db.session.add(rating)
         db.session.commit()
-        flash("评分提交成功，感谢您的反馈！", "success")
+        flash("评分提交成功，感谢您的反馈", "success")
+    except IntegrityError:
+        db.session.rollback()
+        flash("您已提交过评分，不能重复评分", "error")
     except Exception:
         db.session.rollback()
         flash("评分提交失败，请稍后重试", "error")
