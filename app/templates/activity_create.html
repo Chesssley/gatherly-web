@@ -30,10 +30,18 @@
                     <p class="form-hint">简洁明了，吸引人的标题</p>
                 </div>
 
+                <!-- 活动介绍 -->
+                <div class="form-group">
+                    <label for="description" class="form-label">活动介绍 <span class="form-required">*</span></label>
+                    <textarea id="description" name="description" class="form-input" 
+                              rows="6" placeholder="详细描述活动内容、流程、注意事项等" required></textarea>
+                    <p class="form-hint">详细介绍活动，让参与者了解具体安排</p>
+                </div>
+
                 <!-- 活动时间 -->
                 <div class="form-group">
-                    <label for="time" class="form-label">活动时间 <span class="form-required">*</span></label>
-                    <input type="datetime-local" id="time" name="time" class="form-input" required>
+                    <label for="start_time" class="form-label">活动时间 <span class="form-required">*</span></label>
+                    <input type="datetime-local" id="start_time" name="start_time" class="form-input" required>
                     <p class="form-hint">请选择活动开始的具体日期和时间</p>
                 </div>
 
@@ -62,14 +70,6 @@
 2. 穿着舒适运动鞋
 3. 自备饮用水"></textarea>
                     <p class="form-hint">每项一行，支持换行显示</p>
-                </div>
-
-                <!-- 详情介绍 -->
-                <div class="form-group">
-                    <label for="description" class="form-label">活动详情介绍 <span class="form-required">*</span></label>
-                    <textarea id="description" name="description" class="form-input" 
-                              rows="6" placeholder="详细描述活动内容、流程、注意事项等" required></textarea>
-                    <p class="form-hint">详细介绍活动，让参与者了解具体安排</p>
                 </div>
 
                 <!-- 表单按钮 -->
