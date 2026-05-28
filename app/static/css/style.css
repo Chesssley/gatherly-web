@@ -1157,38 +1157,98 @@ img {
     line-height: 1.5;
 }
 
-/* 活动详情页报名按钮 (US-05-01) */
+/* ============================================
+   活动详情页报名按钮 (US-03-05 / US-05-01)
+   ============================================ */
+
 .registration-action {
-    margin-top: 28px;
+    margin-top: 32px;
+    padding: 0;
 }
 
+/* 报名按钮 - 主样式 */
 .btn-register {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     width: 100%;
-    min-height: 48px;
-    padding: 0 24px;
+    min-height: 52px;
+    padding: 0 32px;
     border: none;
-    border-radius: 8px;
-    background: var(--color-primary);
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
     color: #ffffff;
     cursor: pointer;
     font: inherit;
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 700;
+    letter-spacing: 1px;
     line-height: 1;
-    transition: background 0.2s ease;
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(47, 111, 99, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
+/* hover - 上浮 + 阴影加深 */
 .btn-register:hover {
-    background: var(--color-primary-dark);
+    background: linear-gradient(135deg, var(--color-primary-dark) 0%, #1e4d44 100%);
+    box-shadow: 0 6px 20px rgba(47, 111, 99, 0.35);
+    transform: translateY(-1px);
 }
 
+/* active - 按压反馈 */
+.btn-register:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(47, 111, 99, 0.2);
+}
+
+/* 禁用状态 - 灰度降级 */
 .btn-disabled,
-.btn-disabled:hover {
-    background: #ccc;
-    color: #888;
+.btn-disabled:hover,
+.btn-disabled:active {
+    background: #d4d0c8;
+    color: #9a958e;
     cursor: not-allowed;
     box-shadow: none;
+    transform: none;
+    letter-spacing: 0;
+}
+
+/* ============================================
+   预留状态 class（后续故事使用）
+   ============================================ */
+
+/* 未登录 - 隐藏按钮 */
+.btn-register.require-login {
+    /* 后续由 JS 或后端模板控制 display:none */
+}
+
+/* 已报名 - 隐藏按钮 */
+.btn-register.already-registered {
+    /* 后续由 JS 或后端模板控制 display:none */
+}
+
+/* 已满员 - 禁用 + 红色提示 */
+.btn-register.registration-full {
+    /* 后续由 JS 或后端模板控制状态 */
+}
+
+/* 活动过期 - 禁用 */
+.btn-register.event-expired {
+    /* 后续由 JS 或后端模板控制状态 */
+}
+
+/* 移动端适配 */
+@media (max-width: 720px) {
+    .btn-register {
+        min-height: 48px;
+        font-size: 16px;
+        padding: 0 24px;
+        border-radius: 8px;
+    }
+
+    .registration-action {
+        margin-top: 24px;
+    }
 }
