@@ -22,6 +22,42 @@ activity_bp = Blueprint("activity", __name__)
 
 RATING_ELIGIBLE_STATUSES = {"registered", "attended", "completed"}
 
+OFFICIAL_INTEREST_TAGS = [
+    "影像摄影",
+    "运动户外",
+    "咖啡茶饮",
+    "阅读出版",
+    "手作艺术",
+    "音乐演出",
+    "观影戏剧",
+    "城市探索",
+    "游戏桌游",
+    "科技数码",
+    "美食烘焙",
+    "公益志愿",
+]
+
+DEFAULT_ACTIVITY_TAG = "城市探索"
+
+ACTIVITY_TAG_OVERRIDES = {
+    1: DEFAULT_ACTIVITY_TAG,
+}
+
+
+def _official_activity_tag(activity):
+    tag = ACTIVITY_TAG_OVERRIDES.get(activity.get("id"), activity.get("category", ""))
+    if tag in OFFICIAL_INTEREST_TAGS:
+        return tag
+    return DEFAULT_ACTIVITY_TAG
+
+
+def _with_official_activity_tags(activity):
+    normalized = dict(activity)
+    official_tag = _official_activity_tag(activity)
+    normalized["category"] = official_tag
+    normalized["tags"] = [official_tag]
+    return normalized
+
 
 def _parse_rating_score(field_name):
     raw_value = request.form.get(field_name)
@@ -69,66 +105,17 @@ def _get_rating_stats(activity_id):
 @activity_bp.route("/")
 def index():
     selected_tag = request.args.get("tag", "").strip()
-    interest_tags = [
-        "胶片摄影",
-        "复古相机",
-        "城市骑行",
-        "公路车",
-        "手冲咖啡",
-        "独立出版",
-        "桌游",
-        "剧本围读",
-        "观影交流",
-        "摄影展",
-        "城市漫步",
-        "徒步",
-        "露营",
-        "飞盘",
-        "羽毛球",
-        "攀岩",
-        "滑板",
-        "夜跑",
-        "音乐现场",
-        "黑胶唱片",
-        "旧物市集",
-        "古着穿搭",
-        "二手书交换",
-        "书店探访",
-        "博物馆看展",
-        "手作体验",
-        "陶艺",
-        "插画手账",
-        "手帐拼贴",
-        "植物养护",
-        "宠物社交",
-        "烘焙",
-        "茶饮品鉴",
-        "香薰调香",
-        "语言角",
-        "开源技术",
-        "独立游戏",
-        "模型手办",
-        "汉服体验",
-        "天文观星",
-        "即兴戏剧",
-        "瑜伽冥想",
-        "本地美食",
-        "桌面摄影",
-        "咖啡拉花",
-        "街头摄影",
-        "骑行路线",
-        "周末约伴",
-        "轻户外",
-    ]
+    interest_tags = OFFICIAL_INTEREST_TAGS
     categories = interest_tags
-    visible_tag_count = 18
+    visible_tag_count = len(interest_tags)
+    normalized_activities = [_with_official_activity_tags(activity) for activity in activities]
 
     if selected_tag and selected_tag in interest_tags:
         filtered_activities = [
-            activity for activity in activities if activity["category"] == selected_tag
+            activity for activity in normalized_activities if activity["category"] == selected_tag
         ]
     else:
-        filtered_activities = activities
+        filtered_activities = normalized_activities
         selected_tag = ""
 
     expand_tags_by_default = (
@@ -161,6 +148,7 @@ def activity_detail(activity_id):
     activity = next((a for a in activities if a.get("id") == activity_id), None)
     if activity is None:
         abort(404)
+    activity = _with_official_activity_tags(activity)
 
     registration_count = Registration.query.filter_by(activity_id=activity_id).count()
     db_activity = Activity.query.get(activity_id)
