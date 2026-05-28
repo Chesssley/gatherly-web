@@ -227,10 +227,10 @@ def submit_rating(activity_id):
         flash("您已对该活动评过分了", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
-    # 活动结束检查
+    # 活动时间检查
     db_activity = Activity.query.get(activity_id)
     if db_activity and db_activity.start_time and db_activity.start_time >= datetime.utcnow():
-        flash("活动尚未结束，暂不能评分", "error")
+        flash("活动尚未开始，暂不能评分", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     # 报名状态检查
