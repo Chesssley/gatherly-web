@@ -1,102 +1,72 @@
-from flask import Blueprint, abort, render_template, request, redirect, url_for, flash
-from flask_login import login_required, current_user
-from sqlalchemy import func
+from types import SimpleNamespace
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 
 from app.models import db, Circle, Post
+from app.routes.activity import OFFICIAL_INTEREST_TAGS
 
 circle_bp = Blueprint("circle", __name__)
 
-mock_circles = [
-    {
-        "id": 1,
-        "name": "胶片摄影",
-        "tag": "影像",
-        "description": "用胶片捕捉光影，分享暗房技巧与器材心得，一起慢下来感受摄影的本质。",
-        "members": 342,
-        "activity_count": 8,
-        "post_count": 0,
-    },
-    {
-        "id": 2,
-        "name": "城市骑行",
-        "tag": "户外",
-        "description": "周末城市探索骑行，从老城区到滨江绿道，用车轮丈量城市的温度。",
-        "members": 567,
-        "activity_count": 12,
-        "post_count": 0,
-    },
-    {
-        "id": 3,
-        "name": "手冲咖啡",
-        "tag": "生活方式",
-        "description": "从选豆到注水，探索手冲咖啡的无限可能，定期举办杯测与分享会。",
-        "members": 218,
-        "activity_count": 6,
-        "post_count": 0,
-    },
-    {
-        "id": 4,
-        "name": "独立出版",
-        "tag": "创作",
-        "description": "关注独立杂志、艺术书与 Zine 文化，为小众创作者提供交流与展示的平台。",
-        "members": 156,
-        "activity_count": 4,
-        "post_count": 0,
-    },
-    {
-        "id": 5,
-        "name": "桌游",
-        "tag": "游戏",
-        "description": "从德式策略到美式主题，每周线下组局，欢迎新手和老玩家一起上桌。",
-        "members": 723,
-        "activity_count": 15,
-        "post_count": 0,
-    },
-    {
-        "id": 6,
-        "name": "徒步",
-        "tag": "自然",
-        "description": "周末山野徒步，逃离城市喧嚣，用脚步发现身边的自然之美。",
-        "members": 489,
-        "activity_count": 10,
-        "post_count": 0,
-    },
-]
+_CIRCLE_DESCRIPTIONS = {
+    "影像摄影": "聚合胶片摄影、相机维修、街头摄影、摄影展和桌面摄影等影像爱好者。",
+    "运动户外": "覆盖骑行、徒步、露营、夜跑、飞盘、攀岩等线下运动与轻户外约伴。",
+    "咖啡茶饮": "连接手冲咖啡、咖啡拉花、茶会品鉴和咖啡店探访爱好者。",
+    "阅读出版": "围绕独立出版、读书会、二手书交换、写作交流和书店探访展开。",
+    "手作艺术": "收纳陶艺、插画手账、手帐拼贴、香薰调香和其他手作体验。",
+    "音乐演出": "发现 Livehouse、音乐节、黑胶唱片试听和小型音乐现场。",
+    "观影戏剧": "组织观影交流、剧本围读、即兴戏剧和展演后的线下讨论。",
+    "城市探索": "发起城市漫步、旧物市集、古着穿搭、博物馆看展和本地探访。",
+    "游戏桌游": "包含桌游组局、独立游戏试玩、模型手办交流和轻松联机活动。",
+    "科技数码": "面向开源技术、数码工具、创客实践和技术主题线下分享。",
+    "美食烘焙": "聚合本地美食、烘焙试吃、食谱交流和周末探店计划。",
+    "公益志愿": "连接社区服务、公益行动、环保活动和志愿者线下协作。",
+}
+
+_ACTIVE_LEVELS = ["高活跃", "稳定活跃", "新兴活跃"]
 
 
-def _build_circle_list(rows):
-    """将 Circle + post_count 聚合查询结果转为 dict 列表。"""
-    return [
-        {
-            "id": row.Circle.id,
-            "name": row.Circle.name,
-            "tag": row.Circle.tag,
-            "description": row.Circle.description,
-            "members": mock_circles[i % len(mock_circles)]["members"],
-            "activity_count": mock_circles[i % len(mock_circles)]["activity_count"],
-            "post_count": row.post_count,
-        }
-        for i, row in enumerate(rows)
-    ]
+def _build_mock_circles():
+    circles = []
+    for index, tag in enumerate(OFFICIAL_INTEREST_TAGS, start=1):
+        member_count = 96 + index * 17 + (index % 5) * 23
+        post_count = 12 + index * 3 + (index % 4) * 5
+        circles.append(
+            {
+                "id": index,
+                "name": f"{tag}同好圈",
+                "tag": tag,
+                "description": _CIRCLE_DESCRIPTIONS[tag],
+                "active_level": _ACTIVE_LEVELS[index % len(_ACTIVE_LEVELS)],
+                "member_count": member_count,
+                "post_count": post_count,
+                # 兼容已有发帖页或旧模板中可能使用的示例字段。
+                "members": member_count,
+                "activity_count": 2 + index % 7,
+            }
+        )
+    return circles
+
+
+mock_circles = _build_mock_circles()
+
+
+def _get_circle(circle_id):
+    circle = Circle.query.get(circle_id)
+    if circle is not None:
+        return circle
+
+    mock_circle = next((item for item in mock_circles if item["id"] == circle_id), None)
+    if mock_circle is None:
+        return None
+    return SimpleNamespace(**mock_circle)
 
 
 @circle_bp.route("/circles")
 def circles():
     """
     用户浏览兴趣圈子列表页面路由。
-    US-07-03: 从数据库查询圈子及其帖子数量。
+    US-07-01: 同好圈标签与首页官方兴趣标签保持一致。
     """
-    try:
-        rows = (
-            db.session.query(Circle, func.count(Post.id).label("post_count"))
-            .outerjoin(Post, Post.circle_id == Circle.id)
-            .group_by(Circle.id)
-            .all()
-        )
-        if rows:
-            return render_template("circle.html", circles=_build_circle_list(rows))
-    except Exception:
-        pass
     return render_template("circle.html", circles=mock_circles)
 
 
@@ -107,15 +77,19 @@ def circle_list():
 
 
 @circle_bp.route("/circle/<int:circle_id>/post", methods=["GET", "POST"])
-@login_required
 def create_post(circle_id):
     """
     发布圈子帖子路由。
     US-08-01: 登录用户发布圈子帖子功能。
     """
-    circle = Circle.query.get(circle_id)
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("auth.login", next=request.url))
+
+    circle = _get_circle(circle_id)
     if circle is None:
-        abort(404)
+        flash("圈子不存在或已被删除", "error")
+        return redirect(url_for("circle.circles"))
 
     if request.method == "GET":
         return render_template("create_post.html", circle=circle)
@@ -138,7 +112,7 @@ def create_post(circle_id):
         title=title,
         content=content,
         type=post_type,
-        user_id=current_user.id,
+        user_id=user_id,
         circle_id=circle_id
     )
 
@@ -146,7 +120,7 @@ def create_post(circle_id):
         db.session.add(post)
         db.session.commit()
         flash("帖子发布成功！", "success")
-        return redirect(url_for("circle.circle_detail", circle_id=circle_id))
+        return redirect(url_for("circle.circles"))
     except Exception as e:
         db.session.rollback()
         flash("发布失败，请稍后重试", "error")

@@ -1216,6 +1216,11 @@ img {
   line-height: 1.7;
 }
 
+.circle-active-tag {
+  background: #f3efe6;
+  color: #8a5a1f;
+}
+
 .circle-meta {
   display: flex;
   flex-wrap: wrap;
@@ -1226,6 +1231,12 @@ img {
 
 .circle-meta p {
   margin: 0;
+}
+
+.circle-action {
+  width: 100%;
+  margin-top: 12px;
+  text-align: center;
 }
 
 @media (max-width: 860px) {
@@ -1376,16 +1387,43 @@ img {
 }
 
 /* ============================================
-   活动发布表单样式 (US-04-01)
+活动发布表单样式 (US-04-01/04-02)
    ============================================ */
 
 .form-group {
     margin-bottom: 24px;
 }
 
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--color-text);
+}
+
 .form-required {
     color: #e63946;
     font-weight: 700;
+    margin-left: 2px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 15px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(47, 111, 99, 0.12);
 }
 
 .form-input[type="datetime-local"] {
@@ -1401,6 +1439,14 @@ textarea.form-input {
     min-height: 100px;
     line-height: 1.6;
 }
+
+.form-input:disabled {
+    background: #f8f7f4;
+    color: #a8a298;
+    cursor: not-allowed;
+    border-color: #e0dcd3;
+}
+
 
 .form-hint {
     margin: 6px 0 0;
@@ -1457,7 +1503,7 @@ textarea.form-input {
 
 .tag-checkbox:hover {
     border-color: var(--color-primary);
-    background: var(--color-bg-light);
+    background: var(--color-surface);
 }
 
 .tag-checkbox input {
@@ -1476,10 +1522,10 @@ textarea.form-input {
 
 .tag-checkbox:has(input:checked) {
     border-color: var(--color-primary);
-    background: rgba(37, 99, 235, 0.08);
+    background: rgba(47, 111, 99, 0.08);
 }
 
-/* 移动端表单适配 */
+/* 移动端适配 */
 @media (max-width: 720px) {
     .form-group {
         margin-bottom: 20px;

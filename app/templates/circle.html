@@ -16,16 +16,19 @@
             {% for circle in circles %}
             <article class="activity-card circle-card">
                 <div class="card-body">
-                    <span class="tag">{{ circle.tag }}</span>
+                    <div class="card-tags">
+                        <span class="tag">{{ circle.tag }}</span>
+                        <span class="tag circle-active-tag">{{ circle.active_level }}</span>
+                    </div>
                     <h3 class="card-title">{{ circle.name }}</h3>
                     <p class="circle-description">{{ circle.description }}</p>
                     <div class="card-meta circle-meta">
-                        <p>{{ circle.post_count | default(0) }} 帖子</p>
-                        <p>{{ circle.members }} 位成员</p>
-                        <p>{{ circle.activity_count }} 场本月活动</p>
+                        <p>活跃程度：{{ circle.active_level }}</p>
+                        <p>{{ circle.member_count }} 位成员</p>
+                        <p>{{ circle.post_count | default(0) }} 篇帖子</p>
                     </div>
-                    {% if current_user.is_authenticated %}
-                    <a class="button button-small" href="{{ url_for('circle.create_post', circle_id=circle.id) }}" style="margin-top: 12px; width: 100%; text-align: center;">
+                    {% if session.get("user_id") %}
+                    <a class="button button-small circle-action" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">
                         发布帖子
                     </a>
                     {% endif %}
