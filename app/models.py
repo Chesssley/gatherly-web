@@ -92,6 +92,10 @@ class Review(db.Model):
 
 
 class Rating(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint("activity_id", "user_id", name="uq_rating_activity_user"),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
     activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
