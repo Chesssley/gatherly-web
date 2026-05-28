@@ -37,6 +37,7 @@ class Activity(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     organizer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     preparation = db.Column(db.Text)  # 活动准备事项
+    tags = db.Column(db.Text)  # 兴趣标签，逗号分隔
 
     organizer = db.relationship("User", back_populates="activities")
     registrations = db.relationship("Registration", back_populates="activity")

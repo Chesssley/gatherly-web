@@ -95,8 +95,47 @@ def index():
         .group_by(Registration.activity_id)
         .all()
     )
+
+    # 查询数据库中已发布的活动
+    db_activities = Activity.query.order_by(Activity.created_at.desc()).all()
+    db_acts = []
+    for act in db_activities:
+        tag_list = [t.strip() for t in act.tags.split(",") if t.strip()] if act.tags else []
+        time_str = act.start_time.strftime("%m月%d日 %H:%M") if act.start_time else "待定"
+        db_acts.append({
+            "id": act.id,
+            "title": act.title,
+            "category": tag_list[0] if tag_list else "",
+            "tags": tag_list,
+            "time": time_str,
+            "location": act.location or "待定",
+            "max_people": act.max_participants or "不限",
+            "current_people": reg_counts.get(act.id, 0),
+            "image_url": act.image or "",
+            "description": act.description or "",
+        })
+
+    # 合并：数据库活动在前，硬编码兜底在后
+    all_activities = db_acts + activities
+
+    if selected_tag and selected_tag in interest_tags:
+        filtered_activities = [
+            a for a in all_activities
+            if selected_tag in (a.get("tags") or []) or a.get("category") == selected_tag
+        ]
+    else:
+        filtered_activities = all_activities
+        selected_tag = ""
+
+    expand_tags_by_default = (
+        bool(selected_tag)
+        and interest_tags.index(selected_tag) >= visible_tag_count
+    )
+
+    # 补齐硬编码活动的报名人数
     for act in filtered_activities:
-        act["current_people"] = reg_counts.get(act["id"], 0)
+        if "current_people" not in act:
+            act["current_people"] = reg_counts.get(act["id"], 0)
 
     return render_template(
         "index.html",
@@ -112,12 +151,33 @@ def index():
 @activity_bp.route("/activity/<int:activity_id>")
 def activity_detail(activity_id):
     activity = next((a for a in activities if a.get("id") == activity_id), None)
+    db_activity = Activity.query.get(activity_id)
+
+    # 硬编码列表中未找到，但有数据库记录，则从 DB 构建 activity dict
+    if activity is None and db_activity is not None:
+        tag_list = [t.strip() for t in db_activity.tags.split(",") if t.strip()] if db_activity.tags else []
+        time_str = db_activity.start_time.strftime("%m月%d日 %H:%M") if db_activity.start_time else "待定"
+        activity = {
+            "id": db_activity.id,
+            "title": db_activity.title,
+            "category": tag_list[0] if tag_list else "",
+            "tags": tag_list,
+            "time": time_str,
+            "location": db_activity.location or "待定",
+            "description": db_activity.description or "",
+            "detail": db_activity.description or "",
+            "capacity": str(db_activity.max_participants) if db_activity.max_participants else "不限",
+            "max_people": db_activity.max_participants or "不限",
+            "current_people": 0,
+            "image_url": db_activity.image or "",
+        }
+
     if activity is None:
         abort(404)
 
     try:
         registration_count = Registration.query.filter_by(activity_id=activity_id).count()
-        db_activity = Activity.query.get(activity_id)
+        db_activity = db_activity or Activity.query.get(activity_id)
         max_participants = db_activity.max_participants if db_activity else None
         preparation = db_activity.preparation if db_activity else None
         user_registered = False
@@ -152,9 +212,81 @@ def activity_detail(activity_id):
     )
 
 
-@activity_bp.route("/activities/create")
-@login_required  # 登录校验
+@activity_bp.route("/activities/create", methods=["GET", "POST"])
+@login_required
 def create_activity():
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        start_time_str = request.form.get("start_time", "").strip()
+        location = request.form.get("location", "").strip()
+        max_participants_str = request.form.get("max_participants", "").strip()
+        fee_str = request.form.get("fee", "").strip()
+        tag_list = request.form.getlist("tags[]")
+        preparation = request.form.get("preparation", "").strip()
+
+        errors = []
+        if not title:
+            errors.append("请填写活动标题")
+        if not description:
+            errors.append("请填写活动介绍")
+        if not start_time_str:
+            errors.append("请选择活动时间")
+        if not location:
+            errors.append("请填写活动地点")
+
+        if errors:
+            for err in errors:
+                flash(err, "error")
+            return redirect(url_for("activity.create_activity"))
+
+        try:
+            start_time = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            flash("活动时间格式不正确", "error")
+            return redirect(url_for("activity.create_activity"))
+
+        max_participants = None
+        if max_participants_str:
+            try:
+                max_participants = int(max_participants_str)
+                if max_participants < 1:
+                    max_participants = None
+            except ValueError:
+                pass
+
+        fee = 0.0
+        if fee_str:
+            try:
+                fee = float(fee_str)
+            except ValueError:
+                pass
+
+        tags_str = ",".join(tag_list) if tag_list else None
+
+        activity = Activity(
+            title=title,
+            description=description,
+            start_time=start_time,
+            location=location,
+            max_participants=max_participants,
+            fee=fee,
+            preparation=preparation or None,
+            organizer_id=session["user_id"],
+            tags=tags_str,
+        )
+
+        try:
+            db.session.add(activity)
+            db.session.commit()
+            flash("活动发布成功！", "success")
+        except Exception:
+            db.session.rollback()
+            flash("发布失败，请稍后重试", "error")
+            return redirect(url_for("activity.create_activity"))
+
+        return redirect(url_for("activity.index"))
+
     return render_template("activity_create.html")
 
 @activity_bp.route("/activity/<int:activity_id>/register", methods=["POST"])
