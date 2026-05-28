@@ -1448,7 +1448,7 @@ textarea.form-input {
     align-items: center;
     padding: 8px 16px;
     border: 2px solid var(--color-border);
-    border-radius: 20px;
+    border-radius: 999px;
     background: var(--color-bg);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1457,7 +1457,7 @@ textarea.form-input {
 
 .tag-checkbox:hover {
     border-color: var(--color-primary);
-    background: var(--color-bg-light);
+    background: #e8f0ed;
 }
 
 .tag-checkbox input {
@@ -1476,7 +1476,7 @@ textarea.form-input {
 
 .tag-checkbox:has(input:checked) {
     border-color: var(--color-primary);
-    background: rgba(37, 99, 235, 0.08);
+    background: #e8f0ed;
 }
 
 /* 移动端表单适配 */
