@@ -1216,6 +1216,11 @@ img {
   line-height: 1.7;
 }
 
+.circle-active-tag {
+  background: #f3efe6;
+  color: #8a5a1f;
+}
+
 .circle-meta {
   display: flex;
   flex-wrap: wrap;
@@ -1226,6 +1231,12 @@ img {
 
 .circle-meta p {
   margin: 0;
+}
+
+.circle-action {
+  width: 100%;
+  margin-top: 12px;
+  text-align: center;
 }
 
 @media (max-width: 860px) {
