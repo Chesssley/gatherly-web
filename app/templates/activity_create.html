@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}发布活动 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="container narrow-page">
+        <!-- 返回首页 -->
+        <a href="{{ url_for('activity.index') }}" class="back-link">← 返回活动列表</a>
+
+        <h1 class="detail-title">发布新活动</h1>
+
+        <!-- Flash 消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-msg {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- 活动发布表单卡片 -->
+        <div class="form-card">
+            <form method="post" action="#">
+                <!-- 活动标题 -->
+                <div class="form-group">
+                    <label for="title" class="form-label">
+                        活动标题 <span class="form-required">*</span>
+                    </label>
+                    <input type="text" id="title" name="title" class="form-input" 
+                           placeholder="例如：周末城市骑行探索" required>
+                    <p class="form-hint">简洁明了的标题，吸引参与者关注</p>
+                </div>
+
+                <!-- 活动介绍 -->
+                <div class="form-group">
+                    <label for="description" class="form-label">
+                        活动介绍 <span class="form-required">*</span>
+                    </label>
+                    <textarea id="description" name="description" class="form-input" 
+                              rows="6" placeholder="详细描述活动内容、流程、注意事项等" required></textarea>
+                    <p class="form-hint">详细介绍活动，让参与者了解具体安排。支持换行输入。</p>
+                </div>
+
+                <!-- 其他字段占位（US-04-03/04/05 实现） -->
+                <div class="form-group">
+                    <label class="form-label">活动时间</label>
+                    <input type="datetime-local" class="form-input" disabled>
+                    <p class="form-hint">后续实现</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">活动地点</label>
+                    <input type="text" class="form-input" placeholder="后续实现" disabled>
+                    <p class="form-hint">后续实现</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">人数上限</label>
+                    <input type="number" class="form-input" placeholder="后续实现" disabled>
+                    <p class="form-hint">后续实现</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">准备事项</label>
+                    <textarea class="form-input" rows="4" placeholder="后续实现" disabled></textarea>
+                    <p class="form-hint">后续实现</p>
+                </div>
+
+                <!-- 表单按钮 -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-register" disabled>发布活动（功能待实现）</button>
+                    <p class="form-note">本页面仅用于展示，提交功能将在后续任务中实现</p>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+{% endblock %}
