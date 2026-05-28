@@ -222,7 +222,7 @@ def activity_detail(activity_id):
     if activity is None:
         abort(404)
 
-registration_count = Registration.query.filter_by(activity_id=activity_id).count()
+    registration_count = Registration.query.filter_by(activity_id=activity_id).count()
     db_activity = Activity.query.get(activity_id)
     max_participants = db_activity.max_participants if db_activity else None
     preparation = db_activity.preparation if db_activity else None
