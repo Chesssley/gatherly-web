@@ -15,11 +15,11 @@
         <li><a href="{{ url_for('activity.create_activity') }}">发布活动</a></li>
         <li><a href="{{ url_for('circle.circles') }}">同好圈</a></li>
         {% if session.get('user_id') %}
-        <li><span class="tag">{{ session.get('nickname', '用户') }}</span></li>
-        <li><a class="button-secondary" href="{{ url_for('auth.logout') }}">退出</a></li>
+          <li><span class="tag" style="background: var(--color-primary); color: #fff;">{{ session.get('nickname', '用户') }}</span></li>
+          <li><a class="button button-small button-secondary" href="{{ url_for('auth.logout') }}">退出</a></li>
         {% else %}
-        <li><a href="{{ url_for('auth.login') }}">登录</a></li>
-        <li><a class="button button-small" href="{{ url_for('auth.register') }}">注册</a></li>
+          <li><a href="{{ url_for('auth.login') }}">登录</a></li>
+          <li><a class="button button-small" href="{{ url_for('auth.register') }}">注册</a></li>
         {% endif %}
       </ul>
     </nav>
