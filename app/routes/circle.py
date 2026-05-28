@@ -1,5 +1,6 @@
-from flask import Blueprint, abort, render_template, request, redirect, url_for, flash
-from flask_login import login_required, current_user
+from types import SimpleNamespace
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from sqlalchemy import func
 
 from app.models import db, Circle, Post
@@ -80,6 +81,17 @@ def _build_circle_list(rows):
     ]
 
 
+def _get_circle(circle_id):
+    circle = Circle.query.get(circle_id)
+    if circle is not None:
+        return circle
+
+    mock_circle = next((item for item in mock_circles if item["id"] == circle_id), None)
+    if mock_circle is None:
+        return None
+    return SimpleNamespace(**mock_circle)
+
+
 @circle_bp.route("/circles")
 def circles():
     """
@@ -107,15 +119,19 @@ def circle_list():
 
 
 @circle_bp.route("/circle/<int:circle_id>/post", methods=["GET", "POST"])
-@login_required
 def create_post(circle_id):
     """
     发布圈子帖子路由。
     US-08-01: 登录用户发布圈子帖子功能。
     """
-    circle = Circle.query.get(circle_id)
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("auth.login", next=request.url))
+
+    circle = _get_circle(circle_id)
     if circle is None:
-        abort(404)
+        flash("圈子不存在或已被删除", "error")
+        return redirect(url_for("circle.circles"))
 
     if request.method == "GET":
         return render_template("create_post.html", circle=circle)
@@ -138,7 +154,7 @@ def create_post(circle_id):
         title=title,
         content=content,
         type=post_type,
-        user_id=current_user.id,
+        user_id=user_id,
         circle_id=circle_id
     )
 
@@ -146,7 +162,7 @@ def create_post(circle_id):
         db.session.add(post)
         db.session.commit()
         flash("帖子发布成功！", "success")
-        return redirect(url_for("circle.circle_detail", circle_id=circle_id))
+        return redirect(url_for("circle.circles"))
     except Exception as e:
         db.session.rollback()
         flash("发布失败，请稍后重试", "error")
