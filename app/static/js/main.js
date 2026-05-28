@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // 筛选活动卡片
         const cards = document.querySelectorAll(".activity-card");
-        if (selectedTag === "全部活动") {
+        if (selectedTag === "all") {
           cards.forEach(card => { card.style.display = ""; });
         } else {
           cards.forEach(card => {
@@ -32,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // 动态更新 filter-status 区域
         const filterStatus = document.querySelector(".filter-status");
         if (filterStatus) {
-          if (selectedTag === "全部活动") {
+          if (selectedTag === "all") {
             filterStatus.innerHTML = "当前正在浏览：全部活动";
           } else {
             const clearLink = document.createElement("a");
@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
             clearLink.textContent = "查看全部活动 / 清除筛选";
             clearLink.addEventListener("click", (ev) => {
               ev.preventDefault();
-              const allChip = document.querySelector('.interest-chip[data-tag="全部活动"]');
+              const allChip = document.querySelector('.interest-chip[data-tag="all"]');
               if (allChip) allChip.click();
             });
             filterStatus.innerHTML = "";
