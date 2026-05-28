@@ -1052,6 +1052,25 @@ img {
   white-space: pre-line;
 }
 
+/* 活动准备事项内容 */
+.preparation-content {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--color-text);
+  white-space: pre-line;  /* 保留换行符 */
+  word-wrap: break-word;
+}
+
+/* 空状态提示 */
+.preparation-empty {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--color-muted);
+  font-style: italic;
+}
+
 /* 移动端适配 */
 @media (max-width: 720px) {
   .detail-title {
