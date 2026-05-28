@@ -37,17 +37,9 @@
                     <label for="description" class="form-label">
                         活动介绍 <span class="form-required">*</span>
                     </label>
-                    <textarea id="description" name="description" class="form-input" 
+                    <textarea id="description" name="description" class="form-input"
                               rows="6" placeholder="详细描述活动内容、流程、注意事项等" required></textarea>
                     <p class="form-hint">详细介绍活动，让参与者了解具体安排。支持换行输入。</p>
-                </div>
-
-                <!-- 活动介绍 -->
-                <div class="form-group">
-                    <label for="description" class="form-label">活动介绍 <span class="form-required">*</span></label>
-                    <textarea id="description" name="description" class="form-input" 
-                              rows="6" placeholder="详细描述活动内容、流程、注意事项等" required></textarea>
-                    <p class="form-hint">详细介绍活动，让参与者了解具体安排</p>
                 </div>
 
                 <!-- 活动时间 -->
@@ -81,14 +73,50 @@
                     <p class="form-hint">填写费用金额或收费方式</p>
                 </div>
 
+                <!-- 兴趣标签 -->
+                <div class="form-group">
+                    <span class="form-label">兴趣标签</span>
+                    <div class="tags-grid">
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="胶片摄影">
+                            <span>胶片摄影</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="城市骑行">
+                            <span>城市骑行</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="手冲咖啡">
+                            <span>手冲咖啡</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="独立出版">
+                            <span>独立出版</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="桌游">
+                            <span>桌游</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="徒步">
+                            <span>徒步</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="音乐现场">
+                            <span>音乐现场</span>
+                        </label>
+                    </div>
+                    <p class="form-hint">选择与活动相关的兴趣标签，可多选</p>
+                </div>
+
                 <!-- 准备事项 -->
                 <div class="form-group">
-                    <label for="preparation" class="form-label">活动准备事项</label>
+                    <label for="preparation" class="form-label">活动准备事项 <span class="form-required">*</span></label>
                     <textarea id="preparation" name="preparation" class="form-input" 
                               rows="4" placeholder="例如：
 1. 携带相机和备用电池
 2. 穿着舒适运动鞋
-3. 自备饮用水"></textarea>
+3. 自备饮用水" required></textarea>
                     <p class="form-hint">每项一行，支持换行显示</p>
                 </div>
 

@@ -1481,7 +1481,51 @@ textarea.form-input {
     box-shadow: none;
 }
 
-/* 移动端适配 */
+/* 兴趣标签样式 */
+.tags-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.tag-checkbox {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    border: 2px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-bg);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.tag-checkbox:hover {
+    border-color: var(--color-primary);
+    background: #e8f0ed;
+}
+
+.tag-checkbox input {
+    display: none;
+}
+
+.tag-checkbox span {
+    font-size: 14px;
+    color: var(--color-text);
+}
+
+.tag-checkbox input:checked + span {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.tag-checkbox:has(input:checked) {
+    border-color: var(--color-primary);
+    background: #e8f0ed;
+}
+
+/* 移动端表单适配 */
 @media (max-width: 720px) {
     .form-group {
         margin-bottom: 20px;
@@ -1499,6 +1543,15 @@ textarea.form-input {
     .form-actions {
         margin-top: 24px;
         padding-top: 20px;
+    }
+
+    .tags-grid {
+        gap: 6px;
+    }
+
+    .tag-checkbox {
+        padding: 6px 12px;
+        font-size: 13px;
     }
 }
 
