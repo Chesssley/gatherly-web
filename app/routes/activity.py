@@ -242,9 +242,17 @@ def submit_rating(activity_id):
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     # 获取三维度评分
-    org_score = int(request.form.get("organization_score", 0))
-    venue_score = int(request.form.get("venue_score", 0))
-    exp_score = int(request.form.get("experience_score", 0))
+    org_score_raw = request.form.get("organization_score", 0)
+    venue_score_raw = request.form.get("venue_score", 0)
+    exp_score_raw = request.form.get("experience_score", 0)
+
+    try:
+        org_score = int(org_score_raw)
+        venue_score = int(venue_score_raw)
+        exp_score = int(exp_score_raw)
+    except (TypeError, ValueError):
+        flash("评分值必须为数字", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     if not (1 <= org_score <= 5 and 1 <= venue_score <= 5 and 1 <= exp_score <= 5):
         flash("评分值必须在1-5之间", "error")
