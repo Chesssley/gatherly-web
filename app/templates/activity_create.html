@@ -42,29 +42,38 @@
                     <p class="form-hint">详细介绍活动，让参与者了解具体安排。支持换行输入。</p>
                 </div>
 
-                <!-- 其他字段占位（US-04-03/04/05 实现） -->
+                <!-- 活动时间 -->
                 <div class="form-group">
-                    <label class="form-label">活动时间</label>
-                    <input type="datetime-local" class="form-input" disabled>
-                    <p class="form-hint">后续实现</p>
+                    <label for="time" class="form-label">活动时间 <span class="form-required">*</span></label>
+                    <input type="datetime-local" id="time" name="time" class="form-input" required>
+                    <p class="form-hint">请选择活动开始的具体日期和时间</p>
                 </div>
 
+                <!-- 活动地点 -->
                 <div class="form-group">
-                    <label class="form-label">活动地点</label>
-                    <input type="text" class="form-input" placeholder="后续实现" disabled>
-                    <p class="form-hint">后续实现</p>
+                    <label for="location" class="form-label">活动地点 <span class="form-required">*</span></label>
+                    <input type="text" id="location" name="location" class="form-input" 
+                           placeholder="例如：西湖文化广场集合" required>
+                    <p class="form-hint">详细地址或集合点</p>
                 </div>
 
+                <!-- 人数上限 -->
                 <div class="form-group">
-                    <label class="form-label">人数上限</label>
-                    <input type="number" class="form-input" placeholder="后续实现" disabled>
-                    <p class="form-hint">后续实现</p>
+                    <label for="max_participants" class="form-label">人数上限</label>
+                    <input type="number" id="max_participants" name="max_participants" 
+                           class="form-input" min="1" max="200" placeholder="例如：20">
+                    <p class="form-hint">留空表示不限制人数</p>
                 </div>
 
+                <!-- 准备事项 -->
                 <div class="form-group">
-                    <label class="form-label">准备事项</label>
-                    <textarea class="form-input" rows="4" placeholder="后续实现" disabled></textarea>
-                    <p class="form-hint">后续实现</p>
+                    <label for="preparation" class="form-label">活动准备事项</label>
+                    <textarea id="preparation" name="preparation" class="form-input" 
+                              rows="4" placeholder="例如：
+1. 携带相机和备用电池
+2. 穿着舒适运动鞋
+3. 自备饮用水"></textarea>
+                    <p class="form-hint">每项一行，支持换行显示</p>
                 </div>
 
                 <!-- 表单按钮 -->
