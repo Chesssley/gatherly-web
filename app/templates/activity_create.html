@@ -47,10 +47,18 @@
 
                 <!-- 人数上限 -->
                 <div class="form-group">
-                    <label for="max_participants" class="form-label">人数上限</label>
+                    <label for="max_participants" class="form-label">人数上限 <span class="form-required">*</span></label>
                     <input type="number" id="max_participants" name="max_participants" 
-                           class="form-input" min="1" max="200" placeholder="例如：20">
-                    <p class="form-hint">留空表示不限制人数</p>
+                           class="form-input" min="1" placeholder="例如：20" required>
+                    <p class="form-hint">设定活动可报名的人数上限</p>
+                </div>
+
+                <!-- 活动费用 -->
+                <div class="form-group">
+                    <label for="fee" class="form-label">活动费用 <span class="form-required">*</span></label>
+                    <input type="text" id="fee" name="fee" class="form-input" 
+                           placeholder="例如：免费 / ¥30 / AA制" required>
+                    <p class="form-hint">填写费用金额或收费方式</p>
                 </div>
 
                 <!-- 准备事项 -->
