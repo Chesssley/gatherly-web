@@ -47,20 +47,64 @@
 
                 <!-- 人数上限 -->
                 <div class="form-group">
-                    <label for="max_participants" class="form-label">人数上限</label>
+                    <label for="max_participants" class="form-label">人数上限 <span class="form-required">*</span></label>
                     <input type="number" id="max_participants" name="max_participants" 
-                           class="form-input" min="1" max="200" placeholder="例如：20">
-                    <p class="form-hint">留空表示不限制人数</p>
+                           class="form-input" min="1" placeholder="例如：20" required>
+                    <p class="form-hint">设定活动可报名的人数上限</p>
+                </div>
+
+                <!-- 活动费用 -->
+                <div class="form-group">
+                    <label for="fee" class="form-label">活动费用 <span class="form-required">*</span></label>
+                    <input type="text" id="fee" name="fee" class="form-input" 
+                           placeholder="例如：免费 / ¥30 / AA制" required>
+                    <p class="form-hint">填写费用金额或收费方式</p>
+                </div>
+
+                <!-- 兴趣标签 -->
+                <div class="form-group">
+                    <span class="form-label">兴趣标签</span>
+                    <div class="tags-grid">
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="胶片摄影">
+                            <span>胶片摄影</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="城市骑行">
+                            <span>城市骑行</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="手冲咖啡">
+                            <span>手冲咖啡</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="独立出版">
+                            <span>独立出版</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="桌游">
+                            <span>桌游</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="徒步">
+                            <span>徒步</span>
+                        </label>
+                        <label class="tag-checkbox">
+                            <input type="checkbox" name="tags[]" value="音乐现场">
+                            <span>音乐现场</span>
+                        </label>
+                    </div>
+                    <p class="form-hint">选择与活动相关的兴趣标签，可多选</p>
                 </div>
 
                 <!-- 准备事项 -->
                 <div class="form-group">
-                    <label for="preparation" class="form-label">活动准备事项</label>
+                    <label for="preparation" class="form-label">活动准备事项 <span class="form-required">*</span></label>
                     <textarea id="preparation" name="preparation" class="form-input" 
                               rows="4" placeholder="例如：
 1. 携带相机和备用电池
 2. 穿着舒适运动鞋
-3. 自备饮用水"></textarea>
+3. 自备饮用水" required></textarea>
                     <p class="form-hint">每项一行，支持换行显示</p>
                 </div>
 
