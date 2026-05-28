@@ -142,8 +142,9 @@ def activity_detail(activity_id):
 
 
 @activity_bp.route("/activities/create")
+@login_required  # 登录校验
 def create_activity():
-    return render_template("create_activity.html")
+    return render_template("activity_create.html")
 
 @activity_bp.route("/activity/<int:activity_id>/register", methods=["POST"])
 def register_activity(activity_id):
