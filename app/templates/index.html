@@ -58,7 +58,7 @@
             <div class="filter-status">
                 {% if selected_tag %}
                 <span>当前正在浏览：{{ selected_tag }}</span>
-                <a href="{{ url_for('activity.index') }}">查看全部活动 / 清除筛选</a>
+                <a href="#" class="clear-filter-link">查看全部活动 / 清除筛选</a>
                 {% else %}
                 <span>当前正在浏览：全部活动</span>
                 {% endif %}

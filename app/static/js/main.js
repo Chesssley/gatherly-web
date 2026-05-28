@@ -84,4 +84,17 @@ document.addEventListener("DOMContentLoaded", () => {
       tagToggle.textContent = isExpanded ? "收起标签" : "展开更多兴趣";
     });
   }
+
+  // US-06-03: 清除筛选链接 — 无刷新跳转到全部
+  const clearFilterLink = document.querySelector(".clear-filter-link");
+  if (clearFilterLink) {
+    clearFilterLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      // 点击"全部"标签，触发筛选切换
+      const allChip = document.querySelector('.interest-chip[data-tag="all"]');
+      if (allChip) {
+        allChip.click();
+      }
+    });
+  }
 });
