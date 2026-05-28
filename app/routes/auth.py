@@ -58,7 +58,7 @@ def login():
 
 @auth_bp.route("/logout")
 def logout():
-"""退出登录，清除 session 并重定向到首页"""
+    """退出登录，清除 session 并重定向到首页"""
     session.clear()
     flash("您已退出登录", "info")
     return redirect(url_for("activity.index"))
