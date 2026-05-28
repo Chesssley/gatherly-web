@@ -24,6 +24,11 @@
                         <p>{{ circle.members }} 位成员</p>
                         <p>{{ circle.activity_count }} 场本月活动</p>
                     </div>
+                    {% if current_user.is_authenticated %}
+                    <a class="button button-small" href="{{ url_for('circle.create_post', circle_id=circle.id) }}" style="margin-top: 12px; width: 100%; text-align: center;">
+                        发布帖子
+                    </a>
+                    {% endif %}
                 </div>
             </article>
             {% endfor %}
