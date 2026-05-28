@@ -3,6 +3,41 @@
 {% block title %}{{ activity.title }} - Gatherly{% endblock %}
 
 {% block content %}
+<style>
+.star-rating {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+}
+.star-rating input {
+    display: none;
+}
+.star-rating label {
+    font-size: 24px;
+    color: #ccc;
+    cursor: pointer;
+    padding: 0 2px;
+}
+.star-rating input:checked ~ label,
+.star-rating label:hover,
+.star-rating label:hover ~ label {
+    color: #ffc107;
+}
+.rating-section {
+    margin-top: 24px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
+}
+.rating-dimension {
+    margin-bottom: 16px;
+}
+.rating-dimension h4 {
+    margin-bottom: 8px;
+    font-size: 16px;
+    color: #333;
+}
+</style>
 <section class="section">
     <div class="container narrow-page">
         <!-- 返回首页 -->
@@ -91,7 +126,7 @@
         </div>
         {% endif %}
 
-        <!-- 活动准备事项 -->
+<!-- 活动准备事项 -->
         <div class="detail-description">
             <h3>活动准备事项</h3>
             {% if preparation %}
@@ -100,6 +135,51 @@
                 <p class="preparation-empty">暂无活动准备事项</p>
             {% endif %}
         </div>
+
+        <!-- 多维度评分 -->
+        {% if can_rate %}
+        <div class="rating-section">
+            <h3>活动评分</h3>
+            <form method="post" action="{{ url_for('activity.submit_rating', activity_id=activity.id) }}">
+                <div class="rating-dimension">
+                    <h4>组织能力</h4>
+                    <div class="star-rating">
+                        <input type="radio" id="org5" name="organization_score" value="5"><label for="org5">★</label>
+                        <input type="radio" id="org4" name="organization_score" value="4"><label for="org4">★</label>
+                        <input type="radio" id="org3" name="organization_score" value="3"><label for="org3">★</label>
+                        <input type="radio" id="org2" name="organization_score" value="2"><label for="org2">★</label>
+                        <input type="radio" id="org1" name="organization_score" value="1"><label for="org1">★</label>
+                    </div>
+                </div>
+                <div class="rating-dimension">
+                    <h4>场地环境</h4>
+                    <div class="star-rating">
+                        <input type="radio" id="venue5" name="venue_score" value="5"><label for="venue5">★</label>
+                        <input type="radio" id="venue4" name="venue_score" value="4"><label for="venue4">★</label>
+                        <input type="radio" id="venue3" name="venue_score" value="3"><label for="venue3">★</label>
+                        <input type="radio" id="venue2" name="venue_score" value="2"><label for="venue2">★</label>
+                        <input type="radio" id="venue1" name="venue_score" value="1"><label for="venue1">★</label>
+                    </div>
+                </div>
+                <div class="rating-dimension">
+                    <h4>活动体验</h4>
+                    <div class="star-rating">
+                        <input type="radio" id="exp5" name="experience_score" value="5"><label for="exp5">★</label>
+                        <input type="radio" id="exp4" name="experience_score" value="4"><label for="exp4">★</label>
+                        <input type="radio" id="exp3" name="experience_score" value="3"><label for="exp3">★</label>
+                        <input type="radio" id="exp2" name="experience_score" value="2"><label for="exp2">★</label>
+                        <input type="radio" id="exp1" name="experience_score" value="1"><label for="exp1">★</label>
+                    </div>
+                </div>
+                <button type="submit" class="btn" style="background-color:#28a745;color:#fff;border:none;padding:10px 24px;border-radius:4px;cursor:pointer;font-size:16px;">提交评分</button>
+            </form>
+        </div>
+        {% endif %}
+        {% if has_rated %}
+        <div class="rating-section">
+            <p style="color:#28a745;font-size:16px;">感谢您的评分！</p>
+        </div>
+        {% endif %}
     </div>
 </section>
 {% endblock %}

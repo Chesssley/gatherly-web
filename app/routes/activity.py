@@ -121,15 +121,24 @@ def activity_detail(activity_id):
         max_participants = db_activity.max_participants if db_activity else None
         preparation = db_activity.preparation if db_activity else None
         user_registered = False
+        has_rated = False
+        can_rate = False
         if "user_id" in session:
             user_registered = Registration.query.filter_by(
                 user_id=session["user_id"], activity_id=activity_id
             ).first() is not None
+            has_rated = Rating.query.filter_by(
+                user_id=session["user_id"], activity_id=activity_id
+            ).first() is not None
+            if not has_rated and user_registered and db_activity and db_activity.start_time:
+                can_rate = db_activity.start_time < datetime.utcnow()
     except Exception:
         registration_count = 0
         max_participants = None
         preparation = None
         user_registered = False
+        has_rated = False
+        can_rate = False
 
     return render_template(
         "activity_detail.html",
@@ -138,6 +147,8 @@ def activity_detail(activity_id):
         max_participants=max_participants,
         preparation=preparation,
         user_registered=user_registered,
+        has_rated=has_rated,
+        can_rate=can_rate,
     )
 
 
@@ -194,5 +205,75 @@ def register_activity(activity_id):
     except Exception as e:
         db.session.rollback()
         flash("报名失败，请稍后重试", "error")
+
+    return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+
+@activity_bp.route("/activity/<int:activity_id>/rate", methods=["POST"])
+def submit_rating(activity_id):
+    """活动多维度评分提交路由"""
+    if "user_id" not in session:
+        flash("请先登录后再评分", "error")
+        return redirect(url_for("auth.login", next=url_for("activity.activity_detail", activity_id=activity_id)))
+
+    activity = next((a for a in activities if a.get("id") == activity_id), None)
+    if activity is None:
+        abort(404)
+
+    user_id = session["user_id"]
+
+    # 重复评分检查
+    existing = Rating.query.filter_by(user_id=user_id, activity_id=activity_id).first()
+    if existing:
+        flash("您已对该活动评过分了", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    # 活动时间检查
+    db_activity = Activity.query.get(activity_id)
+    if db_activity and db_activity.start_time and db_activity.start_time >= datetime.utcnow():
+        flash("活动尚未开始，暂不能评分", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    # 报名状态检查
+    registered = Registration.query.filter_by(user_id=user_id, activity_id=activity_id).first()
+    if not registered:
+        flash("您未报名该活动，无法评分", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    # 获取三维度评分
+    org_score_raw = request.form.get("organization_score", 0)
+    venue_score_raw = request.form.get("venue_score", 0)
+    exp_score_raw = request.form.get("experience_score", 0)
+
+    try:
+        org_score = int(org_score_raw)
+        venue_score = int(venue_score_raw)
+        exp_score = int(exp_score_raw)
+    except (TypeError, ValueError):
+        flash("评分值必须为数字", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    if not (1 <= org_score <= 5 and 1 <= venue_score <= 5 and 1 <= exp_score <= 5):
+        flash("评分值必须在1-5之间", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    avg_score = round((org_score + venue_score + exp_score) / 3, 1)
+
+    rating = Rating(
+        user_id=user_id,
+        activity_id=activity_id,
+        organization_score=org_score,
+        venue_score=venue_score,
+        experience_score=exp_score,
+        average_score=avg_score,
+    )
+
+    try:
+        db.session.add(rating)
+        db.session.commit()
+        flash("评分提交成功，感谢您的反馈！", "success")
+    except Exception:
+        db.session.rollback()
+        flash("评分提交失败，请稍后重试", "error")
 
     return redirect(url_for("activity.activity_detail", activity_id=activity_id))
