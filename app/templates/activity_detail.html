@@ -90,6 +90,16 @@
             <p>{{ activity.description or activity.detail }}</p>
         </div>
         {% endif %}
+
+        <!-- 活动准备事项 -->
+        <div class="detail-description">
+            <h3>活动准备事项</h3>
+            {% if preparation %}
+                <p class="preparation-content">{{ preparation }}</p>
+            {% else %}
+                <p class="preparation-empty">暂无活动准备事项</p>
+            {% endif %}
+        </div>
     </div>
 </section>
 {% endblock %}

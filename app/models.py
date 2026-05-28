@@ -35,6 +35,7 @@ class Activity(db.Model):
     status = db.Column(db.String(20), default="open", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     organizer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    preparation = db.Column(db.Text)  # 活动准备事项
 
     organizer = db.relationship("User", back_populates="activities")
     registrations = db.relationship("Registration", back_populates="activity")

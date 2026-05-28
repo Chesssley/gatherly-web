@@ -20,6 +20,7 @@
                     <h3 class="card-title">{{ circle.name }}</h3>
                     <p class="circle-description">{{ circle.description }}</p>
                     <div class="card-meta circle-meta">
+                        <p>{{ circle.post_count | default(0) }} 帖子</p>
                         <p>{{ circle.members }} 位成员</p>
                         <p>{{ circle.activity_count }} 场本月活动</p>
                     </div>
