@@ -119,6 +119,7 @@ def activity_detail(activity_id):
         registration_count = Registration.query.filter_by(activity_id=activity_id).count()
         db_activity = Activity.query.get(activity_id)
         max_participants = db_activity.max_participants if db_activity else None
+        preparation = db_activity.preparation if db_activity else None
         user_registered = False
         if "user_id" in session:
             user_registered = Registration.query.filter_by(
@@ -127,6 +128,7 @@ def activity_detail(activity_id):
     except Exception:
         registration_count = 0
         max_participants = None
+        preparation = None
         user_registered = False
 
     return render_template(
@@ -134,6 +136,7 @@ def activity_detail(activity_id):
         activity=activity,
         registration_count=registration_count,
         max_participants=max_participants,
+        preparation=preparation,
         user_registered=user_registered,
     )
 
