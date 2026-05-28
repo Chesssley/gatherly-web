@@ -34,11 +34,16 @@ def login():
             (User.username == identifier) | (User.email == identifier)
         ).first()
 
-        if not user or not check_password_hash(user.password, password):
+        if not user:
             flash("账号、邮箱或密码错误", "error")
             return render_template("login.html")
 
-        # 登录成功：写入 session
+        # 验证密码
+        if not check_password_hash(user.password, password):
+            flash("账号、邮箱或密码错误", "error")
+            return render_template("login.html")
+
+        # 登录成功，写入 session
         session.clear()
         session["user_id"] = user.id
         session["nickname"] = user.nickname or user.username
@@ -53,9 +58,9 @@ def login():
 
 @auth_bp.route("/logout")
 def logout():
-    """登出：清除 session 并重定向首页"""
+"""退出登录，清除 session 并重定向到首页"""
     session.clear()
-    flash("已退出登录", "info")
+    flash("您已退出登录", "info")
     return redirect(url_for("activity.index"))
 
 
