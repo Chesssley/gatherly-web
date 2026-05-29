@@ -150,13 +150,43 @@ class UserReview(db.Model):
             "reviewee_id",
             name="uq_user_review_activity_reviewer_reviewee",
         ),
+        db.CheckConstraint(
+            "punctuality_score BETWEEN 1 AND 5",
+            name="ck_user_review_punctuality_score_range",
+        ),
+        db.CheckConstraint(
+            "friendliness_score BETWEEN 1 AND 5",
+            name="ck_user_review_friendliness_score_range",
+        ),
+        db.CheckConstraint(
+            "communication_score BETWEEN 1 AND 5",
+            name="ck_user_review_communication_score_range",
+        ),
+        db.CheckConstraint(
+            "reliability_score BETWEEN 1 AND 5",
+            name="ck_user_review_reliability_score_range",
+        ),
+        db.CheckConstraint(
+            "respect_score BETWEEN 1 AND 5",
+            name="ck_user_review_respect_score_range",
+        ),
+        db.CheckConstraint(
+            "safety_score BETWEEN 1 AND 5",
+            name="ck_user_review_safety_score_range",
+        ),
     )
 
     id = db.Column(db.Integer, primary_key=True)
     activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
     reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     reviewee_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    rating = db.Column(db.Integer, nullable=False)
+    punctuality_score = db.Column(db.Integer, nullable=False)
+    friendliness_score = db.Column(db.Integer, nullable=False)
+    communication_score = db.Column(db.Integer, nullable=False)
+    reliability_score = db.Column(db.Integer, nullable=False)
+    respect_score = db.Column(db.Integer, nullable=False)
+    safety_score = db.Column(db.Integer, nullable=False)
+    average_score = db.Column(db.Float, nullable=False)
     comment = db.Column(db.Text)
     status = db.Column(db.String(20), default="published", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

@@ -4,7 +4,16 @@ from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
-from app.models import db, Activity, ActivityReview, Registration, activities
+from app.models import (
+    db,
+    Activity,
+    ActivityReview,
+    Registration,
+    TrustScoreLog,
+    User,
+    UserReview,
+    activities,
+)
 
 def login_required(f):
     """登录态检查装饰器，未登录重定向到登录页"""
@@ -21,6 +30,16 @@ activity_bp = Blueprint("activity", __name__)
 
 
 RATING_ELIGIBLE_STATUSES = {"attended", "completed"}
+TRUST_SCORE_THRESHOLD = 60
+
+USER_REVIEW_FIELDS = (
+    "punctuality_score",
+    "friendliness_score",
+    "communication_score",
+    "reliability_score",
+    "respect_score",
+    "safety_score",
+)
 
 OFFICIAL_INTEREST_TAGS = [
     "影像摄影",
@@ -68,6 +87,51 @@ def _parse_rating_score(field_name):
     if score < 1 or score > 5:
         raise ValueError("out_of_range")
     return score
+
+
+def _activity_has_ended(activity):
+    return bool(activity and activity.start_time and activity.start_time < datetime.utcnow())
+
+
+def _is_activity_participant(user_id, activity_id):
+    return (
+        Registration.query.filter(
+            Registration.user_id == user_id,
+            Registration.activity_id == activity_id,
+            Registration.status.in_(RATING_ELIGIBLE_STATUSES),
+        ).first()
+        is not None
+    )
+
+
+def _recalculate_user_trust_score(user, changed_by_id, related_review_id):
+    score_avg = (
+        db.session.query(func.avg(UserReview.average_score))
+        .filter(
+            UserReview.reviewee_id == user.id,
+            UserReview.status == "published",
+        )
+        .scalar()
+    )
+    if score_avg is None:
+        return
+
+    score_before = int(user.trust_score or 0)
+    score_after = max(0, min(100, int(round(float(score_avg) * 20))))
+    user.trust_score = score_after
+    db.session.add(
+        TrustScoreLog(
+            user_id=user.id,
+            changed_by_id=changed_by_id,
+            change_type="user_review",
+            delta=score_after - score_before,
+            score_before=score_before,
+            score_after=score_after,
+            reason="Trust score recalculated from received user reviews.",
+            related_type="user_review",
+            related_id=related_review_id,
+        )
+    )
 
 
 def _get_rating_stats(activity_id):
@@ -191,11 +255,57 @@ def activity_detail(activity_id):
             rating_notice = "您已提交过评分，不能重复评分。"
         elif not db_activity or not db_activity.start_time:
             rating_notice = "活动时间未确认，暂不能评分。"
-        elif db_activity.start_time >= datetime.utcnow():
+        elif not _activity_has_ended(db_activity):
             rating_notice = "活动尚未结束，暂不能评分。"
         else:
             can_rate = True
             rating_notice = ""
+
+    can_user_review = False
+    user_review_notice = "Log in and attend this activity before reviewing other participants."
+    user_review_candidates = []
+
+    if "user_id" in session:
+        user_id = session["user_id"]
+        if not user_attended:
+            user_review_notice = "Only actual participants can review other participants."
+        elif not _activity_has_ended(db_activity):
+            user_review_notice = "Participant reviews open after the activity has ended."
+        else:
+            reviewed_user_ids = {
+                review.reviewee_id
+                for review in UserReview.query.filter_by(
+                    activity_id=activity_id,
+                    reviewer_id=user_id,
+                ).all()
+            }
+            participant_rows = (
+                db.session.query(User)
+                .join(Registration, Registration.user_id == User.id)
+                .filter(
+                    Registration.activity_id == activity_id,
+                    Registration.status.in_(RATING_ELIGIBLE_STATUSES),
+                    User.id != user_id,
+                )
+                .order_by(User.username.asc())
+                .all()
+            )
+            user_review_candidates = [
+                {
+                    "user": participant,
+                    "has_reviewed": participant.id in reviewed_user_ids,
+                }
+                for participant in participant_rows
+            ]
+            can_user_review = any(
+                not candidate["has_reviewed"] for candidate in user_review_candidates
+            )
+            if not user_review_candidates:
+                user_review_notice = "No other attended participants are available for review."
+            elif not can_user_review:
+                user_review_notice = "You have reviewed all available participants for this activity."
+            else:
+                user_review_notice = ""
 
     return render_template(
         "activity_detail.html",
@@ -208,12 +318,23 @@ def activity_detail(activity_id):
         can_rate=can_rate,
         rating_notice=rating_notice,
         rating_stats=rating_stats,
+        can_user_review=can_user_review,
+        user_review_candidates=user_review_candidates,
+        user_review_notice=user_review_notice,
     )
 
 
 @activity_bp.route("/activities/create")
 @login_required  # 登录校验
 def create_activity():
+    current_user = User.query.get(session["user_id"])
+    if (
+        current_user
+        and current_user.role != "admin"
+        and current_user.trust_score < TRUST_SCORE_THRESHOLD
+    ):
+        flash("Your trust score is below 60, so you cannot create activities yet.", "error")
+        return redirect(url_for("activity.index"))
     return render_template("activity_create.html")
 
 @activity_bp.route("/activity/<int:activity_id>/register", methods=["POST"])
@@ -286,7 +407,7 @@ def submit_rating(activity_id):
         flash("活动时间未确认，暂不能评分", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
-    if db_activity.start_time >= datetime.utcnow():
+    if not _activity_has_ended(db_activity):
         flash("活动尚未结束，暂不能评分", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
@@ -343,5 +464,83 @@ def submit_rating(activity_id):
     except Exception:
         db.session.rollback()
         flash("评分提交失败，请稍后重试", "error")
+
+    return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+
+@activity_bp.route("/activity/<int:activity_id>/user-reviews", methods=["POST"])
+def submit_user_review(activity_id):
+    if "user_id" not in session:
+        flash("Please log in before reviewing participants.", "error")
+        return redirect(url_for("auth.login", next=url_for("activity.activity_detail", activity_id=activity_id)))
+
+    activity = next((a for a in activities if a.get("id") == activity_id), None)
+    if activity is None:
+        abort(404)
+
+    db_activity = Activity.query.get(activity_id)
+    if not _activity_has_ended(db_activity):
+        flash("Participant reviews are only available after the activity ends.", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    reviewer_id = session["user_id"]
+    try:
+        reviewee_id = int(request.form.get("reviewee_id", ""))
+    except (TypeError, ValueError):
+        flash("Please choose a valid participant to review.", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    if reviewer_id == reviewee_id:
+        flash("You cannot review yourself.", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    if not _is_activity_participant(reviewer_id, activity_id):
+        flash("Only actual participants can submit participant reviews.", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    reviewee = User.query.get(reviewee_id)
+    if not reviewee or not _is_activity_participant(reviewee_id, activity_id):
+        flash("The reviewed user must be an actual participant in this activity.", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    existing = UserReview.query.filter_by(
+        activity_id=activity_id,
+        reviewer_id=reviewer_id,
+        reviewee_id=reviewee_id,
+    ).first()
+    if existing:
+        flash("You have already reviewed this participant for this activity.", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    try:
+        scores = {field: _parse_rating_score(field) for field in USER_REVIEW_FIELDS}
+    except (TypeError, ValueError):
+        flash("Each participant review score must be an integer from 1 to 5.", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    average_score = round(sum(scores.values()) / len(scores), 1)
+    comment = request.form.get("comment", "").strip()
+
+    user_review = UserReview(
+        activity_id=activity_id,
+        reviewer_id=reviewer_id,
+        reviewee_id=reviewee_id,
+        average_score=average_score,
+        comment=comment or None,
+        **scores,
+    )
+
+    try:
+        db.session.add(user_review)
+        db.session.flush()
+        _recalculate_user_trust_score(reviewee, reviewer_id, user_review.id)
+        db.session.commit()
+        flash("Participant review submitted.", "success")
+    except IntegrityError:
+        db.session.rollback()
+        flash("You have already reviewed this participant for this activity.", "error")
+    except Exception:
+        db.session.rollback()
+        flash("Participant review submission failed. Please try again later.", "error")
 
     return redirect(url_for("activity.activity_detail", activity_id=activity_id))
