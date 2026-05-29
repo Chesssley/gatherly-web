@@ -166,6 +166,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-reply-toggle]").forEach(button => {
+    button.addEventListener("click", () => {
+      const form = document.getElementById(button.dataset.replyToggle);
+      if (!form) {
+        return;
+      }
+
+      form.classList.toggle("is-hidden");
+      const textarea = form.querySelector("textarea");
+      if (!form.classList.contains("is-hidden") && textarea) {
+        textarea.focus();
+      }
+    });
+  });
+
   document.querySelectorAll(".circle-file-input[data-file-count-target]").forEach(input => {
     const target = document.getElementById(input.dataset.fileCountTarget);
     if (!target) {

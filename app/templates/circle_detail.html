@@ -3,6 +3,96 @@
 {% block title %}{{ circle.name }} - Gatherly{% endblock %}
 
 {% block content %}
+{% macro render_comment_thread(comment_item, post, circle, current_user) %}
+{% set comment = comment_item.comment %}
+<div class="comment-item {% if comment.parent_id %}comment-reply comment-level-{{ comment_item.depth }}{% endif %}" id="comment-{{ comment.id }}">
+    {% if comment_item.is_deleted %}
+    <p class="comment-deleted">该评论已删除</p>
+    {% else %}
+    <a class="profile-link" href="{{ url_for('profile.view_profile', user_id=comment.author.id) }}">
+        {% if comment.author.avatar %}
+        <img class="avatar-small" src="{{ comment.author.avatar }}" alt="{{ comment.author.nickname or comment.author.username }}">
+        {% else %}
+        <span class="avatar-small avatar-placeholder">{{ (comment.author.nickname or comment.author.username)[:1] }}</span>
+        {% endif %}
+        <strong>{{ comment.author.nickname or comment.author.username }}</strong>
+    </a>
+    {% if comment.content|trim %}
+    <p>{{ comment.content }}</p>
+    {% endif %}
+    {% if comment.images %}
+    <div class="circle-image-grid comment-image-grid">
+        {% for image in comment.images %}
+        <a href="{{ url_for('static', filename=image.image_path) }}" target="_blank" rel="noopener">
+            <img src="{{ url_for('static', filename=image.image_path) }}" alt="评论图片 {{ loop.index }}">
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <div class="comment-action-bar" aria-label="评论操作">
+        {% if current_user %}
+        <form method="POST" action="{{ url_for('circle.interact_comment', circle_id=circle.id, comment_id=comment.id, action='like') }}">
+            <button class="circle-action-button comment-action-button {% if comment_item.states.like %}is-active{% endif %}" type="submit">
+                {% if comment_item.states.like %}已点赞{% else %}点赞{% endif %} {{ comment_item.counts.like }}
+            </button>
+        </form>
+        <form method="POST" action="{{ url_for('circle.interact_comment', circle_id=circle.id, comment_id=comment.id, action='favorite') }}">
+            <button class="circle-action-button comment-action-button {% if comment_item.states.favorite %}is-active{% endif %}" type="submit">
+                {% if comment_item.states.favorite %}已收藏{% else %}收藏{% endif %} {{ comment_item.counts.favorite }}
+            </button>
+        </form>
+        <button class="circle-action-button comment-action-button" type="button" data-reply-toggle="reply-form-{{ comment.id }}">回复</button>
+        {% if comment_item.can_delete %}
+        <form method="POST" action="{{ url_for('circle.delete_comment', comment_id=comment.id) }}" onsubmit="return confirm('确定删除这条评论吗？');">
+            <button class="circle-action-button comment-action-button circle-delete-button" type="submit">删除</button>
+        </form>
+        {% endif %}
+        {% else %}
+        <button class="circle-action-button comment-action-button" type="button" data-login-required>点赞 {{ comment_item.counts.like }}</button>
+        <button class="circle-action-button comment-action-button" type="button" data-login-required>收藏 {{ comment_item.counts.favorite }}</button>
+        <button class="circle-action-button comment-action-button" type="button" data-login-required>回复</button>
+        {% endif %}
+    </div>
+
+    {% if current_user %}
+    <form
+        class="circle-comment-form comment-reply-form is-hidden"
+        id="reply-form-{{ comment.id }}"
+        method="POST"
+        action="{{ url_for('circle.comment_post', circle_id=circle.id, post_id=post.id) }}"
+        enctype="multipart/form-data"
+    >
+        <input type="hidden" name="parent_id" value="{{ comment.id }}">
+        <label class="form-label" for="reply-content-{{ comment.id }}">回复 {{ comment.author.nickname or comment.author.username }}</label>
+        <textarea class="form-input" id="reply-content-{{ comment.id }}" name="content" rows="2"></textarea>
+        <div class="file-upload-control">
+            <input
+                class="circle-file-input"
+                type="file"
+                id="reply-images-{{ comment.id }}"
+                name="images"
+                accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                data-file-count-target="reply-image-count-{{ comment.id }}"
+            >
+            <label class="file-upload-button" for="reply-images-{{ comment.id }}">选择图片</label>
+            <span class="file-upload-count" id="reply-image-count-{{ comment.id }}">未选择图片</span>
+        </div>
+        <button class="button button-small" type="submit">发布回复</button>
+    </form>
+    {% endif %}
+    {% endif %}
+
+    {% if comment_item.replies %}
+    <div class="comment-replies">
+        {% for reply_item in comment_item.replies %}
+        {{ render_comment_thread(reply_item, post, circle, current_user) }}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}
+
 <section class="section">
     <div class="container">
         <div class="page-title">
@@ -90,51 +180,7 @@
 
                     <div class="comment-list">
                         {% for comment_item in item.comments %}
-                        {% set comment = comment_item.comment %}
-                        <div class="comment-item" id="comment-{{ comment.id }}">
-                            <a class="profile-link" href="{{ url_for('profile.view_profile', user_id=comment.author.id) }}">
-                                {% if comment.author.avatar %}
-                                <img class="avatar-small" src="{{ comment.author.avatar }}" alt="{{ comment.author.nickname or comment.author.username }}">
-                                {% else %}
-                                <span class="avatar-small avatar-placeholder">{{ (comment.author.nickname or comment.author.username)[:1] }}</span>
-                                {% endif %}
-                                <strong>{{ comment.author.nickname or comment.author.username }}</strong>
-                            </a>
-                            {% if comment.content|trim %}
-                            <p>{{ comment.content }}</p>
-                            {% endif %}
-                            {% if comment.images %}
-                            <div class="circle-image-grid comment-image-grid">
-                                {% for image in comment.images %}
-                                <a href="{{ url_for('static', filename=image.image_path) }}" target="_blank" rel="noopener">
-                                    <img src="{{ url_for('static', filename=image.image_path) }}" alt="评论图片 {{ loop.index }}">
-                                </a>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-                            <div class="comment-action-bar" aria-label="评论操作">
-                                {% if current_user %}
-                                <form method="POST" action="{{ url_for('circle.interact_comment', circle_id=circle.id, comment_id=comment.id, action='like') }}">
-                                    <button class="circle-action-button comment-action-button {% if comment_item.states.like %}is-active{% endif %}" type="submit">
-                                        {% if comment_item.states.like %}已点赞{% else %}点赞{% endif %} {{ comment_item.counts.like }}
-                                    </button>
-                                </form>
-                                <form method="POST" action="{{ url_for('circle.interact_comment', circle_id=circle.id, comment_id=comment.id, action='favorite') }}">
-                                    <button class="circle-action-button comment-action-button {% if comment_item.states.favorite %}is-active{% endif %}" type="submit">
-                                        {% if comment_item.states.favorite %}已收藏{% else %}收藏{% endif %} {{ comment_item.counts.favorite }}
-                                    </button>
-                                </form>
-                                {% if comment_item.can_delete %}
-                                <form method="POST" action="{{ url_for('circle.delete_comment', comment_id=comment.id) }}" onsubmit="return confirm('确定删除这条评论吗？');">
-                                    <button class="circle-action-button comment-action-button circle-delete-button" type="submit">删除</button>
-                                </form>
-                                {% endif %}
-                                {% else %}
-                                <button class="circle-action-button comment-action-button" type="button" data-login-required>点赞 {{ comment_item.counts.like }}</button>
-                                <button class="circle-action-button comment-action-button" type="button" data-login-required>收藏 {{ comment_item.counts.favorite }}</button>
-                                {% endif %}
-                            </div>
-                        </div>
+                        {{ render_comment_thread(comment_item, post, circle, current_user) }}
                         {% endfor %}
                     </div>
 

@@ -101,6 +101,17 @@ def _ensure_post_status_column():
         db.session.commit()
 
 
+def _ensure_comment_parent_column():
+    if db.engine.dialect.name != "sqlite":
+        return
+
+    rows = db.session.execute(text("PRAGMA table_info(comment)")).fetchall()
+    existing_columns = {row[1] for row in rows}
+    if "parent_id" not in existing_columns:
+        db.session.execute(text("ALTER TABLE comment ADD COLUMN parent_id INTEGER"))
+        db.session.commit()
+
+
 def _allowed_image(filename):
     if "." not in filename:
         return False
@@ -136,6 +147,7 @@ def _sync_system_circles():
         _ensure_circle_columns()
         _ensure_circle_image_tables()
         _ensure_post_status_column()
+        _ensure_comment_parent_column()
         for circle in Circle.query.filter_by(is_system=True).all():
             circle.name = _strip_official_suffix(circle.name)
 
@@ -324,6 +336,54 @@ def _toggle_interaction(user_id, target_type, target_id, action):
     return "unchanged"
 
 
+def _build_comment_item(comment, current_user, circle, replies_by_parent, depth=0):
+    is_published = comment.status == "published"
+    return {
+        "comment": comment,
+        "is_deleted": not is_published,
+        "depth": min(depth, 3),
+        "counts": _interaction_counts("comment", comment.id) if is_published else {"like": 0, "favorite": 0},
+        "states": (
+            _user_interaction_states(
+                current_user.id if current_user else None,
+                "comment",
+                comment.id,
+            )
+            if is_published
+            else {"like": False, "favorite": False}
+        ),
+        "can_delete": (
+            is_published
+            and _can_manage_circle_content(current_user, circle, comment.author_id)
+        ),
+        "replies": [
+            _build_comment_item(reply, current_user, circle, replies_by_parent, depth + 1)
+            for reply in replies_by_parent.get(comment.id, [])
+            if reply.status == "published"
+        ],
+    }
+
+
+def _build_comment_threads(comments, current_user, circle):
+    replies_by_parent = {}
+    for comment in comments:
+        if comment.parent_id is not None:
+            replies_by_parent.setdefault(comment.parent_id, []).append(comment)
+
+    root_comments = []
+    for comment in comments:
+        if comment.parent_id is not None:
+            continue
+        has_visible_replies = any(
+            reply.status == "published"
+            for reply in replies_by_parent.get(comment.id, [])
+        )
+        if comment.status == "published" or has_visible_replies:
+            root_comments.append(_build_comment_item(comment, current_user, circle, replies_by_parent))
+
+    return root_comments
+
+
 @circle_bp.route("/circles")
 def circles():
     _sync_system_circles()
@@ -395,6 +455,7 @@ def circle_detail(circle_id):
         flash("该圈子还未完成初始化，请刷新后重试。", "error")
         return redirect(url_for("circle.circles"))
 
+    _ensure_comment_parent_column()
     posts = (
         Post.query.filter_by(circle_id=circle.id, status="published")
         .order_by(Post.created_at.desc())
@@ -404,7 +465,7 @@ def circle_detail(circle_id):
     post_items = []
     for post in posts:
         comments = (
-            Comment.query.filter_by(post_id=post.id, status="published")
+            Comment.query.filter_by(post_id=post.id)
             .order_by(Comment.created_at.asc())
             .all()
         )
@@ -418,19 +479,7 @@ def circle_detail(circle_id):
                     post.id,
                 ),
                 "can_delete": _can_manage_circle_content(current_user, circle, post.user_id),
-                "comments": [
-                    {
-                        "comment": comment,
-                        "counts": _interaction_counts("comment", comment.id),
-                        "states": _user_interaction_states(
-                            current_user.id if current_user else None,
-                            "comment",
-                            comment.id,
-                        ),
-                        "can_delete": _can_manage_circle_content(current_user, circle, comment.author_id),
-                    }
-                    for comment in comments
-                ],
+                "comments": _build_comment_threads(comments, current_user, circle),
             }
         )
     return render_template(
@@ -519,8 +568,21 @@ def comment_post(circle_id, post_id):
 
     _ensure_circle_image_tables()
     _ensure_post_status_column()
+    _ensure_comment_parent_column()
     post = Post.query.filter_by(id=post_id, circle_id=circle_id, status="published").first_or_404()
     content = request.form.get("content", "").strip()
+    parent_id = request.form.get("parent_id", type=int)
+    parent_comment = None
+    if parent_id:
+        parent_comment = Comment.query.filter_by(
+            id=parent_id,
+            post_id=post.id,
+            status="published",
+        ).first()
+        if parent_comment is None:
+            flash("无法回复不存在或已删除的评论。", "error")
+            return redirect(url_for("circle.circle_detail", circle_id=post.circle_id, _anchor=f"post-{post.id}"))
+
     try:
         image_paths = _save_uploaded_images(request.files.getlist("images"))
     except ValueError as exc:
@@ -531,14 +593,19 @@ def comment_post(circle_id, post_id):
         flash("评论内容不能为空。", "error")
         return redirect(url_for("circle.circle_detail", circle_id=post.circle_id))
 
-    comment = Comment(author_id=user.id, post_id=post.id, content=content or " ")
+    comment = Comment(
+        author_id=user.id,
+        post_id=post.id,
+        parent_id=parent_comment.id if parent_comment else None,
+        content=content or " ",
+    )
     db.session.add(comment)
     db.session.flush()
     for image_path in image_paths:
         db.session.add(CommentImage(comment_id=comment.id, image_path=image_path))
     db.session.commit()
-    flash("评论已发布。", "success")
-    return redirect(url_for("circle.circle_detail", circle_id=post.circle_id))
+    flash("回复已发布。" if parent_comment else "评论已发布。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=post.circle_id, _anchor=f"comment-{comment.id}"))
 
 
 @circle_bp.route("/circle/post/<int:post_id>/delete", methods=["POST"])
