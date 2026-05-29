@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}{{ circle.name }} - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="container">
+        <div class="page-title">
+            <p class="eyebrow">{{ circle.tag or "Circle" }}</p>
+            <h1>{{ circle.name }}</h1>
+            <p>{{ circle.description }}</p>
+            <div class="card-meta circle-meta">
+                <p>{{ circle.member_count }} 位成员</p>
+                <p>{{ circle.post_count | default(0) }} 篇帖子</p>
+                <p>{{ circle.active_level }}</p>
+            </div>
+
+            {% if current_user %}
+                {% if is_member %}
+                <a class="button" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">发布帖子</a>
+                {% else %}
+                <form method="POST" action="{{ url_for('circle.join_circle', circle_id=circle.id) }}" style="display: inline;">
+                    <button class="button" type="submit">加入圈子</button>
+                </form>
+                <p class="circle-description">加入后可以发帖；未加入时仍可评论、点赞、收藏和转发。</p>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        {% if posts %}
+        <div class="post-list">
+            {% for item in posts %}
+            {% set post = item.post %}
+            <article class="activity-card circle-post" id="post-{{ post.id }}">
+                <div class="card-body">
+                    <div class="post-author">
+                        <a class="profile-link" href="{{ url_for('profile.view_profile', user_id=post.user.id) }}">
+                            {% if post.user.avatar %}
+                            <img class="avatar-small" src="{{ post.user.avatar }}" alt="{{ post.user.nickname or post.user.username }}">
+                            {% else %}
+                            <span class="avatar-small avatar-placeholder">{{ (post.user.nickname or post.user.username)[:1] }}</span>
+                            {% endif %}
+                            <span>{{ post.user.nickname or post.user.username }}</span>
+                        </a>
+                        <span class="tag">{{ post.type }}</span>
+                    </div>
+                    <h2 class="card-title">{{ post.title }}</h2>
+                    <p class="circle-description">{{ post.content }}</p>
+
+                    {% if post.images %}
+                    <div class="circle-image-grid">
+                        {% for image in post.images %}
+                        <a href="{{ url_for('static', filename=image.image_path) }}" target="_blank" rel="noopener">
+                            <img src="{{ url_for('static', filename=image.image_path) }}" alt="{{ post.title }} 图片 {{ loop.index }}">
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="circle-action-bar" aria-label="帖子操作">
+                        {% if current_user %}
+                        <form method="POST" action="{{ url_for('circle.interact_post', circle_id=circle.id, post_id=post.id, action='like') }}">
+                            <button class="circle-action-button {% if item.states.like %}is-active{% endif %}" type="submit">
+                                {% if item.states.like %}已点赞{% else %}点赞{% endif %} {{ item.counts.like }}
+                            </button>
+                        </form>
+                        <button class="circle-action-button" type="button" data-comment-focus="comment-{{ post.id }}">评论</button>
+                        <form method="POST" action="{{ url_for('circle.interact_post', circle_id=circle.id, post_id=post.id, action='favorite') }}">
+                            <button class="circle-action-button {% if item.states.favorite %}is-active{% endif %}" type="submit">
+                                {% if item.states.favorite %}已收藏{% else %}收藏{% endif %} {{ item.counts.favorite }}
+                            </button>
+                        </form>
+                        <button
+                            class="circle-action-button circle-share-button"
+                            type="button"
+                            data-share-url="{{ url_for('circle.circle_detail', circle_id=circle.id, _anchor='post-' ~ post.id) }}"
+                        >转发</button>
+                        {% if item.can_delete %}
+                        <form method="POST" action="{{ url_for('circle.delete_post', post_id=post.id) }}" onsubmit="return confirm('确定删除这篇帖子吗？');">
+                            <button class="circle-action-button circle-delete-button" type="submit">删除</button>
+                        </form>
+                        {% endif %}
+                        {% else %}
+                        <button class="circle-action-button" type="button" data-login-required>点赞 {{ item.counts.like }}</button>
+                        <button class="circle-action-button" type="button" data-login-required>评论</button>
+                        <button class="circle-action-button" type="button" data-login-required>收藏 {{ item.counts.favorite }}</button>
+                        <button class="circle-action-button" type="button" data-login-required>转发</button>
+                        {% endif %}
+                    </div>
+
+                    <div class="comment-list">
+                        {% for comment_item in item.comments %}
+                        {% set comment = comment_item.comment %}
+                        <div class="comment-item" id="comment-{{ comment.id }}">
+                            <a class="profile-link" href="{{ url_for('profile.view_profile', user_id=comment.author.id) }}">
+                                {% if comment.author.avatar %}
+                                <img class="avatar-small" src="{{ comment.author.avatar }}" alt="{{ comment.author.nickname or comment.author.username }}">
+                                {% else %}
+                                <span class="avatar-small avatar-placeholder">{{ (comment.author.nickname or comment.author.username)[:1] }}</span>
+                                {% endif %}
+                                <strong>{{ comment.author.nickname or comment.author.username }}</strong>
+                            </a>
+                            {% if comment.content|trim %}
+                            <p>{{ comment.content }}</p>
+                            {% endif %}
+                            {% if comment.images %}
+                            <div class="circle-image-grid comment-image-grid">
+                                {% for image in comment.images %}
+                                <a href="{{ url_for('static', filename=image.image_path) }}" target="_blank" rel="noopener">
+                                    <img src="{{ url_for('static', filename=image.image_path) }}" alt="评论图片 {{ loop.index }}">
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <div class="comment-action-bar" aria-label="评论操作">
+                                {% if current_user %}
+                                <form method="POST" action="{{ url_for('circle.interact_comment', circle_id=circle.id, comment_id=comment.id, action='like') }}">
+                                    <button class="circle-action-button comment-action-button {% if comment_item.states.like %}is-active{% endif %}" type="submit">
+                                        {% if comment_item.states.like %}已点赞{% else %}点赞{% endif %} {{ comment_item.counts.like }}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('circle.interact_comment', circle_id=circle.id, comment_id=comment.id, action='favorite') }}">
+                                    <button class="circle-action-button comment-action-button {% if comment_item.states.favorite %}is-active{% endif %}" type="submit">
+                                        {% if comment_item.states.favorite %}已收藏{% else %}收藏{% endif %} {{ comment_item.counts.favorite }}
+                                    </button>
+                                </form>
+                                {% if comment_item.can_delete %}
+                                <form method="POST" action="{{ url_for('circle.delete_comment', comment_id=comment.id) }}" onsubmit="return confirm('确定删除这条评论吗？');">
+                                    <button class="circle-action-button comment-action-button circle-delete-button" type="submit">删除</button>
+                                </form>
+                                {% endif %}
+                                {% else %}
+                                <button class="circle-action-button comment-action-button" type="button" data-login-required>点赞 {{ comment_item.counts.like }}</button>
+                                <button class="circle-action-button comment-action-button" type="button" data-login-required>收藏 {{ comment_item.counts.favorite }}</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if current_user %}
+                    <form
+                        class="circle-comment-form"
+                        method="POST"
+                        action="{{ url_for('circle.comment_post', circle_id=circle.id, post_id=post.id) }}"
+                        enctype="multipart/form-data"
+                    >
+                        <label class="form-label" for="comment-{{ post.id }}">发表评论</label>
+                        <textarea class="form-input" id="comment-{{ post.id }}" name="content" rows="3"></textarea>
+                        <label class="form-label" for="comment-images-{{ post.id }}">评论图片</label>
+                        <div class="file-upload-control">
+                            <input
+                                class="circle-file-input"
+                                type="file"
+                                id="comment-images-{{ post.id }}"
+                                name="images"
+                                accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
+                                multiple
+                                data-file-count-target="comment-image-count-{{ post.id }}"
+                            >
+                            <label class="file-upload-button" for="comment-images-{{ post.id }}">选择图片</label>
+                            <span class="file-upload-count" id="comment-image-count-{{ post.id }}">未选择图片</span>
+                        </div>
+                        <button class="button button-small" type="submit">发布评论</button>
+                    </form>
+                    {% else %}
+                    <div class="login-prompt">
+                        <p>登录或注册后可以评论、点赞、收藏和转发。</p>
+                        <a class="button button-small" href="{{ url_for('auth.login', next=request.url) }}">登录</a>
+                        <a class="button button-small button-secondary" href="{{ url_for('auth.register') }}">注册</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>这个圈子还没有帖子。</p>
+            {% if current_user and is_member %}
+            <a class="button" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">发布第一篇帖子</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if not current_user %}
+        <div class="login-prompt">
+            <p>登录或注册后可以参与同好圈互动。</p>
+            <a class="button button-small" href="{{ url_for('auth.login', next=request.url) }}">登录</a>
+            <a class="button button-small button-secondary" href="{{ url_for('auth.register') }}">注册</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

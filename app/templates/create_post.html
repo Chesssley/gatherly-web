@@ -6,9 +6,10 @@
 <section class="section narrow-page">
   <p class="eyebrow">New Post</p>
   <h1>发布帖子</h1>
+  <p class="circle-description">发布到 {{ circle.name }}</p>
 
   <div class="form-card">
-    <form method="POST" action="">
+    <form method="POST" action="" enctype="multipart/form-data">
       <div style="margin-bottom: 20px;">
         <label class="form-label" for="title">帖子标题</label>
         <input
@@ -35,18 +36,26 @@
       </div>
 
       <div style="margin-bottom: 24px;">
-        <label class="form-label" for="type">帖子类型</label>
-        <select class="form-input" id="type" name="type">
-          <option value="share">经验分享</option>
-          <option value="question">提问求助</option>
-          <option value="meetup">临时约伴</option>
-        </select>
+        <label class="form-label" for="images">帖子图片</label>
+        <div class="file-upload-control">
+          <input
+            class="circle-file-input"
+            type="file"
+            id="images"
+            name="images"
+            accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            data-file-count-target="post-image-count"
+          >
+          <label class="file-upload-button" for="images">选择图片</label>
+          <span class="file-upload-count" id="post-image-count">未选择图片</span>
+        </div>
+        <p class="form-hint">可上传多张 jpg、jpeg、png、webp、gif 图片。</p>
       </div>
 
       <button class="button" type="submit">发布帖子</button>
+      <a class="button button-secondary" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">返回圈子</a>
     </form>
   </div>
-
-  <a class="back-link" href="{{ url_for('circle.circles') }}">返回同好圈</a>
 </section>
 {% endblock %}

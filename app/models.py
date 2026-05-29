@@ -90,10 +90,14 @@ class Circle(db.Model):
     name = db.Column(db.String(120), nullable=False)
     tag = db.Column(db.String(50))
     description = db.Column(db.Text)
+    owner_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    is_system = db.Column(db.Boolean, default=False, nullable=False)
+    member_count = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     posts = db.relationship("Post", back_populates="circle")
     members = db.relationship("CircleMember", back_populates="circle")
+    owner = db.relationship("User", foreign_keys=[owner_id])
 
 
 class Post(db.Model):
@@ -101,6 +105,7 @@ class Post(db.Model):
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
     type = db.Column(db.String(20), default="share", nullable=False)
+    status = db.Column(db.String(20), default="published", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     circle_id = db.Column(db.Integer, db.ForeignKey("circle.id"), nullable=False)
@@ -108,6 +113,20 @@ class Post(db.Model):
     user = db.relationship("User", back_populates="posts")
     circle = db.relationship("Circle", back_populates="posts")
     comments = db.relationship("Comment", back_populates="post")
+    images = db.relationship(
+        "PostImage",
+        back_populates="post",
+        cascade="all, delete-orphan",
+    )
+
+
+class PostImage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey("post.id"), nullable=False)
+    image_path = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    post = db.relationship("Post", back_populates="images")
 
 
 class ActivityReview(db.Model):
@@ -281,6 +300,20 @@ class Comment(db.Model):
     activity = db.relationship("Activity", back_populates="comments")
     post = db.relationship("Post", back_populates="comments")
     parent = db.relationship("Comment", remote_side=[id], backref="replies")
+    images = db.relationship(
+        "CommentImage",
+        back_populates="comment",
+        cascade="all, delete-orphan",
+    )
+
+
+class CommentImage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    comment_id = db.Column(db.Integer, db.ForeignKey("comment.id"), nullable=False)
+    image_path = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    comment = db.relationship("Comment", back_populates="images")
 
 
 class Interaction(db.Model):

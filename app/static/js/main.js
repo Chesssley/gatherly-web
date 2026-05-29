@@ -97,4 +97,84 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  const showShareToast = (message) => {
+    let toast = document.querySelector(".share-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.className = "share-toast";
+      toast.setAttribute("role", "status");
+      toast.setAttribute("aria-live", "polite");
+      document.body.appendChild(toast);
+    }
+
+    toast.textContent = message;
+    toast.classList.add("is-visible");
+    window.clearTimeout(toast.hideTimer);
+    toast.hideTimer = window.setTimeout(() => {
+      toast.classList.remove("is-visible");
+    }, 2200);
+  };
+
+  const copyTextFallback = (text) => {
+    const input = document.createElement("textarea");
+    input.value = text;
+    input.setAttribute("readonly", "");
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    document.body.appendChild(input);
+    input.select();
+
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } finally {
+      document.body.removeChild(input);
+    }
+    return copied ? Promise.resolve() : Promise.reject(new Error("copy failed"));
+  };
+
+  document.querySelectorAll(".circle-share-button[data-share-url]").forEach(button => {
+    button.addEventListener("click", async () => {
+      const shareUrl = new URL(button.dataset.shareUrl, window.location.origin).href;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(shareUrl);
+        } else {
+          await copyTextFallback(shareUrl);
+        }
+        showShareToast("链接已复制");
+      } catch (error) {
+        showShareToast("复制失败，请手动复制链接");
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-login-required]").forEach(button => {
+    button.addEventListener("click", () => {
+      showShareToast("请先登录或注册后再参与互动");
+    });
+  });
+
+  document.querySelectorAll("[data-comment-focus]").forEach(button => {
+    button.addEventListener("click", () => {
+      const target = document.getElementById(button.dataset.commentFocus);
+      if (target) {
+        target.focus();
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+  });
+
+  document.querySelectorAll(".circle-file-input[data-file-count-target]").forEach(input => {
+    const target = document.getElementById(input.dataset.fileCountTarget);
+    if (!target) {
+      return;
+    }
+
+    input.addEventListener("change", () => {
+      const count = input.files ? input.files.length : 0;
+      target.textContent = count > 0 ? `已选择 ${count} 张图片` : "未选择图片";
+    });
+  });
 });
