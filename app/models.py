@@ -23,6 +23,35 @@ class User(db.Model):
     posts = db.relationship("Post", back_populates="user")
     reviews = db.relationship("Review", back_populates="user")
     ratings = db.relationship("Rating", back_populates="user")
+    activity_reviews = db.relationship("ActivityReview", back_populates="reviewer")
+    given_user_reviews = db.relationship(
+        "UserReview",
+        foreign_keys="UserReview.reviewer_id",
+        back_populates="reviewer",
+    )
+    received_user_reviews = db.relationship(
+        "UserReview",
+        foreign_keys="UserReview.reviewee_id",
+        back_populates="reviewee",
+    )
+    trust_score_logs = db.relationship(
+        "TrustScoreLog",
+        foreign_keys="TrustScoreLog.user_id",
+        back_populates="user",
+    )
+    circle_memberships = db.relationship("CircleMember", back_populates="user")
+    comments = db.relationship("Comment", back_populates="author")
+    interactions = db.relationship("Interaction", back_populates="user")
+    profile_visibility = db.relationship(
+        "ProfileVisibility",
+        back_populates="user",
+        uselist=False,
+    )
+    admin_logs = db.relationship(
+        "AdminLog",
+        foreign_keys="AdminLog.admin_id",
+        back_populates="admin",
+    )
 
 class Activity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -42,6 +71,9 @@ class Activity(db.Model):
     registrations = db.relationship("Registration", back_populates="activity")
     reviews = db.relationship("Review", back_populates="activity")
     ratings = db.relationship("Rating", back_populates="activity")
+    activity_reviews = db.relationship("ActivityReview", back_populates="activity")
+    user_reviews = db.relationship("UserReview", back_populates="activity")
+    comments = db.relationship("Comment", back_populates="activity")
 
 
 class Registration(db.Model):
@@ -63,6 +95,7 @@ class Circle(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     posts = db.relationship("Post", back_populates="circle")
+    members = db.relationship("CircleMember", back_populates="circle")
 
 
 class Post(db.Model):
@@ -76,8 +109,213 @@ class Post(db.Model):
 
     user = db.relationship("User", back_populates="posts")
     circle = db.relationship("Circle", back_populates="posts")
+    comments = db.relationship("Comment", back_populates="post")
 
 
+class ActivityReview(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint(
+            "activity_id",
+            "reviewer_id",
+            name="uq_activity_review_activity_reviewer",
+        ),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
+    reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    organization_score = db.Column(db.Integer, nullable=False)
+    venue_score = db.Column(db.Integer, nullable=False)
+    experience_score = db.Column(db.Integer, nullable=False)
+    average_score = db.Column(db.Float, nullable=False)
+    comment = db.Column(db.Text)
+    status = db.Column(db.String(20), default="published", nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    activity = db.relationship("Activity", back_populates="activity_reviews")
+    reviewer = db.relationship("User", back_populates="activity_reviews")
+
+
+class UserReview(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint(
+            "activity_id",
+            "reviewer_id",
+            "reviewee_id",
+            name="uq_user_review_activity_reviewer_reviewee",
+        ),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
+    reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    reviewee_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.Text)
+    status = db.Column(db.String(20), default="published", nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    activity = db.relationship("Activity", back_populates="user_reviews")
+    reviewer = db.relationship(
+        "User",
+        foreign_keys=[reviewer_id],
+        back_populates="given_user_reviews",
+    )
+    reviewee = db.relationship(
+        "User",
+        foreign_keys=[reviewee_id],
+        back_populates="received_user_reviews",
+    )
+
+
+class TrustScoreLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    changed_by_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    change_type = db.Column(db.String(50), nullable=False)
+    delta = db.Column(db.Integer, nullable=False)
+    score_before = db.Column(db.Integer, nullable=False)
+    score_after = db.Column(db.Integer, nullable=False)
+    reason = db.Column(db.Text)
+    related_type = db.Column(db.String(50))
+    related_id = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship(
+        "User",
+        foreign_keys=[user_id],
+        back_populates="trust_score_logs",
+    )
+    changed_by = db.relationship("User", foreign_keys=[changed_by_id])
+
+
+class CircleMember(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint("circle_id", "user_id", name="uq_circle_member_circle_user"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    circle_id = db.Column(db.Integer, db.ForeignKey("circle.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    role = db.Column(db.String(20), default="member", nullable=False)
+    status = db.Column(db.String(20), default="active", nullable=False)
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    circle = db.relationship("Circle", back_populates="members")
+    user = db.relationship("User", back_populates="circle_memberships")
+
+
+class Comment(db.Model):
+    __table_args__ = (
+        db.CheckConstraint(
+            "(activity_id IS NOT NULL AND post_id IS NULL) OR "
+            "(activity_id IS NULL AND post_id IS NOT NULL)",
+            name="ck_comment_single_target",
+        ),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"))
+    post_id = db.Column(db.Integer, db.ForeignKey("post.id"))
+    parent_id = db.Column(db.Integer, db.ForeignKey("comment.id"))
+    content = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default="published", nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    author = db.relationship("User", back_populates="comments")
+    activity = db.relationship("Activity", back_populates="comments")
+    post = db.relationship("Post", back_populates="comments")
+    parent = db.relationship("Comment", remote_side=[id], backref="replies")
+
+
+class Interaction(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id",
+            "target_type",
+            "target_id",
+            "action_type",
+            name="uq_interaction_user_target_action",
+        ),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    target_type = db.Column(db.String(30), nullable=False)
+    target_id = db.Column(db.Integer, nullable=False)
+    action_type = db.Column(db.String(20), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship("User", back_populates="interactions")
+
+
+class ProfileVisibility(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint("user_id", name="uq_profile_visibility_user"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    profile_scope = db.Column(db.String(20), default="public", nullable=False)
+    activity_scope = db.Column(db.String(20), default="public", nullable=False)
+    circle_scope = db.Column(db.String(20), default="public", nullable=False)
+    review_scope = db.Column(db.String(20), default="members", nullable=False)
+    trust_score_scope = db.Column(db.String(20), default="private", nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    user = db.relationship("User", back_populates="profile_visibility")
+
+
+class AdminLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    action = db.Column(db.String(80), nullable=False)
+    target_type = db.Column(db.String(50), nullable=False)
+    target_id = db.Column(db.Integer)
+    detail = db.Column(db.Text)
+    ip_address = db.Column(db.String(45))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    admin = db.relationship(
+        "User",
+        foreign_keys=[admin_id],
+        back_populates="admin_logs",
+    )
+
+
+# Compatibility model: current activity routes still use Review in older flows.
+# Keep it until route and template code migrate to ActivityReview/UserReview.
 class Review(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
@@ -90,6 +328,9 @@ class Review(db.Model):
     user = db.relationship("User", back_populates="reviews")
 
 
+# Compatibility model: activity.py currently imports Rating for US-09 prototype
+# statistics and submission logic. Keep it until that code is moved to
+# ActivityReview in the dedicated US-09 work.
 class Rating(db.Model):
     __table_args__ = (
         db.UniqueConstraint("activity_id", "user_id", name="uq_rating_activity_user"),
