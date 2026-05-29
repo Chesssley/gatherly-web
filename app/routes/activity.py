@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
-from app.models import db, Activity, Registration, Rating, activities
+from app.models import db, Activity, ActivityReview, Registration, activities
 
 def login_required(f):
     """登录态检查装饰器，未登录重定向到登录页"""
@@ -73,15 +73,15 @@ def _parse_rating_score(field_name):
 def _get_rating_stats(activity_id):
     stats = (
         db.session.query(
-            func.count(Rating.id).label("rating_count"),
-            func.avg(Rating.organization_score).label("organization_avg"),
-            func.avg(Rating.venue_score).label("venue_avg"),
-            func.avg(Rating.content_score).label("content_avg"),
-            func.avg(Rating.value_score).label("value_avg"),
-            func.avg(Rating.experience_score).label("experience_avg"),
-            func.avg(Rating.average_score).label("overall_avg"),
+            func.count(ActivityReview.id).label("rating_count"),
+            func.avg(ActivityReview.organization_score).label("organization_avg"),
+            func.avg(ActivityReview.venue_score).label("venue_avg"),
+            func.avg(ActivityReview.content_score).label("content_avg"),
+            func.avg(ActivityReview.value_score).label("value_avg"),
+            func.avg(ActivityReview.experience_score).label("experience_avg"),
+            func.avg(ActivityReview.average_score).label("overall_avg"),
         )
-        .filter(Rating.activity_id == activity_id)
+        .filter(ActivityReview.activity_id == activity_id)
         .one()
     )
 
@@ -179,8 +179,8 @@ def activity_detail(activity_id):
             registration is not None
             and registration.status in RATING_ELIGIBLE_STATUSES
         )
-        has_rated = Rating.query.filter_by(
-            user_id=session["user_id"], activity_id=activity_id
+        has_rated = ActivityReview.query.filter_by(
+            reviewer_id=session["user_id"], activity_id=activity_id
         ).first() is not None
 
         if not user_registered:
@@ -297,7 +297,9 @@ def submit_rating(activity_id):
         flash("只有已报名并参加该活动的用户可以评分", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
-    existing = Rating.query.filter_by(user_id=user_id, activity_id=activity_id).first()
+    existing = ActivityReview.query.filter_by(
+        reviewer_id=user_id, activity_id=activity_id
+    ).first()
     if existing:
         flash("您已提交过评分，不能重复评分", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
@@ -317,8 +319,10 @@ def submit_rating(activity_id):
         1,
     )
 
-    rating = Rating(
-        user_id=user_id,
+    comment = request.form.get("comment", "").strip()
+
+    rating = ActivityReview(
+        reviewer_id=user_id,
         activity_id=activity_id,
         organization_score=org_score,
         venue_score=venue_score,
@@ -326,6 +330,7 @@ def submit_rating(activity_id):
         value_score=value_score,
         experience_score=exp_score,
         average_score=avg_score,
+        comment=comment or None,
     )
 
     try:
