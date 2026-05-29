@@ -1398,8 +1398,33 @@ img {
   border: 1px solid var(--color-border);
 }
 
+.comment-reply {
+  margin-top: 10px;
+  background: #f4f7f4;
+  border-color: #d5e3dc;
+}
+
+.comment-level-2,
+.comment-level-3 {
+  background: #f8faf7;
+}
+
 .comment-item p {
   margin: 8px 0 0;
+}
+
+.comment-deleted {
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+.comment-replies {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  margin-left: 28px;
+  padding-left: 12px;
+  border-left: 2px solid #d5e3dc;
 }
 
 .comment-action-bar {
@@ -1424,6 +1449,16 @@ img {
   display: grid;
   gap: 10px;
   margin-top: 16px;
+}
+
+.comment-reply-form {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.comment-reply-form.is-hidden {
+  display: none;
 }
 
 .circle-file-input {
@@ -1519,6 +1554,11 @@ img {
 
   .circle-image-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .comment-replies {
+    margin-left: 10px;
+    padding-left: 10px;
   }
 }
 
