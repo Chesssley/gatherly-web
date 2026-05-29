@@ -15,10 +15,12 @@ def create_app():
     from app.routes.admin import admin_bp
     from app.routes.auth import auth_bp
     from app.routes.circle import circle_bp
+    from app.routes.profile import profile_bp
 
     app.register_blueprint(activity_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(circle_bp)
+    app.register_blueprint(profile_bp)
     app.register_blueprint(admin_bp)
 
     return app

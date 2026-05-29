@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}编辑个人资料 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container narrow-page">
+    <a class="back-link" href="{{ url_for('profile.my_profile') }}">返回个人主页</a>
+    <div class="page-title">
+      <p class="eyebrow">Profile</p>
+      <h1>编辑个人资料</h1>
+    </div>
+
+    <form class="form-card" method="post">
+      <input type="hidden" name="form_type" value="profile">
+      <div class="form-group">
+        <label class="form-label" for="nickname">昵称</label>
+        <input class="form-input" id="nickname" name="nickname" value="{{ user.nickname or '' }}" maxlength="80">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="email">邮箱</label>
+        <input class="form-input" id="email" name="email" type="email" value="{{ user.email }}" required maxlength="120">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="avatar">头像 URL</label>
+        <input class="form-input" id="avatar" name="avatar" value="{{ user.avatar or '' }}" maxlength="255">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="interests">兴趣标签</label>
+        <input class="form-input" id="interests" name="interests" value="{{ user.interests or '' }}" placeholder="摄影, 露营, 桌游">
+        <p class="form-hint">多个标签用逗号分隔。</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="current_password">原密码</label>
+        <input class="form-input" id="current_password" name="current_password" type="password" autocomplete="current-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="new_password">新密码</label>
+        <input class="form-input" id="new_password" name="new_password" type="password" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="confirm_password">确认新密码</label>
+        <input class="form-input" id="confirm_password" name="confirm_password" type="password" autocomplete="new-password">
+      </div>
+      <button class="button" type="submit">保存资料</button>
+    </form>
+
+    <div class="page-title" style="margin-top:32px;">
+      <p class="eyebrow">Visibility</p>
+      <h2>主页展示权限</h2>
+    </div>
+    <form class="form-card" method="post">
+      <input type="hidden" name="form_type" value="visibility">
+      <label class="tag-checkbox">
+        <input type="checkbox" name="profile_public" {% if visibility.profile_scope == 'public' %}checked{% endif %}>
+        <span>公开个人主页</span>
+      </label>
+      <label class="tag-checkbox">
+        <input type="checkbox" name="show_activities" {% if visibility.activity_scope == 'public' %}checked{% endif %}>
+        <span>展示报名活动</span>
+      </label>
+      <label class="tag-checkbox">
+        <input type="checkbox" name="show_circles" {% if visibility.circle_scope == 'public' %}checked{% endif %}>
+        <span>展示加入的同好圈</span>
+      </label>
+      <label class="tag-checkbox">
+        <input type="checkbox" name="show_interactions" {% if visibility.show_interactions %}checked{% endif %}>
+        <span>展示互动记录</span>
+      </label>
+      <label class="tag-checkbox">
+        <input type="checkbox" name="show_interests" {% if visibility.show_interests %}checked{% endif %}>
+        <span>展示兴趣标签</span>
+      </label>
+      <label class="tag-checkbox">
+        <input type="checkbox" name="show_trust_score" {% if visibility.trust_score_scope == 'public' %}checked{% endif %}>
+        <span>展示信用分</span>
+      </label>
+      <button class="button" type="submit">保存展示权限</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
