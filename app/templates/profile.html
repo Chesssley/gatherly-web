@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.nickname or user.username }} 的个人主页 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="detail-info-card">
+      <div class="detail-info-row">
+        <span class="detail-info-label">头像</span>
+        <span class="detail-info-value">
+          {% if user.avatar %}
+            <img src="{{ user.avatar }}" alt="{{ user.nickname or user.username }}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;">
+          {% else %}
+            <span class="tag">{{ (user.nickname or user.username)[:1] }}</span>
+          {% endif %}
+        </span>
+      </div>
+      <div class="detail-info-row">
+        <span class="detail-info-label">昵称</span>
+        <span class="detail-info-value">{{ user.nickname or user.username }}</span>
+      </div>
+      <div class="detail-info-row">
+        <span class="detail-info-label">简介</span>
+        <span class="detail-info-value">{{ user.username }} 的 Gatherly 个人主页</span>
+      </div>
+      <div class="detail-info-row">
+        <span class="detail-info-label">信用分</span>
+        <span class="detail-info-value">
+          {% if permissions.trust_score %}{{ user.trust_score }}{% else %}未公开{% endif %}
+        </span>
+      </div>
+      <div class="detail-info-row">
+        <span class="detail-info-label">账户状态</span>
+        <span class="detail-info-value"><span class="status-badge status-open">{{ user.role }}</span></span>
+      </div>
+      {% if permissions.interests %}
+      <div class="detail-info-row">
+        <span class="detail-info-label">兴趣</span>
+        <span class="detail-info-value">
+          {% if interests %}
+            {% for interest in interests %}<span class="tag">{{ interest }}</span>{% endfor %}
+          {% else %}
+            暂未填写兴趣标签
+          {% endif %}
+        </span>
+      </div>
+      {% endif %}
+      {% if is_owner %}
+      <div class="registration-action">
+        <a class="button" href="{{ url_for('profile.edit_profile') }}">编辑个人资料</a>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if permissions.activities %}
+    <div class="rating-section">
+      <div class="rating-header"><h3>报名的活动</h3></div>
+      {% if registrations %}
+        <div class="card-grid">
+          {% for item in registrations %}
+          <a class="activity-card" href="{{ url_for('activity.activity_detail', activity_id=item.id) }}">
+            <div class="card-body">
+              <h3 class="card-title">{{ item.title }}</h3>
+              <div class="card-meta">
+                <p>状态：{{ item.status }}</p>
+                <p>报名时间：{{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</p>
+              </div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="rating-empty">暂无报名活动。</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if permissions.circles %}
+    <div class="rating-section">
+      <div class="rating-header"><h3>加入的同好圈</h3></div>
+      {% if circle_memberships %}
+        <div class="card-grid">
+          {% for item in circle_memberships %}
+          <a class="activity-card" href="{{ url_for('circle.circles') }}">
+            <div class="card-body">
+              <h3 class="card-title">{{ item.name }}</h3>
+              <div class="card-meta">
+                <p>身份：{{ item.role }}</p>
+                <p>状态：{{ item.status }}</p>
+                <p>加入时间：{{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</p>
+              </div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="rating-empty">暂无加入的同好圈。</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if permissions.interactions %}
+    <div class="rating-section">
+      <div class="rating-header"><h3>活动互动记录</h3></div>
+      {% if activity_interactions %}
+        {% for item in activity_interactions %}
+          <div class="detail-info-row">
+            <span class="detail-info-label">{{ item.action }}</span>
+            <span class="detail-info-value">{{ item.title }} · {{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</span>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="rating-empty">暂无活动互动记录。</p>
+      {% endif %}
+    </div>
+
+    <div class="rating-section">
+      <div class="rating-header"><h3>同好圈互动记录</h3></div>
+      {% if circle_interactions %}
+        {% for item in circle_interactions %}
+          <div class="detail-info-row">
+            <span class="detail-info-label">{{ item.action }}</span>
+            <span class="detail-info-value">{{ item.title }} · {{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</span>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="rating-empty">暂无同好圈互动记录。</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

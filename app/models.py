@@ -316,6 +316,8 @@ class ProfileVisibility(db.Model):
     circle_scope = db.Column(db.String(20), default="public", nullable=False)
     review_scope = db.Column(db.String(20), default="members", nullable=False)
     trust_score_scope = db.Column(db.String(20), default="private", nullable=False)
+    show_interests = db.Column(db.Boolean, default=True, nullable=False)
+    show_interactions = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(
         db.DateTime,
