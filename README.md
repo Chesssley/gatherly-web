@@ -1,19 +1,122 @@
 # Gatherly Web
 
-Gatherly Web 是一个面向小众兴趣爱好者的线下活动聚合与同好匹配平台原型。项目目标是帮助用户发现本地兴趣活动、查看活动详情、注册登录、报名活动，并通过同好圈找到兴趣相近的人。
+> A niche-interest offline activity discovery and community matching platform.
 
-本项目技术栈固定为 Flask + Jinja2 + HTML/CSS/原生 JavaScript。依赖说明以 `requirements.txt` 为准，不使用 React、Vue、Bootstrap、PDM 或 Poetry。
+Gatherly Web, also known as **聚场**, is a Flask-based course project designed for people who want to discover local niche-interest activities and meet like-minded participants. The platform focuses on small communities such as film photography, city cycling, specialty coffee, independent publishing, music scenes, and other interest-based offline activities.
 
-## 核心功能
+The project is currently developed as a classroom web development project using GitHub Issues, Labels, Milestones, Project Board, feature branches, and Pull Requests.
 
-- 首页活动流展示和兴趣标签筛选。
-- 活动详情查看，展示地点、时间、人数上限和报名状态。
-- 用户注册、登录和基础登录态判断。
-- 登录用户可报名活动，并避免重复报名、过期报名和满员报名。
-- 发布活动页面和后台管理页面占位。
-- 同好圈列表页面，用于后续兴趣圈和帖子功能扩展。
+## Table of Contents
 
-## 项目结构
+* [Project Overview](#project-overview)
+* [Core Features](#core-features)
+* [Current Development Scope](#current-development-scope)
+* [Tech Stack](#tech-stack)
+* [Project Structure](#project-structure)
+* [Getting Started](#getting-started)
+* [Main Routes](#main-routes)
+* [Database Models](#database-models)
+* [Development Workflow](#development-workflow)
+* [Issue and Branch Convention](#issue-and-branch-convention)
+* [Pull Request Checklist](#pull-request-checklist)
+* [Team Roles](#team-roles)
+* [Roadmap](#roadmap)
+* [Screenshots](#screenshots)
+* [Notes for Contributors](#notes-for-contributors)
+* [License](#license)
+
+## Project Overview
+
+Gatherly Web solves a simple problem:
+
+> People often want to join local niche-interest activities, but they do not know where to find reliable events or suitable companions.
+
+The platform provides a lightweight event feed, activity details, user registration and login, activity registration, interest tags, community circles, posting features, rating mechanisms, and trust-related extensions.
+
+This project intentionally avoids complex recommendation algorithms. Activities are expected to be organized around understandable rules such as time, location, interest tags, and trust signals.
+
+## Core Features
+
+### Implemented or in active development
+
+* Home activity feed with card-based activity display
+* Activity detail page
+* User registration
+* User login and logout
+* Current login status display
+* Activity publishing page
+* Activity registration
+* Duplicate registration prevention
+* Full-capacity registration restriction
+* Expired activity registration restriction
+* Interest tag display and filtering
+* Interest circle list
+* Circle post foundation
+* Activity rating and trust-score foundation
+* Admin placeholder page
+* Project documentation, meeting notes, issue rules, and style guide
+
+### Planned or extended features
+
+* User profile page
+* Image upload for posts and comments
+* Nested comments in interest circles
+* Like and favorite toggle behavior
+* Post and comment deletion
+* Official circle management by administrators
+* Official merchant verification
+* Business license review flow
+* Nearby users based on approximate IP region
+* Direct messages between users
+* Restriction on low-rated users creating activities
+* Final screenshots, test report, and delivery documentation
+
+## Current Development Scope
+
+This repository is managed through GitHub Issues. Tasks are categorized by issue type and module.
+
+Typical issue categories include:
+
+* `type: user story` — user-facing feature requirement
+* `type: task` — technical or implementation task
+* `type: bug` — bug fix
+* `type: docs` — documentation task
+* `type: enhancement` — improvement or refinement
+
+Typical module labels include:
+
+* `module: activity`
+* `module: auth`
+* `module: circle`
+* `module: frontend`
+* `module: backend`
+* `module: trust`
+* `module: docs`
+
+Milestones are used to organize the project into sprint-based delivery stages, such as:
+
+* `Sprint 1 - Basic Framework`
+* `Sprint 2 - Core Features`
+* `Final Delivery - Gatherly Release`
+
+## Tech Stack
+
+This project intentionally uses a beginner-friendly and course-appropriate stack.
+
+| Layer              | Technology                    |
+| ------------------ | ----------------------------- |
+| Backend            | Flask                         |
+| Templates          | Jinja2                        |
+| Database ORM       | Flask-SQLAlchemy              |
+| Forms              | Flask-WTF, WTForms            |
+| Database           | SQLite for local development  |
+| Frontend           | HTML, CSS, Vanilla JavaScript |
+| Styling            | Custom CSS                    |
+| Package Management | `pip` + `requirements.txt`    |
+
+The project does **not** use React, Vue, Bootstrap, PDM, or Poetry. Please do not introduce unrelated frameworks unless the team agrees and a new technical task is created.
+
+## Project Structure
 
 ```text
 gatherly-web/
@@ -26,11 +129,14 @@ gatherly-web/
 │   │   ├── activity.py
 │   │   ├── admin.py
 │   │   ├── auth.py
-│   │   └── circle.py
+│   │   ├── circle.py
+│   │   └── profile.py
 │   ├── static/
-│   │   ├── css/style.css
+│   │   ├── css/
+│   │   │   └── style.css
 │   │   ├── images/
-│   │   └── js/main.js
+│   │   └── js/
+│   │       └── main.js
 │   └── templates/
 ├── docs/
 │   ├── git-guide.md
@@ -43,7 +149,7 @@ gatherly-web/
 │   ├── meeting-notes/
 │   └── screenshots/
 ├── instance/
-│   └── gatherly.db        # 本地生成，不提交 Git
+│   └── gatherly.db
 ├── scripts/
 │   └── add_nickname_column.py
 ├── init_db.py
@@ -52,95 +158,382 @@ gatherly-web/
 └── README.md
 ```
 
-## 安装运行步骤
+`instance/gatherly.db` is a local development database file and should not be committed to Git.
 
-1. 创建并激活虚拟环境：
+## Getting Started
+
+### 1. Clone the repository
 
 ```bash
+git clone https://github.com/Chesssley/gatherly-web.git
+cd gatherly-web
+```
+
+### 2. Create a virtual environment
+
+On Windows PowerShell:
+
+```powershell
 python -m venv .venv
 .venv\Scripts\activate
 ```
 
-2. 安装依赖：
+On macOS or Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. 初始化数据库：
+Current dependencies include:
+
+```text
+Flask>=3.0
+Flask-SQLAlchemy
+Flask-WTF
+Werkzeug
+```
+
+### 4. Initialize the database
 
 ```bash
 python init_db.py
 ```
 
-数据库文件会生成在 Flask instance 目录中，当前为 `instance/gatherly.db`。该文件只用于本地开发，不提交到 Git。
+The local SQLite database will be generated under the Flask `instance/` directory.
 
-4. 启动应用：
+### 5. Run the application
 
 ```bash
 python run.py
 ```
 
-5. 在浏览器访问：
+Then open the application in your browser:
 
 ```text
 http://127.0.0.1:5000
 ```
 
-## 主要路由
+## Main Routes
 
-| 路由 | 说明 |
-|---|---|
-| `/` | 首页活动流 |
-| `/activity/<id>` | 活动详情页 |
-| `/activity/<id>/register` | 活动报名接口 |
-| `/activities/create` | 发布活动页 |
-| `/login` | 登录页 |
-| `/register` | 注册页 |
-| `/circles` | 同好圈列表页 |
-| `/admin` | 后台管理占位页 |
+| Route                     | Description            |
+| ------------------------- | ---------------------- |
+| `/`                       | Home activity feed     |
+| `/activity/<id>`          | Activity detail page   |
+| `/activity/<id>/register` | Activity registration  |
+| `/activities/create`      | Activity creation page |
+| `/login`                  | Login page             |
+| `/register`               | Registration page      |
+| `/logout`                 | Logout action          |
+| `/circles`                | Interest circle list   |
+| `/admin`                  | Admin placeholder page |
 
-## GitHub 协作流程
+Route names may continue to change as features are implemented. Always check the latest `app/routes/` files before working on a related issue.
 
-1. 每个需求或修复先创建 GitHub Issue，并设置 Label、Milestone 和 Project Status。
-2. 开发前从 `main` 拉取最新代码。
-3. 每个任务使用独立分支，例如 `feature/register-form`、`fix/activity-register-limit`。
-4. 本地完成修改后执行基本验证，再提交 commit。
-5. 推送分支到 GitHub，并创建 Pull Request。
-6. PR 说明中关联 Issue，写清楚修改内容、验证方式和影响范围。
-7. 代码审查通过后再合并到 `main`。
-8. 合并后可删除已合并的本地和远程分支。
+## Database Models
 
-详细说明见 [docs/git-guide.md](docs/git-guide.md) 和 [docs/issue-rules.md](docs/issue-rules.md)。
+The main database models are defined in `app/models.py`.
 
-## 团队分工
+Current or planned model areas include:
 
-| 角色 | 主要职责 |
-|---|---|
-| 组长 / Scrum Master | 项目规划、仓库管理、Issue 和 PR 审查、Sprint 进度维护 |
-| 首页前端负责人 | 首页活动流、活动卡片、兴趣标签和移动端布局 |
-| 活动页面负责人 | 活动详情页、发布活动页、报名按钮和活动信息展示 |
-| 用户系统负责人 | 注册、登录、退出、登录态和个人资料基础能力 |
-| 活动业务负责人 | 活动报名、人数上限、满员提示和报名记录 |
-| 数据库负责人 | 用户、活动、报名、同好圈、帖子、评分等模型设计 |
-| 文档测试负责人 | README、会议记录、截图、功能测试和演示材料 |
+* `User`
 
-## 已完成与待优化功能
+  * username
+  * nickname
+  * email
+  * password
+  * avatar
+  * interests
+  * role
+  * trust score
+* `Activity`
 
-已完成：
+  * title
+  * description
+  * location
+  * start time
+  * capacity
+  * image
+  * fee
+  * status
+  * preparation notes
+  * organizer
+* `Registration`
 
-- Flask 应用基础结构。
-- Jinja2 模板和公共静态资源目录。
-- 首页、活动详情、发布活动、登录、注册、同好圈、后台占位页面。
-- 用户注册表单、密码哈希存储和基础错误提示。
-- 登录和基础 session 登录态。
-- 活动报名基础逻辑，包括重复报名、过期活动和满员检查。
-- Product Backlog、会议记录、Git 协作规则和页面风格规范文档。
+  * user
+  * activity
+  * registration status
+  * registration time
+* `Circle`
 
-待优化：
+  * name
+  * tag
+  * description
+  * posts
+* `Post`
 
-- 完善活动发布的表单提交和数据库保存逻辑。
-- 完善个人主页、兴趣标签和同好圈帖子功能。
-- 增加活动评分、履约评分和信任机制。
-- 补充更系统的测试用例和演示截图。
-- 统一数据库初始化脚本输出编码，避免中文控制台乱码。
+  * title
+  * content
+  * type
+  * author
+  * circle
+* `Review`
+
+  * activity
+  * user
+  * rating
+  * comment
+* `Rating`
+
+  * organization score
+  * venue score
+  * experience score
+  * average score
+  * unique rating restriction per user and activity
+
+Database fields should not be changed casually. If a new model field is needed, create or update a technical task first and explain the migration impact in the Pull Request.
+
+## Development Workflow
+
+This project follows an issue-first GitHub workflow.
+
+### Standard workflow
+
+```text
+Read assigned Issue
+→ Sync latest main
+→ Create a feature branch
+→ Modify only related files
+→ Run local checks
+→ Commit with a clear message
+→ Push branch
+→ Open Pull Request
+→ Request review
+→ Merge after approval
+→ Delete merged branch
+```
+
+### Basic commands
+
+```bash
+git checkout main
+git pull origin main
+
+git checkout -b feat/us-04-02-create-activity-form
+
+git status
+git add .
+git commit -m "feat(US-04-02): add activity title and description form"
+git push --set-upstream origin feat/us-04-02-create-activity-form
+```
+
+Do not commit directly to `main`.
+
+## Issue and Branch Convention
+
+### Issue title format
+
+Recommended examples:
+
+```text
+[US-01-01] Visitor can browse activity cards on the homepage
+[TASK-02] Design core database models
+[BUG-01] Fix login error message display
+[DOC-04] Improve final README documentation
+[UI-01] Define consistent Gatherly page style
+```
+
+### Branch naming
+
+Use one branch per issue.
+
+Recommended examples:
+
+```text
+feat/us-01-01-homepage-cards
+feat/us-02-01-register
+feat/us-04-02-create-activity-form
+fix/bug-01-login-message
+docs/doc-04-readme
+ui/ui-01-style-guide
+task/task-02-database-models
+```
+
+### Commit message format
+
+Use concise and meaningful commit messages.
+
+Recommended examples:
+
+```text
+feat(US-01-01): add homepage activity cards
+feat(US-05-03): prevent duplicate activity registration
+fix(BUG-01): correct login flash message
+docs(DOC-04): update final README
+style(UI-01): unify activity card layout
+```
+
+## Pull Request Checklist
+
+Before opening a Pull Request, make sure:
+
+* [ ] The branch is created from the latest `main`
+* [ ] The PR solves only one Issue or a clearly related small group of Issues
+* [ ] The modified files are within the allowed scope of the Issue
+* [ ] The application can start locally with `python run.py`
+* [ ] The related page or feature has been manually tested
+* [ ] No temporary files, virtual environment files, cache files, or local databases are committed
+* [ ] The PR description includes the related Issue number
+* [ ] Screenshots are added for visible UI changes
+* [ ] The Project Board status is moved to Code Review after the PR is opened
+
+### PR template
+
+```markdown
+## Related Issue
+
+Closes #XX
+
+## Summary
+
+- 
+- 
+- 
+
+## Test Plan
+
+- [ ] Ran `python run.py`
+- [ ] Checked related page manually
+- [ ] Confirmed no obvious UI or routing error
+- [ ] Added screenshots if UI changed
+
+## Modified Files
+
+- 
+
+## Review Focus
+
+- 
+```
+
+## Team Roles
+
+| Role                            | Main Responsibility                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------- |
+| Project Lead / Scrum Master     | Planning, repository management, Issue management, PR review, sprint progress         |
+| Homepage Frontend Owner         | Homepage activity feed, cards, interest tags, mobile layout                           |
+| Activity Page Owner             | Activity detail page, activity creation page, activity information display            |
+| User System Owner               | Registration, login, logout, login status, basic user data                            |
+| Activity Business Logic Owner   | Registration, capacity limit, duplicate registration prevention, registration records |
+| Community Owner                 | Interest circles, posts, comments, circle detail pages                                |
+| Trust Mechanism Owner           | Rating, review, trust score, activity restrictions                                    |
+| Documentation and Testing Owner | README, screenshots, meeting notes, test report, final delivery materials             |
+| UI Style Owner                  | Shared CSS, card style, forms, buttons, mobile spacing                                |
+
+## Roadmap
+
+### Sprint 1 — Basic Framework
+
+* [x] Flask project structure
+* [x] Base templates and static resource structure
+* [x] Homepage activity feed foundation
+* [x] Activity detail page foundation
+* [x] Registration and login foundation
+* [x] Activity registration foundation
+* [x] Interest tag filtering foundation
+* [x] Interest circle list foundation
+* [x] Basic documentation and collaboration rules
+
+### Sprint 2 — Core Features
+
+* [ ] Improve activity publishing workflow
+* [ ] Complete activity rating and trust mechanism
+* [ ] Restrict low-rated users from creating activities
+* [ ] Add official merchant verification workflow
+* [ ] Add official certification badge display
+* [ ] Add nearby users feature based on approximate IP region
+* [ ] Add direct messaging
+* [ ] Restrict first message before mutual following
+* [ ] Improve interest circle posts, comments, likes, favorites, and deletion behavior
+* [ ] Unify frontend style for new features
+
+### Final Delivery
+
+* [ ] Complete final README
+* [ ] Add screenshots
+* [ ] Add test report
+* [ ] Organize meeting notes
+* [ ] Prepare demo materials
+* [ ] Review all Issues, Labels, Milestones, and Project Board status
+* [ ] Ensure `main` can run successfully before submission
+
+## Screenshots
+
+Screenshots should be stored in:
+
+```text
+docs/screenshots/
+```
+
+Recommended screenshot sections:
+
+### Homepage Activity Feed
+
+*Add screenshot here.*
+
+### Activity Detail Page
+
+*Add screenshot here.*
+
+### Registration and Login
+
+*Add screenshot here.*
+
+### Activity Creation
+
+*Add screenshot here.*
+
+### Interest Circles
+
+*Add screenshot here.*
+
+### Rating and Trust Mechanism
+
+*Add screenshot here.*
+
+### Admin or Official Verification
+
+*Add screenshot here.*
+
+## Notes for Contributors
+
+* Do not push directly to `main`
+* Do not change database models without confirming the related Issue
+* Do not introduce unrelated frameworks or dependencies
+* Do not rewrite another member’s module without discussion
+* Do not commit `.venv/`, `__pycache__/`, `.env`, local database files, or temporary screenshots
+* Keep UI changes consistent with `docs/style-guide.md`
+* Keep Issue numbers, Labels, Milestones, and Project Board status consistent
+* Use one branch and one Pull Request for each Issue whenever possible
+
+## Useful Documentation
+
+* `docs/git-guide.md` — Git and GitHub collaboration guide
+* `docs/issue-rules.md` — Issue naming, labels, milestones, and Project Board rules
+* `docs/product-backlog.md` — Product backlog and feature planning
+* `docs/project-plan.md` — Project planning notes
+* `docs/style-guide.md` — Shared UI style guide
+* `docs/meeting-notes.md` — Meeting notes
+* `docs/screenshots/` — Project screenshots
+
+## License
+
+This repository is currently used as a course project. No open-source license has been specified yet.
+
+Before reusing, distributing, or publishing this project outside the course context, please confirm the license and team agreement.
