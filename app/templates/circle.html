@@ -1,14 +1,55 @@
 {% extends "base.html" %}
 
-{% block title %}同好圈 - Gatherly{% endblock %}
+{% block title %}{% if create_mode %}创建同好圈{% else %}同好圈{% endif %} - Gatherly{% endblock %}
 
 {% block content %}
 <section class="section">
     <div class="container">
+        {% if create_mode %}
+        <div class="page-title">
+            <p class="eyebrow">Create Circle</p>
+            <h1>创建自定义同好圈</h1>
+            <p>为你的兴趣创建一个长期交流空间。创建后你会自动成为圈主。</p>
+        </div>
+
+        <div class="form-card">
+            <form method="POST" action="{{ url_for('circle.create_circle') }}">
+                {% if is_admin %}
+                <div style="margin-bottom: 20px;">
+                    <label class="form-label" for="circle_type">圈子类型</label>
+                    <select class="form-input" id="circle_type" name="circle_type">
+                        <option value="custom">自定义圈子</option>
+                        <option value="official">官方圈子</option>
+                    </select>
+                </div>
+                {% else %}
+                <input type="hidden" name="circle_type" value="custom">
+                {% endif %}
+
+                <div style="margin-bottom: 20px;">
+                    <label class="form-label" for="name">圈子名称</label>
+                    <input class="form-input" type="text" id="name" name="name" maxlength="120" required placeholder="例如：周末胶片散步">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label class="form-label" for="tag">兴趣标签</label>
+                    <input class="form-input" type="text" id="tag" name="tag" placeholder="例如：摄影影像">
+                </div>
+                <div style="margin-bottom: 24px;">
+                    <label class="form-label" for="description">圈子简介</label>
+                    <textarea class="form-input" id="description" name="description" rows="6" required placeholder="说明这个圈子适合谁、主要聊什么。"></textarea>
+                </div>
+                <button class="button" type="submit">创建同好圈</button>
+                <a class="button button-secondary" href="{{ url_for('circle.circles') }}">返回列表</a>
+            </form>
+        </div>
+        {% else %}
         <div class="page-title">
             <p class="eyebrow">Circles</p>
             <h1>找到你的同好圈</h1>
             <p>浏览不同兴趣社区，发现和你一样热爱小众活动的人。</p>
+            {% if session.get("user_id") %}
+            <a class="button" href="{{ url_for('circle.create_circle') }}">创建同好圈</a>
+            {% endif %}
         </div>
 
         {% if circles %}
@@ -17,21 +58,20 @@
             <article class="activity-card circle-card">
                 <div class="card-body">
                     <div class="card-tags">
-                        <span class="tag">{{ circle.tag }}</span>
+                        <span class="tag">{{ circle.tag or "同好圈" }}</span>
                         <span class="tag circle-active-tag">{{ circle.active_level }}</span>
                     </div>
-                    <h3 class="card-title">{{ circle.name }}</h3>
+                    <h3 class="card-title">
+                        <a href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">{{ circle.name }}</a>
+                    </h3>
                     <p class="circle-description">{{ circle.description }}</p>
                     <div class="card-meta circle-meta">
-                        <p>活跃程度：{{ circle.active_level }}</p>
                         <p>{{ circle.member_count }} 位成员</p>
                         <p>{{ circle.post_count | default(0) }} 篇帖子</p>
                     </div>
-                    {% if session.get("user_id") %}
-                    <a class="button button-small circle-action" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">
-                        发布帖子
+                    <a class="button button-small circle-action" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">
+                        进入圈子
                     </a>
-                    {% endif %}
                 </div>
             </article>
             {% endfor %}
@@ -40,6 +80,7 @@
         <div class="empty-state">
             <p>暂时还没有同好圈，稍后再来看看。</p>
         </div>
+        {% endif %}
         {% endif %}
     </div>
 </section>
