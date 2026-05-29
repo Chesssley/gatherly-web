@@ -22,7 +22,6 @@ class User(db.Model):
     registrations = db.relationship("Registration", back_populates="user")
     posts = db.relationship("Post", back_populates="user")
     reviews = db.relationship("Review", back_populates="user")
-    ratings = db.relationship("Rating", back_populates="user")
     activity_reviews = db.relationship("ActivityReview", back_populates="reviewer")
     given_user_reviews = db.relationship(
         "UserReview",
@@ -70,7 +69,6 @@ class Activity(db.Model):
     organizer = db.relationship("User", back_populates="activities")
     registrations = db.relationship("Registration", back_populates="activity")
     reviews = db.relationship("Review", back_populates="activity")
-    ratings = db.relationship("Rating", back_populates="activity")
     activity_reviews = db.relationship("ActivityReview", back_populates="activity")
     user_reviews = db.relationship("UserReview", back_populates="activity")
     comments = db.relationship("Comment", back_populates="activity")
@@ -126,6 +124,8 @@ class ActivityReview(db.Model):
     reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     organization_score = db.Column(db.Integer, nullable=False)
     venue_score = db.Column(db.Integer, nullable=False)
+    content_score = db.Column(db.Integer, nullable=False)
+    value_score = db.Column(db.Integer, nullable=False)
     experience_score = db.Column(db.Integer, nullable=False)
     average_score = db.Column(db.Float, nullable=False)
     comment = db.Column(db.Text)
@@ -326,27 +326,6 @@ class Review(db.Model):
 
     activity = db.relationship("Activity", back_populates="reviews")
     user = db.relationship("User", back_populates="reviews")
-
-
-# Compatibility model: activity.py currently imports Rating for US-09 prototype
-# statistics and submission logic. Keep it until that code is moved to
-# ActivityReview in the dedicated US-09 work.
-class Rating(db.Model):
-    __table_args__ = (
-        db.UniqueConstraint("activity_id", "user_id", name="uq_rating_activity_user"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    organization_score = db.Column(db.Integer, nullable=False)
-    venue_score = db.Column(db.Integer, nullable=False)
-    experience_score = db.Column(db.Integer, nullable=False)
-    average_score = db.Column(db.Float, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-
-    activity = db.relationship("Activity", back_populates="ratings")
-    user = db.relationship("User", back_populates="ratings")
 
 
 # Temporary data kept only so the existing page routes can run before database

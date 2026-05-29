@@ -1615,7 +1615,7 @@ textarea.form-input {
 
 .rating-averages {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
 }
 
@@ -1652,6 +1652,23 @@ textarea.form-input {
   margin: 0 0 8px;
   color: var(--color-text);
   font-size: 15px;
+}
+
+.rating-comment {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  font: inherit;
+}
+
+.rating-comment:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(95, 126, 93, 0.15);
 }
 
 .star-rating {
