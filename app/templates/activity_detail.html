@@ -207,6 +207,60 @@
                 <p class="rating-notice">{{ rating_notice }}</p>
             {% endif %}
         </div>
+
+        <div class="user-review-section">
+            <div class="rating-header">
+                <h3>Participant Reviews</h3>
+            </div>
+
+            {% if can_user_review %}
+                {% for candidate in user_review_candidates %}
+                    <div class="user-review-card">
+                        <div class="user-review-card-header">
+                            <strong>{{ candidate.user.nickname or candidate.user.username }}</strong>
+                            {% if candidate.has_reviewed %}
+                                <span class="status-badge status-registered">Reviewed</span>
+                            {% endif %}
+                        </div>
+
+                        {% if not candidate.has_reviewed %}
+                        <form class="rating-form user-review-form" method="post" action="{{ url_for('activity.submit_user_review', activity_id=activity.id) }}">
+                            <input type="hidden" name="reviewee_id" value="{{ candidate.user.id }}">
+
+                            {% set dimensions = [
+                                ('punctuality_score', 'Punctuality'),
+                                ('friendliness_score', 'Friendliness'),
+                                ('communication_score', 'Communication'),
+                                ('reliability_score', 'Reliability'),
+                                ('respect_score', 'Respect'),
+                                ('safety_score', 'Safety')
+                            ] %}
+                            {% for field, label in dimensions %}
+                            <div class="rating-dimension">
+                                <h4>{{ label }}</h4>
+                                <div class="star-rating" aria-label="{{ label }}">
+                                    {% for score in [5, 4, 3, 2, 1] %}
+                                        {% set input_id = field ~ '-' ~ candidate.user.id ~ '-' ~ score %}
+                                        <input type="radio" id="{{ input_id }}" name="{{ field }}" value="{{ score }}" required>
+                                        <label for="{{ input_id }}">&#9733;</label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+
+                            <div class="rating-dimension">
+                                <h4>Comment</h4>
+                                <textarea class="rating-comment" name="comment" rows="3" maxlength="1000" placeholder="Optional notes about this participant"></textarea>
+                            </div>
+                            <button type="submit" class="btn rating-submit">Submit participant review</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% elif user_review_notice %}
+                <p class="rating-notice">{{ user_review_notice }}</p>
+            {% endif %}
+        </div>
     </div>
 </section>
 {% endblock %}
