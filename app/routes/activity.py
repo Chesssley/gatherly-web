@@ -20,7 +20,7 @@ def login_required(f):
 activity_bp = Blueprint("activity", __name__)
 
 
-RATING_ELIGIBLE_STATUSES = {"registered", "attended", "completed"}
+RATING_ELIGIBLE_STATUSES = {"attended", "completed"}
 
 OFFICIAL_INTEREST_TAGS = [
     "影像摄影",
@@ -76,6 +76,8 @@ def _get_rating_stats(activity_id):
             func.count(Rating.id).label("rating_count"),
             func.avg(Rating.organization_score).label("organization_avg"),
             func.avg(Rating.venue_score).label("venue_avg"),
+            func.avg(Rating.content_score).label("content_avg"),
+            func.avg(Rating.value_score).label("value_avg"),
             func.avg(Rating.experience_score).label("experience_avg"),
             func.avg(Rating.average_score).label("overall_avg"),
         )
@@ -89,6 +91,8 @@ def _get_rating_stats(activity_id):
             "count": 0,
             "organization_avg": None,
             "venue_avg": None,
+            "content_avg": None,
+            "value_avg": None,
             "experience_avg": None,
             "overall_avg": None,
         }
@@ -97,6 +101,8 @@ def _get_rating_stats(activity_id):
         "count": rating_count,
         "organization_avg": round(float(stats.organization_avg), 1),
         "venue_avg": round(float(stats.venue_avg), 1),
+        "content_avg": round(float(stats.content_avg), 1),
+        "value_avg": round(float(stats.value_avg), 1),
         "experience_avg": round(float(stats.experience_avg), 1),
         "overall_avg": round(float(stats.overall_avg), 1),
     }
@@ -157,6 +163,7 @@ def activity_detail(activity_id):
     rating_stats = _get_rating_stats(activity_id)
 
     user_registered = False
+    user_attended = False
     has_rated = False
     can_rate = False
     rating_notice = "登录并报名参加活动后，可在活动结束后评分。"
@@ -167,7 +174,8 @@ def activity_detail(activity_id):
         registration = Registration.query.filter_by(
             user_id=session["user_id"], activity_id=activity_id
         ).first()
-        user_registered = (
+        user_registered = registration is not None
+        user_attended = (
             registration is not None
             and registration.status in RATING_ELIGIBLE_STATUSES
         )
@@ -176,6 +184,8 @@ def activity_detail(activity_id):
         ).first() is not None
 
         if not user_registered:
+            rating_notice = "只有已报名并参加该活动的用户可以评分。"
+        elif not user_attended:
             rating_notice = "只有已报名并参加该活动的用户可以评分。"
         elif has_rated:
             rating_notice = "您已提交过评分，不能重复评分。"
@@ -295,18 +305,25 @@ def submit_rating(activity_id):
     try:
         org_score = _parse_rating_score("organization_score")
         venue_score = _parse_rating_score("venue_score")
+        content_score = _parse_rating_score("content_score")
+        value_score = _parse_rating_score("value_score")
         exp_score = _parse_rating_score("experience_score")
     except (TypeError, ValueError):
         flash("每个评分必须是 1 到 5 的整数", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
-    avg_score = round((org_score + venue_score + exp_score) / 3, 1)
+    avg_score = round(
+        (org_score + venue_score + content_score + value_score + exp_score) / 5,
+        1,
+    )
 
     rating = Rating(
         user_id=user_id,
         activity_id=activity_id,
         organization_score=org_score,
         venue_score=venue_score,
+        content_score=content_score,
+        value_score=value_score,
         experience_score=exp_score,
         average_score=avg_score,
     )

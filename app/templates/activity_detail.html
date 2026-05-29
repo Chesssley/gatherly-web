@@ -128,6 +128,14 @@
                         <strong>{{ rating_stats.venue_avg }}</strong>
                     </div>
                     <div class="rating-average-item">
+                        <span>内容质量</span>
+                        <strong>{{ rating_stats.content_avg }}</strong>
+                    </div>
+                    <div class="rating-average-item">
+                        <span>性价比</span>
+                        <strong>{{ rating_stats.value_avg }}</strong>
+                    </div>
+                    <div class="rating-average-item">
                         <span>活动体验</span>
                         <strong>{{ rating_stats.experience_avg }}</strong>
                     </div>
@@ -157,6 +165,26 @@
                         <input type="radio" id="venue3" name="venue_score" value="3"><label for="venue3">&#9733;</label>
                         <input type="radio" id="venue2" name="venue_score" value="2"><label for="venue2">&#9733;</label>
                         <input type="radio" id="venue1" name="venue_score" value="1"><label for="venue1">&#9733;</label>
+                    </div>
+                </div>
+                <div class="rating-dimension">
+                    <h4>内容质量</h4>
+                    <div class="star-rating" aria-label="内容质量评分">
+                        <input type="radio" id="content5" name="content_score" value="5" required><label for="content5">&#9733;</label>
+                        <input type="radio" id="content4" name="content_score" value="4"><label for="content4">&#9733;</label>
+                        <input type="radio" id="content3" name="content_score" value="3"><label for="content3">&#9733;</label>
+                        <input type="radio" id="content2" name="content_score" value="2"><label for="content2">&#9733;</label>
+                        <input type="radio" id="content1" name="content_score" value="1"><label for="content1">&#9733;</label>
+                    </div>
+                </div>
+                <div class="rating-dimension">
+                    <h4>性价比</h4>
+                    <div class="star-rating" aria-label="性价比评分">
+                        <input type="radio" id="value5" name="value_score" value="5" required><label for="value5">&#9733;</label>
+                        <input type="radio" id="value4" name="value_score" value="4"><label for="value4">&#9733;</label>
+                        <input type="radio" id="value3" name="value_score" value="3"><label for="value3">&#9733;</label>
+                        <input type="radio" id="value2" name="value_score" value="2"><label for="value2">&#9733;</label>
+                        <input type="radio" id="value1" name="value_score" value="1"><label for="value1">&#9733;</label>
                     </div>
                 </div>
                 <div class="rating-dimension">

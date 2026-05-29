@@ -341,6 +341,8 @@ class Rating(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     organization_score = db.Column(db.Integer, nullable=False)
     venue_score = db.Column(db.Integer, nullable=False)
+    content_score = db.Column(db.Integer, nullable=False)
+    value_score = db.Column(db.Integer, nullable=False)
     experience_score = db.Column(db.Integer, nullable=False)
     average_score = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
