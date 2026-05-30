@@ -32,7 +32,7 @@
   <main>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="flash-messages container">
+        <div class="flash-messages container" role="status" aria-live="polite">
           {% for category, message in messages %}
             <div class="flash-msg {{ category }}">{{ message }}</div>
           {% endfor %}

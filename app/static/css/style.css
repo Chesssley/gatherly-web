@@ -939,18 +939,50 @@ img {
   border-radius: 8px;
   font-size: 14px;
   margin-bottom: 8px;
+  opacity: 1;
+  transition: opacity 0.5s ease;
 }
 
-.flash-msg.success {
+.flash-msg.success,
+.flash-message.flash-success {
   background: #e8f5e9;
   color: #2e7d32;
   border: 1px solid #c8e6c9;
 }
 
-.flash-msg.error {
+.flash-msg.error,
+.flash-message.flash-error {
   background: #ffebee;
   color: #c62828;
   border: 1px solid #ffcdd2;
+}
+
+.flash-msg.warning,
+.flash-message.flash-warning {
+  background: #fff8e1;
+  color: #8d6e00;
+  border: 1px solid #ffe082;
+}
+
+.flash-msg.info,
+.flash-message.flash-info {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #bbdefb;
+}
+
+.flash-message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 8px;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+
+.flash-msg.is-fading,
+.flash-message.is-fading {
+  opacity: 0;
 }
 
 /* ============================================

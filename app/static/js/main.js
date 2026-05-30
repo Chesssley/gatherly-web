@@ -1,6 +1,26 @@
 document.addEventListener("DOMContentLoaded", () => {
   console.log("Gatherly Flask app initialized.");
 
+  const flashMessages = document.querySelectorAll(".flash-msg, .flash-message");
+  flashMessages.forEach(message => {
+    window.setTimeout(() => {
+      const removeMessage = () => {
+        if (!message.isConnected) {
+          return;
+        }
+        const container = message.closest(".flash-messages");
+        message.remove();
+        if (container && !container.querySelector(".flash-msg, .flash-message")) {
+          container.remove();
+        }
+      };
+
+      message.classList.add("is-fading");
+      message.addEventListener("transitionend", removeMessage, { once: true });
+      window.setTimeout(removeMessage, 600);
+    }, 3000);
+  });
+
   // US-06-02: 兴趣标签 chip 点击 — 无刷新客户端筛选
   const tagChips = document.querySelectorAll(".interest-chip");
   if (tagChips.length > 0) {
