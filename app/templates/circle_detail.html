@@ -71,9 +71,11 @@
                 type="file"
                 id="reply-images-{{ comment.id }}"
                 name="images"
-                accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
-                multiple
+                accept=".jpg,.jpeg,.png,.webp"
                 data-file-count-target="reply-image-count-{{ comment.id }}"
+                data-image-upload
+                data-max-count="1"
+                data-max-bytes="512000"
             >
             <label class="file-upload-button" for="reply-images-{{ comment.id }}">选择图片</label>
             <span class="file-upload-count" id="reply-image-count-{{ comment.id }}">未选择图片</span>
@@ -284,9 +286,11 @@
                                 type="file"
                                 id="comment-images-{{ post.id }}"
                                 name="images"
-                                accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
-                                multiple
+                                accept=".jpg,.jpeg,.png,.webp"
                                 data-file-count-target="comment-image-count-{{ post.id }}"
+                                data-image-upload
+                                data-max-count="1"
+                                data-max-bytes="512000"
                             >
                             <label class="file-upload-button" for="comment-images-{{ post.id }}">选择图片</label>
                             <span class="file-upload-count" id="comment-image-count-{{ post.id }}">未选择图片</span>

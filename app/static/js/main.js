@@ -201,13 +201,26 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  document.querySelectorAll(".circle-file-input[data-file-count-target]").forEach(input => {
+  document.querySelectorAll("[data-image-upload][data-file-count-target]").forEach(input => {
     const target = document.getElementById(input.dataset.fileCountTarget);
     if (!target) {
       return;
     }
 
     input.addEventListener("change", () => {
+      const files = input.files ? Array.from(input.files) : [];
+      const maxCount = Number(input.dataset.maxCount || 0);
+      const maxBytes = Number(input.dataset.maxBytes || 0);
+      const oversizedFile = files.find(file => maxBytes && file.size > maxBytes);
+
+      if (maxCount && files.length > maxCount) {
+        window.alert(`最多只能选择 ${maxCount} 张图片。`);
+        input.value = "";
+      } else if (oversizedFile) {
+        window.alert(`单张图片不能超过 ${Math.floor(maxBytes / 1024)}KB。`);
+        input.value = "";
+      }
+
       const count = input.files ? input.files.length : 0;
       target.textContent = count > 0 ? `已选择 ${count} 张图片` : "未选择图片";
     });
