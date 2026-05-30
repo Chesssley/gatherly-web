@@ -64,10 +64,10 @@ def ensure_admin_schema():
     _ensure_admin_schema()
 
 
-def _log_admin_action(action, target_type, target_id, detail):
+def log_admin_action(admin_id, action, target_type, target_id, detail=None):
     db.session.add(
         AdminLog(
-            admin_id=get_current_user().id,
+            admin_id=admin_id,
             action=action,
             target_type=target_type,
             target_id=target_id,
@@ -75,6 +75,33 @@ def _log_admin_action(action, target_type, target_id, detail):
             ip_address=request.remote_addr,
         )
     )
+
+
+@admin_bp.after_app_request
+def log_official_circle_creation(response):
+    if (
+        request.endpoint == "circle.create_circle"
+        and request.method == "POST"
+        and response.status_code in {301, 302, 303, 307, 308}
+        and request.form.get("circle_type", "").strip() in {"official", "system"}
+    ):
+        admin = get_current_user()
+        if admin and admin.role == "admin":
+            circle = (
+                Circle.query.filter_by(owner_id=admin.id, is_system=True)
+                .order_by(Circle.id.desc())
+                .first()
+            )
+            if circle:
+                log_admin_action(
+                    admin.id,
+                    "create_official_circle",
+                    "同好圈",
+                    circle.id,
+                    f"official_circle: false -> true; name: {circle.name}",
+                )
+                db.session.commit()
+    return response
 
 
 def _update_status(model, target_id, allowed_statuses, target_type, list_endpoint):
@@ -91,11 +118,12 @@ def _update_status(model, target_id, allowed_statuses, target_type, list_endpoin
         return redirect(url_for(list_endpoint))
 
     target.status = new_status
-    _log_admin_action(
+    log_admin_action(
+        get_current_user().id,
         "update_status",
         target_type,
         target.id,
-        f"{previous_status} -> {new_status}",
+        f"status: {previous_status} -> {new_status}",
     )
     db.session.commit()
     flash(f"{target_type} #{target.id} 状态已更新为 {new_status}。", "success")
@@ -120,6 +148,14 @@ def admin_dashboard():
     }
     logs = AdminLog.query.order_by(AdminLog.created_at.desc()).limit(30).all()
     return render_template("admin_dashboard.html", stats=stats, logs=logs)
+
+
+@admin_bp.route("/admin/logs")
+@admin_required
+def admin_logs():
+    _ensure_admin_schema()
+    logs = AdminLog.query.order_by(AdminLog.created_at.desc()).limit(100).all()
+    return render_template("admin_logs.html", logs=logs)
 
 
 @admin_bp.route("/admin/users")
