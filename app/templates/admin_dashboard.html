@@ -25,9 +25,9 @@
     <div class="admin-grid" aria-label="后台管理模块">
       <a class="admin-card" href="{{ url_for('admin.admin_users') }}"><h2>用户</h2><strong>{{ stats.users }}</strong><p>查看账号并维护用户状态。</p></a>
       <a class="admin-card" href="{{ url_for('admin.admin_activities') }}"><h2>活动</h2><strong>{{ stats.activities }}</strong><p>维护活动公开状态。</p></a>
-      <a class="admin-card" href="{{ url_for('admin.admin_circles') }}"><h2>同好圈</h2><strong>{{ stats.circles }}</strong><p>维护官方圈子状态。</p></a>
-      <a class="admin-card" href="{{ url_for('admin.admin_posts') }}"><h2>帖子</h2><strong>{{ stats.posts }}</strong><p>隐藏或恢复圈内帖子。</p></a>
-      <a class="admin-card" href="{{ url_for('admin.admin_comments') }}"><h2>评论</h2><strong>{{ stats.comments }}</strong><p>处理评论和评论回复。</p></a>
+      <a class="admin-card" href="{{ url_for('admin.admin_circles') }}"><h2>同好圈</h2><strong>{{ stats.circles }}</strong><p>查看、隐藏或删除同好圈。</p></a>
+      <a class="admin-card" href="{{ url_for('admin.admin_posts') }}"><h2>帖子</h2><strong>{{ stats.posts }}</strong><p>查看、隐藏或删除用户帖子。</p></a>
+      <a class="admin-card" href="{{ url_for('admin.admin_comments') }}"><h2>评论</h2><strong>{{ stats.comments }}</strong><p>查看、隐藏或删除评论和回复。</p></a>
       <a class="admin-card" href="{{ url_for('admin.admin_account') }}"><h2>账号设置</h2><p>修改管理员账号信息和密码。</p></a>
       <a class="admin-card" href="{{ url_for('admin.admin_logs') }}"><h2>操作日志</h2><p>查看最近管理员操作记录。</p></a>
     </div>

@@ -5,12 +5,16 @@
   <nav class="admin-nav" aria-label="后台管理导航">
     <a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a><a href="{{ url_for('admin.admin_account') }}">账号设置</a><a href="{{ url_for('admin.admin_users') }}">用户</a><a href="{{ url_for('admin.admin_activities') }}">活动</a><a href="{{ url_for('admin.admin_circles') }}">同好圈</a><a href="{{ url_for('admin.admin_posts') }}">帖子</a><a class="is-active" href="{{ url_for('admin.admin_comments') }}">评论</a><a href="{{ url_for('admin.admin_dashboard') }}#operation-logs">操作日志</a>
   </nav>
-  <div class="page-title"><p class="eyebrow">Admin Comments</p><h1>评论管理</h1><p>评论和评论回复统一展示，可隐藏或恢复。</p></div>
+  <div class="page-title"><p class="eyebrow">Admin Comments</p><h1>评论管理</h1><p>查看用户发布的评论和回复，并删除违规或不适当的内容。</p></div>
   <div class="admin-table-wrap"><table class="admin-table">
-    <thead><tr><th>ID</th><th>作者</th><th>内容摘要</th><th>所属内容</th><th>状态</th><th>发布时间</th><th>操作</th></tr></thead>
+    <thead><tr><th>ID</th><th>评论内容摘要</th><th>作者</th><th>所属内容</th><th>状态</th><th>发布时间</th><th>操作</th></tr></thead>
     <tbody>{% for comment in comments %}<tr>
-      <td>{{ comment.id }}</td><td>{{ comment.author.username }}</td><td class="admin-summary">{{ comment.content|truncate(60, true) }}</td><td>{% if comment.parent_id %}回复评论 #{{ comment.parent_id }}{% elif comment.post %}帖子 #{{ comment.post.id }}{% elif comment.activity %}活动 #{{ comment.activity.id }}{% else %}-{% endif %}</td><td><span class="admin-status status-{{ comment.status }}">{{ comment.status }}</span></td><td>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-      <td><form method="post" action="{{ url_for('admin.update_comment_status', comment_id=comment.id) }}"><input type="hidden" name="status" value="{{ 'published' if comment.status == 'hidden' else 'hidden' }}"><button class="button button-small {% if comment.status != 'hidden' %}button-secondary{% endif %}" type="submit">{{ '恢复' if comment.status == 'hidden' else '隐藏' }}</button></form></td>
+      <td>{{ comment.id }}</td><td class="admin-summary">{{ comment.content|truncate(60, true) }}</td><td>{{ comment.author.username }}</td><td>{% if comment.parent_id %}回复评论 #{{ comment.parent_id }}{% elif comment.post %}帖子 #{{ comment.post.id }}{% elif comment.activity %}活动 #{{ comment.activity.id }}{% else %}-{% endif %}</td><td><span class="admin-status status-{{ comment.status }}">{{ '已隐藏' if comment.status == 'hidden' else ('已删除' if comment.status == 'deleted' else '正常') }}</span></td><td>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td><div class="admin-action-group">
+        {% if comment.post %}<a class="button button-small button-secondary" href="{{ url_for('circle.circle_detail', circle_id=comment.post.circle_id, _anchor='comment-' ~ comment.id) }}">查看</a>{% elif comment.activity %}<a class="button button-small button-secondary" href="{{ url_for('activity.activity_detail', activity_id=comment.activity_id, _anchor='comment-' ~ comment.id) }}">查看</a>{% else %}<span class="admin-muted">无可用链接</span>{% endif %}
+        {% if comment.status in ['published', 'hidden'] %}<form method="post" action="{{ url_for('admin.update_comment_status', comment_id=comment.id) }}"><input type="hidden" name="status" value="{{ 'published' if comment.status == 'hidden' else 'hidden' }}"><button class="button button-small button-secondary" type="submit">{{ '恢复显示' if comment.status == 'hidden' else '隐藏' }}</button></form>{% endif %}
+        <form method="post" action="{{ url_for('admin.delete_comment', comment_id=comment.id) }}" onsubmit="return confirm('确定删除这条评论吗？');"><button class="button button-small button-danger" type="submit">删除</button></form>
+      </div></td>
     </tr>{% else %}<tr><td class="admin-empty" colspan="7">暂无评论。</td></tr>{% endfor %}</tbody>
   </table></div>
 </div></section>
