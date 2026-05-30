@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}我的活动 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="my-events-page">
+  <div class="container my-events-container">
+    <div class="my-events-back-links">
+      <a href="{{ url_for('activity.index') }}">&larr; 返回首页</a>
+      <a href="{{ url_for('profile.my_profile') }}">返回个人主页</a>
+    </div>
+
+    <div class="my-events-heading">
+      <p class="eyebrow">My Events</p>
+      <h1>我的活动</h1>
+      <p>集中查看你参与、创建和收藏的活动安排。</p>
+    </div>
+
+    <nav class="my-events-tabs" aria-label="我的活动分类">
+      {% for tab_key, tab_label in tab_labels.items() %}
+      <a class="my-events-tab {% if active_tab == tab_key %}is-active{% endif %}"
+         href="{{ url_for('activity.my_events', tab=tab_key) }}"
+         {% if active_tab == tab_key %}aria-current="page"{% endif %}>
+        {{ tab_label }}
+      </a>
+      {% endfor %}
+    </nav>
+
+    {% if activities %}
+    <div class="my-events-grid">
+      {% for activity in activities %}
+      <article class="my-events-card">
+        <a class="my-events-card-link" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
+          <div class="my-events-card-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
+            <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
+                 alt="{{ activity.title }}"
+                 onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+          </div>
+          <div class="my-events-card-body">
+            <div class="my-events-card-tags">
+              {% for tag in activity.tags[:2] %}
+              <span class="tag">{{ tag }}</span>
+              {% endfor %}
+            </div>
+            <h2>{{ activity.title }}</h2>
+            <p><span aria-hidden="true">&#128197;</span> {{ activity.time }}</p>
+            <p><span aria-hidden="true">&#128205;</span> {{ activity.location or "地点待定" }}</p>
+            <div class="my-events-card-footer">
+              <span>{{ activity.current_people }} 人已报名</span>
+              <strong>查看详情 &rarr;</strong>
+            </div>
+          </div>
+        </a>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="my-events-empty-state">
+      <div class="my-events-empty-icon" aria-hidden="true">&#128269;</div>
+      <h2>这里暂时还没有活动</h2>
+      <p>
+        {% if active_tab == "created" %}
+        你还没有创建活动，可以先看看大家最近在组织什么。
+        {% elif active_tab == "saved" %}
+        你还没有收藏活动，遇到感兴趣的活动可以随时保存。
+        {% elif active_tab == "history" %}
+        你参与或创建的活动结束后，会集中展示在这里。
+        {% else %}
+        你还没有报名活动，去发现适合你的下一场线下相遇。
+        {% endif %}
+      </p>
+      <a class="button" href="{{ url_for('activity.index') }}#discover-events">发现活动</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

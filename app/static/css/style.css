@@ -2997,6 +2997,192 @@ textarea.form-input {
   background: var(--color-border);
 }
 
+/* US-19-04: 独立的“我的活动”页面。 */
+.my-events-page {
+  min-height: 68vh;
+  padding: 46px 0 72px;
+  background: #fbfcfb;
+}
+
+.my-events-container {
+  max-width: 1050px;
+}
+
+.my-events-back-links,
+.my-events-tabs,
+.my-events-card-footer {
+  display: flex;
+  align-items: center;
+}
+
+.my-events-back-links {
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.my-events-back-links a {
+  color: var(--color-primary-dark);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.my-events-heading h1 {
+  margin: 3px 0 7px;
+  font-size: clamp(32px, 5vw, 44px);
+}
+
+.my-events-heading > p:last-child {
+  color: var(--color-muted);
+}
+
+.my-events-tabs {
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 25px;
+  padding-bottom: 17px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.my-events-tab {
+  padding: 9px 15px;
+  border-radius: 999px;
+  background: #edf3f1;
+  color: var(--color-primary-dark);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.my-events-tab:hover,
+.my-events-tab.is-active {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.my-events-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.my-events-card {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 17px;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(34, 34, 34, 0.07);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.my-events-card:hover {
+  box-shadow: 0 12px 28px rgba(34, 34, 34, 0.13);
+  transform: translateY(-3px);
+}
+
+.my-events-card-link {
+  display: block;
+  height: 100%;
+  color: inherit;
+}
+
+.my-events-card-image {
+  height: 154px;
+  background: #d7ede6;
+}
+
+.my-events-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.my-events-card-body {
+  padding: 15px;
+}
+
+.my-events-card-tags {
+  min-height: 25px;
+}
+
+.my-events-card-tags .tag {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.my-events-card h2 {
+  margin: 7px 0 10px;
+  font-size: 18px;
+}
+
+.my-events-card p {
+  margin-top: 5px;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.my-events-card-footer {
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 11px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.my-events-card-footer strong {
+  color: var(--color-primary-dark);
+}
+
+.my-events-empty-state {
+  max-width: 470px;
+  margin: 88px auto 25px;
+  padding: 0 20px;
+  text-align: center;
+}
+
+.my-events-empty-icon {
+  display: grid;
+  width: 82px;
+  height: 82px;
+  margin: 0 auto 17px;
+  place-items: center;
+  border-radius: 50%;
+  background: #d9eee8;
+  color: var(--color-primary-dark);
+  font-size: 36px;
+}
+
+.my-events-empty-state h2 {
+  font-size: 21px;
+}
+
+.my-events-empty-state p {
+  margin: 8px 0 19px;
+  color: var(--color-muted);
+  line-height: 1.7;
+}
+
+@media (max-width: 860px) {
+  .my-events-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .my-events-page {
+    padding-top: 28px;
+  }
+
+  .my-events-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .my-events-back-links {
+    justify-content: space-between;
+  }
+}
+
 .mobile-nav,
 .mobile-search-panel,
 .mobile-menu {

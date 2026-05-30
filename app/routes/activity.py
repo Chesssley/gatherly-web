@@ -3,7 +3,7 @@ import os
 from flask import Blueprint, abort, jsonify, render_template, request, session, redirect, url_for, flash
 from functools import wraps
 from datetime import datetime, timedelta
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.exc import IntegrityError
 
 from app.models import (
@@ -277,6 +277,84 @@ def index():
         registered_activities=registered_activities,
         favorite_activity_ids=favorite_activity_ids,
         favorite_activities=favorite_activities,
+    )
+
+
+@activity_bp.route("/my-events")
+@login_required
+def my_events():
+    user_id = session["user_id"]
+    active_tab = request.args.get("tab", "joined")
+    tab_labels = {
+        "joined": "我报名的活动",
+        "created": "我创建的活动",
+        "saved": "已收藏",
+        "history": "历史活动 / 已结束",
+    }
+    if active_tab not in tab_labels:
+        active_tab = "joined"
+
+    if active_tab == "created":
+        query = Activity.query.filter(Activity.organizer_id == user_id)
+    elif active_tab == "saved":
+        query = (
+            Activity.query.join(
+                ActivityFavorite,
+                ActivityFavorite.activity_id == Activity.id,
+            )
+            .filter(ActivityFavorite.user_id == user_id)
+        )
+    elif active_tab == "history":
+        query = (
+            Activity.query.outerjoin(
+                Registration,
+                and_(
+                    Registration.activity_id == Activity.id,
+                    Registration.user_id == user_id,
+                ),
+            )
+            .filter(
+                or_(
+                    Activity.organizer_id == user_id,
+                    Registration.user_id == user_id,
+                ),
+                or_(
+                    Activity.status == "closed",
+                    Activity.start_time < datetime.utcnow(),
+                ),
+            )
+            .distinct()
+        )
+    else:
+        query = (
+            Activity.query.join(
+                Registration,
+                Registration.activity_id == Activity.id,
+            )
+            .filter(Registration.user_id == user_id)
+            .distinct()
+        )
+
+    db_activities = query.order_by(Activity.start_time.desc(), Activity.id.desc()).all()
+    activity_ids = [activity.id for activity in db_activities]
+    reg_counts = {}
+    if activity_ids:
+        reg_counts = dict(
+            db.session.query(Registration.activity_id, func.count(Registration.id))
+            .filter(Registration.activity_id.in_(activity_ids))
+            .group_by(Registration.activity_id)
+            .all()
+        )
+
+    activities = [
+        _activity_to_summary(activity, reg_counts.get(activity.id, 0))
+        for activity in db_activities
+    ]
+    return render_template(
+        "my_events.html",
+        active_tab=active_tab,
+        activities=activities,
+        tab_labels=tab_labels,
     )
 
 
