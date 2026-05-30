@@ -34,5 +34,7 @@ instance/*.db
 .flaskenv
 
 # User uploads
+app/static/uploads/*
+!app/static/uploads/avatars/
 app/static/uploads/avatars/*
 !app/static/uploads/avatars/.gitkeep

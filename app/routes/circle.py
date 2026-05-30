@@ -1,20 +1,23 @@
 from datetime import datetime
 import os
 from types import SimpleNamespace
-from uuid import uuid4
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError, OperationalError
-from werkzeug.utils import secure_filename
 
 from app.models import Circle, CircleMember, Comment, CommentImage, Interaction, Post, PostImage, User, db
 from app.routes.activity import OFFICIAL_INTEREST_TAGS
+from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
 circle_bp = Blueprint("circle", __name__)
 
-ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
-UPLOAD_SUBDIR = os.path.join("uploads", "circle")
+POST_IMAGE_MAX_BYTES = 800 * 1024
+POST_IMAGE_MAX_COUNT = 3
+COMMENT_IMAGE_MAX_BYTES = 500 * 1024
+COMMENT_IMAGE_MAX_COUNT = 1
+POST_UPLOAD_SUBDIR = os.path.join("uploads", "posts")
+COMMENT_UPLOAD_SUBDIR = os.path.join("uploads", "comments")
 OFFICIAL_CIRCLE_SUFFIX = "同好圈"
 
 _CIRCLE_DESCRIPTIONS = {
@@ -163,36 +166,6 @@ def _ensure_comment_parent_column():
     if "parent_id" not in existing_columns:
         db.session.execute(text("ALTER TABLE comment ADD COLUMN parent_id INTEGER"))
         db.session.commit()
-
-
-def _allowed_image(filename):
-    if "." not in filename:
-        return False
-    extension = filename.rsplit(".", 1)[1].lower()
-    return extension in ALLOWED_IMAGE_EXTENSIONS
-
-
-def _circle_upload_dir():
-    upload_dir = os.path.join(current_app.static_folder, UPLOAD_SUBDIR)
-    os.makedirs(upload_dir, exist_ok=True)
-    return upload_dir
-
-
-def _save_uploaded_images(files):
-    saved_paths = []
-    upload_dir = _circle_upload_dir()
-    for file in files:
-        if not file or not file.filename:
-            continue
-        if not _allowed_image(file.filename):
-            raise ValueError("只支持 jpg、jpeg、png、webp、gif 格式的图片。")
-
-        original = secure_filename(file.filename)
-        extension = original.rsplit(".", 1)[1].lower()
-        filename = f"{uuid4().hex}.{extension}"
-        file.save(os.path.join(upload_dir, filename))
-        saved_paths.append(f"{UPLOAD_SUBDIR.replace(os.sep, '/')}/{filename}")
-    return saved_paths
 
 
 def _sync_system_circles():
@@ -809,7 +782,12 @@ def create_post(circle_id):
         return render_template("create_post.html", circle=circle)
 
     try:
-        image_paths = _save_uploaded_images(request.files.getlist("images"))
+        validated_images = validate_image_files(
+            request.files.getlist("images"),
+            max_count=POST_IMAGE_MAX_COUNT,
+            max_bytes=POST_IMAGE_MAX_BYTES,
+        )
+        image_paths = save_image_files(validated_images, POST_UPLOAD_SUBDIR)
     except ValueError as exc:
         flash(str(exc), "error")
         return render_template("create_post.html", circle=circle)
@@ -825,6 +803,7 @@ def create_post(circle_id):
         return redirect(url_for("circle.circle_detail", circle_id=circle.id))
     except Exception:
         db.session.rollback()
+        delete_saved_images(image_paths)
         flash("发布失败，请稍后重试。", "error")
         return render_template("create_post.html", circle=circle)
 
@@ -857,7 +836,12 @@ def comment_post(circle_id, post_id):
             return redirect(url_for("circle.circle_detail", circle_id=post.circle_id, _anchor=f"post-{post.id}"))
 
     try:
-        image_paths = _save_uploaded_images(request.files.getlist("images"))
+        validated_images = validate_image_files(
+            request.files.getlist("images"),
+            max_count=COMMENT_IMAGE_MAX_COUNT,
+            max_bytes=COMMENT_IMAGE_MAX_BYTES,
+        )
+        image_paths = save_image_files(validated_images, COMMENT_UPLOAD_SUBDIR)
     except ValueError as exc:
         flash(str(exc), "error")
         return redirect(url_for("circle.circle_detail", circle_id=post.circle_id))
@@ -872,11 +856,17 @@ def comment_post(circle_id, post_id):
         parent_id=parent_comment.id if parent_comment else None,
         content=content or " ",
     )
-    db.session.add(comment)
-    db.session.flush()
-    for image_path in image_paths:
-        db.session.add(CommentImage(comment_id=comment.id, image_path=image_path))
-    db.session.commit()
+    try:
+        db.session.add(comment)
+        db.session.flush()
+        for image_path in image_paths:
+            db.session.add(CommentImage(comment_id=comment.id, image_path=image_path))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        delete_saved_images(image_paths)
+        flash("评论发布失败，请稍后重试。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=post.circle_id))
     flash("回复已发布。" if parent_comment else "评论已发布。", "success")
     return redirect(url_for("circle.circle_detail", circle_id=post.circle_id, _anchor=f"comment-{comment.id}"))
 
