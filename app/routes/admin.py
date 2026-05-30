@@ -6,7 +6,7 @@ from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.models import Activity, AdminLog, Circle, Comment, Post, User, db
+from app.models import Activity, AdminLog, Circle, CircleMember, Comment, Interaction, Post, User, db
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -149,7 +149,7 @@ def admin_dashboard():
     stats = {
         "users": User.query.count(),
         "activities": Activity.query.count(),
-        "circles": Circle.query.count(),
+        "circles": Circle.query.filter(Circle.status != "deleted").count(),
         "posts": Post.query.count(),
         "comments": Comment.query.count(),
     }
@@ -301,6 +301,7 @@ def admin_circles():
     circles = (
         db.session.query(Circle, func.count(Post.id).label("post_count"))
         .outerjoin(Post, Post.circle_id == Circle.id)
+        .filter(Circle.status != "deleted")
         .group_by(Circle.id)
         .order_by(Circle.created_at.desc(), Circle.id.desc())
         .all()
@@ -312,10 +313,6 @@ def admin_circles():
 @admin_required
 def update_circle_status(circle_id):
     _ensure_admin_schema()
-    circle = Circle.query.get_or_404(circle_id)
-    if not circle.is_system:
-        flash("仅允许修改官方圈子状态。", "error")
-        return redirect(url_for("admin.admin_circles"))
     return _update_status(Circle, circle_id, CIRCLE_STATUSES, "同好圈", "admin.admin_circles")
 
 
@@ -325,6 +322,118 @@ def admin_posts():
     _ensure_admin_schema()
     posts = Post.query.order_by(Post.created_at.desc(), Post.id.desc()).all()
     return render_template("admin_posts.html", posts=posts)
+
+
+def _delete_comment_record(comment):
+    Comment.query.filter_by(parent_id=comment.id).update(
+        {"parent_id": comment.parent_id},
+        synchronize_session=False,
+    )
+    Interaction.query.filter_by(target_type="comment", target_id=comment.id).delete(
+        synchronize_session=False,
+    )
+    db.session.delete(comment)
+
+
+def _delete_post_comments(post):
+    comments = Comment.query.filter_by(post_id=post.id).all()
+    comments_by_parent = {}
+    for comment in comments:
+        comments_by_parent.setdefault(comment.parent_id, []).append(comment)
+
+    ordered_comments = []
+    visited_ids = set()
+
+    def collect_children_first(comment):
+        if comment.id in visited_ids:
+            return
+        visited_ids.add(comment.id)
+        for reply in comments_by_parent.get(comment.id, []):
+            collect_children_first(reply)
+        ordered_comments.append(comment)
+
+    for comment in comments:
+        collect_children_first(comment)
+
+    for comment in ordered_comments:
+        Interaction.query.filter_by(target_type="comment", target_id=comment.id).delete(
+            synchronize_session=False,
+        )
+        db.session.delete(comment)
+
+
+def _delete_post_record(post):
+    _delete_post_comments(post)
+    Interaction.query.filter_by(target_type="post", target_id=post.id).delete(
+        synchronize_session=False,
+    )
+    db.session.delete(post)
+
+
+@admin_bp.route("/admin/circles/<int:circle_id>/delete", methods=["POST"])
+@admin_required
+def delete_circle(circle_id):
+    _ensure_admin_schema()
+    circle = Circle.query.get(circle_id)
+    if circle is None or circle.status == "deleted":
+        flash("同好圈不存在或已被删除。", "error")
+        return redirect(url_for("admin.admin_circles"))
+
+    admin = get_current_user()
+    circle_name = circle.name
+    try:
+        for post in Post.query.filter_by(circle_id=circle.id).all():
+            _delete_post_record(post)
+        CircleMember.query.filter_by(circle_id=circle.id).delete(synchronize_session=False)
+        if circle.is_system:
+            # Keep a tombstone so automatic official-circle synchronization
+            # does not recreate a deleted official circle.
+            circle.status = "deleted"
+        else:
+            db.session.delete(circle)
+        log_admin_action(
+            admin.id,
+            "delete_circle",
+            "同好圈",
+            circle.id,
+            f"name: {circle_name}",
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        flash("同好圈删除失败，请稍后重试。", "error")
+    else:
+        flash(f"同好圈“{circle_name}”已删除。", "success")
+    return redirect(url_for("admin.admin_circles"))
+
+
+@admin_bp.route("/admin/posts/<int:post_id>/delete", methods=["POST"])
+@admin_required
+def delete_post(post_id):
+    _ensure_admin_schema()
+    post = Post.query.get(post_id)
+    if post is None:
+        flash("帖子不存在或已被删除。", "error")
+        return redirect(url_for("admin.admin_posts"))
+
+    admin = get_current_user()
+    post_title = post.title
+    try:
+        _delete_post_record(post)
+        log_admin_action(
+            admin.id,
+            "delete_post",
+            "帖子",
+            post.id,
+            f"title: {post_title}",
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        flash("帖子删除失败，请稍后重试。", "error")
+    else:
+        flash(f"帖子《{post_title}》已删除。", "success")
+    return redirect(url_for("admin.admin_posts"))
 
 
 @admin_bp.route("/admin/posts/<int:post_id>/status", methods=["POST"])
@@ -339,6 +448,35 @@ def admin_comments():
     _ensure_admin_schema()
     comments = Comment.query.order_by(Comment.created_at.desc(), Comment.id.desc()).all()
     return render_template("admin_comments.html", comments=comments)
+
+
+@admin_bp.route("/admin/comments/<int:comment_id>/delete", methods=["POST"])
+@admin_required
+def delete_comment(comment_id):
+    _ensure_admin_schema()
+    comment = Comment.query.get(comment_id)
+    if comment is None:
+        flash("评论不存在或已被删除。", "error")
+        return redirect(url_for("admin.admin_comments"))
+
+    admin = get_current_user()
+    comment_summary = comment.content.strip()[:40] or "(无文字内容)"
+    try:
+        _delete_comment_record(comment)
+        log_admin_action(
+            admin.id,
+            "delete_comment",
+            "评论",
+            comment.id,
+            f"content: {comment_summary}",
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        flash("评论删除失败，请稍后重试。", "error")
+    else:
+        flash("评论已删除。", "success")
+    return redirect(url_for("admin.admin_comments"))
 
 
 @admin_bp.route("/admin/comments/<int:comment_id>/status", methods=["POST"])

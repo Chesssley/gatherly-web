@@ -239,6 +239,10 @@ def _can_manage_circle_content(user, circle, author_id):
     return _circle_member_role(circle.id, user.id) in {"owner", "admin"}
 
 
+def _can_view_circle(user, circle):
+    return circle.status != "deleted" and (circle.status == "active" or _is_admin(user))
+
+
 def _refresh_member_count(circle):
     circle.member_count = CircleMember.query.filter_by(
         circle_id=circle.id,
@@ -336,11 +340,12 @@ def _toggle_interaction(user_id, target_type, target_id, action):
     return "unchanged"
 
 
-def _build_comment_item(comment, current_user, circle, replies_by_parent, depth=0):
+def _build_comment_item(comment, current_user, circle, replies_by_parent, depth=0, include_hidden=False):
     is_published = comment.status == "published"
+    is_visible = is_published or (include_hidden and comment.status == "hidden")
     return {
         "comment": comment,
-        "is_deleted": not is_published,
+        "is_deleted": not is_visible,
         "depth": min(depth, 3),
         "counts": _interaction_counts("comment", comment.id) if is_published else {"like": 0, "favorite": 0},
         "states": (
@@ -357,14 +362,21 @@ def _build_comment_item(comment, current_user, circle, replies_by_parent, depth=
             and _can_manage_circle_content(current_user, circle, comment.author_id)
         ),
         "replies": [
-            _build_comment_item(reply, current_user, circle, replies_by_parent, depth + 1)
+            _build_comment_item(
+                reply,
+                current_user,
+                circle,
+                replies_by_parent,
+                depth + 1,
+                include_hidden=include_hidden,
+            )
             for reply in replies_by_parent.get(comment.id, [])
-            if reply.status == "published"
+            if reply.status == "published" or (include_hidden and reply.status == "hidden")
         ],
     }
 
 
-def _build_comment_threads(comments, current_user, circle):
+def _build_comment_threads(comments, current_user, circle, include_hidden=False):
     replies_by_parent = {}
     for comment in comments:
         if comment.parent_id is not None:
@@ -375,11 +387,19 @@ def _build_comment_threads(comments, current_user, circle):
         if comment.parent_id is not None:
             continue
         has_visible_replies = any(
-            reply.status == "published"
+            reply.status == "published" or (include_hidden and reply.status == "hidden")
             for reply in replies_by_parent.get(comment.id, [])
         )
-        if comment.status == "published" or has_visible_replies:
-            root_comments.append(_build_comment_item(comment, current_user, circle, replies_by_parent))
+        if comment.status == "published" or (include_hidden and comment.status == "hidden") or has_visible_replies:
+            root_comments.append(
+                _build_comment_item(
+                    comment,
+                    current_user,
+                    circle,
+                    replies_by_parent,
+                    include_hidden=include_hidden,
+                )
+            )
 
     return root_comments
 
@@ -387,7 +407,11 @@ def _build_comment_threads(comments, current_user, circle):
 @circle_bp.route("/circles")
 def circles():
     _sync_system_circles()
-    circle_rows = Circle.query.order_by(Circle.member_count.desc(), Circle.created_at.asc()).all()
+    circle_rows = (
+        Circle.query.filter_by(status="active")
+        .order_by(Circle.member_count.desc(), Circle.created_at.asc())
+        .all()
+    )
     decorated = [_decorate_circle(circle) for circle in circle_rows]
     return render_template("circle.html", circles=decorated)
 
@@ -455,13 +479,18 @@ def circle_detail(circle_id):
         flash("该圈子还未完成初始化，请刷新后重试。", "error")
         return redirect(url_for("circle.circles"))
 
-    _ensure_comment_parent_column()
-    posts = (
-        Post.query.filter_by(circle_id=circle.id, status="published")
-        .order_by(Post.created_at.desc())
-        .all()
-    )
     current_user = _current_user()
+    if not _can_view_circle(current_user, circle):
+        flash("同好圈不存在或暂不可见。", "error")
+        return redirect(url_for("circle.circles"))
+
+    _ensure_comment_parent_column()
+    post_query = Post.query.filter_by(circle_id=circle.id)
+    if _is_admin(current_user):
+        post_query = post_query.filter(Post.status.in_(["published", "hidden"]))
+    else:
+        post_query = post_query.filter_by(status="published")
+    posts = post_query.order_by(Post.created_at.desc()).all()
     post_items = []
     for post in posts:
         comments = (
@@ -479,7 +508,12 @@ def circle_detail(circle_id):
                     post.id,
                 ),
                 "can_delete": _can_manage_circle_content(current_user, circle, post.user_id),
-                "comments": _build_comment_threads(comments, current_user, circle),
+                "comments": _build_comment_threads(
+                    comments,
+                    current_user,
+                    circle,
+                    include_hidden=_is_admin(current_user),
+                ),
             }
         )
     return render_template(
@@ -498,6 +532,9 @@ def join_circle(circle_id):
         return redirect(url_for("auth.login", next=url_for("circle.circle_detail", circle_id=circle_id)))
 
     circle = Circle.query.get_or_404(circle_id)
+    if circle.status != "active":
+        flash("该同好圈暂不可加入。", "error")
+        return redirect(url_for("circle.circles"))
     member = CircleMember.query.filter_by(circle_id=circle.id, user_id=user.id).first()
     if member is None:
         db.session.add(CircleMember(circle_id=circle.id, user_id=user.id, role="member"))
@@ -519,6 +556,10 @@ def create_post(circle_id):
     circle = _get_circle(circle_id)
     if circle is None or not isinstance(circle, Circle):
         flash("圈子不存在或已被删除。", "error")
+        return redirect(url_for("circle.circles"))
+
+    if not _can_view_circle(user, circle):
+        flash("同好圈不存在或暂不可见。", "error")
         return redirect(url_for("circle.circles"))
 
     if not _is_member(circle.id, user.id):
@@ -569,6 +610,10 @@ def comment_post(circle_id, post_id):
     _ensure_circle_image_tables()
     _ensure_post_status_column()
     _ensure_comment_parent_column()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _can_view_circle(user, circle):
+        flash("同好圈不存在或暂不可见。", "error")
+        return redirect(url_for("circle.circles"))
     post = Post.query.filter_by(id=post_id, circle_id=circle_id, status="published").first_or_404()
     content = request.form.get("content", "").strip()
     parent_id = request.form.get("parent_id", type=int)
@@ -659,6 +704,10 @@ def interact_post(circle_id, post_id, action):
         return redirect(url_for("auth.login", next=url_for("circle.circle_detail", circle_id=circle_id)))
 
     _ensure_post_status_column()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _can_view_circle(user, circle):
+        flash("同好圈不存在或暂不可见。", "error")
+        return redirect(url_for("circle.circles"))
     Post.query.filter_by(id=post_id, circle_id=circle_id, status="published").first_or_404()
     _toggle_interaction(user.id, "post", post_id, action)
     flash("操作已记录。", "success")
@@ -674,6 +723,11 @@ def interact_comment(circle_id, comment_id, action):
     user = _current_user()
     if user is None:
         return redirect(url_for("auth.login", next=url_for("circle.circle_detail", circle_id=circle_id)))
+
+    circle = Circle.query.get_or_404(circle_id)
+    if not _can_view_circle(user, circle):
+        flash("同好圈不存在或暂不可见。", "error")
+        return redirect(url_for("circle.circles"))
 
     comment = (
         Comment.query.join(Post, Comment.post_id == Post.id)
