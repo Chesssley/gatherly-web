@@ -2116,8 +2116,38 @@ textarea.form-input {
   color: var(--color-muted);
 }
 
+.admin-account-form {
+  display: grid;
+  gap: 28px;
+  margin-top: 24px;
+}
+
+.admin-account-section {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.admin-account-section:last-of-type {
+  border-bottom: 0;
+}
+
+.admin-account-section h2 {
+  margin-bottom: 20px;
+  color: var(--color-primary-dark);
+  font-size: 20px;
+}
+
+.admin-account-form .form-actions {
+  margin-top: 0;
+}
+
 @media (max-width: 720px) {
   .admin-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-account-form {
+    gap: 20px;
+    padding: 20px 16px;
   }
 }
