@@ -2267,6 +2267,43 @@ textarea.form-input {
   font-weight: 700;
 }
 
+.profile-deleted-notice {
+  padding: 18px 20px;
+  border: 1px solid #d9aaa0;
+  border-radius: 8px;
+  background: #f8e8e4;
+  color: #8b4638;
+  font-weight: 700;
+}
+
+.account-settings-container {
+  max-width: 720px;
+}
+
+.danger-zone {
+  margin-top: 24px;
+  padding: 24px;
+  border-color: #d9aaa0;
+}
+
+.danger-zone h2 {
+  color: #8b4638;
+}
+
+.danger-zone form {
+  margin-top: 20px;
+}
+
+.button.button-danger {
+  border-color: #8b4638;
+  background: #8b4638;
+}
+
+.button.button-danger:hover {
+  border-color: #71372d;
+  background: #71372d;
+}
+
 .admin-account-form {
   display: grid;
   gap: 28px;
