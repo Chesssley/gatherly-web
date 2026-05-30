@@ -21,13 +21,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 3000);
   });
 
-  // UI-04: 首页活动分类和时间筛选。
+  // UI-05: Meetup 风格分类导航和时间筛选。
   const discoverySection = document.querySelector(".discover-section");
-  const tagChips = discoverySection?.querySelectorAll(".interest-chip") || [];
+  const categoryLinks = discoverySection?.querySelectorAll("[data-category]") || [];
   const timeFilters = discoverySection?.querySelectorAll("[data-time-filter]") || [];
   const discoveryCards = discoverySection?.querySelectorAll(".discover-card") || [];
-  let activeTag = discoverySection?.querySelector(".interest-chip.is-active")?.dataset.tag || "all";
-  let activeTime = discoverySection?.querySelector("[data-time-filter].is-active")?.dataset.timeFilter || "any";
+  const filterParams = new URLSearchParams(window.location.search);
+  const requestedCategory = filterParams.get("category") || "all";
+  const requestedTime = filterParams.get("time") || "any";
+  let activeCategory = Array.from(categoryLinks).some(link => link.dataset.category === requestedCategory)
+    ? requestedCategory
+    : "all";
+  let activeTime = Array.from(timeFilters).some(filter => filter.dataset.timeFilter === requestedTime)
+    ? requestedTime
+    : "any";
+
+  const syncFilterUrl = () => {
+    const url = new URL(window.location.href);
+    if (activeCategory === "all") {
+      url.searchParams.delete("category");
+    } else {
+      url.searchParams.set("category", activeCategory);
+    }
+    if (activeTime === "any") {
+      url.searchParams.delete("time");
+    } else {
+      url.searchParams.set("time", activeTime);
+    }
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  };
 
   const updateFilterStatus = () => {
     const filterStatus = discoverySection?.querySelector(".filter-status");
@@ -35,19 +57,26 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const label = activeTag === "all" ? "全部活动" : activeTag;
+    const activeCategoryLink = discoverySection.querySelector(`[data-category="${activeCategory}"]`);
+    const activeTimeFilter = discoverySection.querySelector(`[data-time-filter="${activeTime}"]`);
+    const categoryLabel = activeCategoryLink?.textContent.trim() || "全部活动";
+    const timeLabel = activeTimeFilter?.textContent.trim() || "全部时间";
     filterStatus.innerHTML = "";
-    filterStatus.appendChild(document.createTextNode("当前正在浏览：" + label));
+    filterStatus.appendChild(document.createTextNode(`当前正在浏览：${categoryLabel} · ${timeLabel}`));
 
-    if (activeTag !== "all" || activeTime !== "any") {
+    if (activeCategory !== "all" || activeTime !== "any") {
       const clearLink = document.createElement("a");
       clearLink.href = "#";
       clearLink.className = "clear-filter-link";
       clearLink.textContent = "查看全部活动 / 清除筛选";
       clearLink.addEventListener("click", event => {
         event.preventDefault();
-        discoverySection.querySelector('.interest-chip[data-tag="all"]')?.click();
-        discoverySection.querySelector('[data-time-filter="any"]')?.click();
+        activeCategory = "all";
+        activeTime = "any";
+        categoryLinks.forEach(item => item.classList.toggle("is-active", item.dataset.category === "all"));
+        timeFilters.forEach(item => item.classList.toggle("is-active", item.dataset.timeFilter === "any"));
+        syncFilterUrl();
+        applyActivityFilters();
       });
       filterStatus.appendChild(clearLink);
     }
@@ -58,9 +87,15 @@ document.addEventListener("DOMContentLoaded", () => {
     discoveryCards.forEach(card => {
       const tags = (card.dataset.tags || "").split(",").map(tag => tag.trim());
       const time = card.dataset.time || "any";
-      const tagMatches = activeTag === "all" || tags.includes(activeTag);
-      const timeMatches = activeTime === "any" || time === activeTime;
-      const isVisible = tagMatches && timeMatches;
+      const categoryLink = discoverySection.querySelector(`[data-category="${activeCategory}"]`);
+      const categoryTags = (categoryLink?.dataset.filterTags || "").split(",").filter(Boolean);
+      const categoryMatches = activeCategory === "all"
+        || categoryTags.length === 0
+        || categoryTags.some(tag => tags.includes(tag));
+      const timeMatches = activeTime === "any"
+        || time === activeTime
+        || (activeTime === "week" && ["today", "tomorrow", "week", "weekend"].includes(time));
+      const isVisible = categoryMatches && timeMatches;
       card.style.display = isVisible ? "" : "none";
       if (isVisible) {
         visibleCount += 1;
@@ -74,48 +109,30 @@ document.addEventListener("DOMContentLoaded", () => {
     updateFilterStatus();
   };
 
-  tagChips.forEach(chip => {
-    chip.addEventListener("click", event => {
+  categoryLinks.forEach(link => {
+    link.addEventListener("click", event => {
       event.preventDefault();
-      activeTag = chip.dataset.tag || "all";
-      tagChips.forEach(item => item.classList.toggle("is-active", item === chip));
+      activeCategory = link.dataset.category || "all";
+      categoryLinks.forEach(item => item.classList.toggle("is-active", item === link));
+      syncFilterUrl();
       applyActivityFilters();
     });
   });
 
   timeFilters.forEach(filter => {
-    filter.addEventListener("click", () => {
+    filter.addEventListener("click", event => {
+      event.preventDefault();
       activeTime = filter.dataset.timeFilter || "any";
       timeFilters.forEach(item => item.classList.toggle("is-active", item === filter));
+      syncFilterUrl();
       applyActivityFilters();
     });
   });
 
-  const tagToggle = document.querySelector("[data-tag-toggle]");
-  if (tagToggle) {
-    tagToggle.addEventListener("click", () => {
-      const interestSection = tagToggle.closest(".interest-section");
-      if (!interestSection) {
-        return;
-      }
-
-      const isExpanded = interestSection.classList.toggle("is-expanded");
-      tagToggle.setAttribute("aria-expanded", String(isExpanded));
-      tagToggle.textContent = isExpanded ? "收起标签" : "展开更多兴趣";
-    });
-  }
-
-  // US-06-03: 清除筛选链接 — 无刷新跳转到全部
-  const clearFilterLink = discoverySection?.querySelector(".clear-filter-link");
-  if (clearFilterLink) {
-    clearFilterLink.addEventListener("click", (e) => {
-      e.preventDefault();
-      const allChip = discoverySection.querySelector('.interest-chip[data-tag="all"]');
-      if (allChip) {
-        allChip.click();
-      }
-    });
-  }
+  categoryLinks.forEach(item => item.classList.toggle("is-active", item.dataset.category === activeCategory));
+  timeFilters.forEach(item => item.classList.toggle("is-active", item.dataset.timeFilter === activeTime));
+  syncFilterUrl();
+  applyActivityFilters();
 
   const showShareToast = (message) => {
     let toast = document.querySelector(".share-toast");

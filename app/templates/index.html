@@ -67,7 +67,7 @@
                 <h2>近期推荐活动</h2>
                 <p>先看看近期最值得加入的线下体验。</p>
             </div>
-            <a class="section-link" href="#discover">浏览全部活动 <span aria-hidden="true">&#8594;</span></a>
+            <a class="section-link" href="#discover-events">浏览全部活动 <span aria-hidden="true">&#8594;</span></a>
         </div>
         <div class="featured-strip">
             <article class="featured-card featured-card-main">
@@ -75,7 +75,7 @@
                     <span class="featured-label">本周精选</span>
                     <h3>周末城市摄影散步</h3>
                     <p>周六 15:00 · 徐汇滨江</p>
-                    <a href="#discover">查看活动</a>
+                    <a href="#discover-events">查看活动</a>
                 </div>
             </article>
             <article class="featured-card featured-card-secondary">
@@ -83,7 +83,7 @@
                     <span class="featured-label">热门报名</span>
                     <h3>手冲咖啡入门体验</h3>
                     <p>周日 10:30 · 静安咖啡实验室</p>
-                    <a href="#discover">查看活动</a>
+                    <a href="#discover-events">查看活动</a>
                 </div>
             </article>
         </div>
@@ -118,7 +118,7 @@
     </div>
 </section>
 
-<section class="home-section discover-section" id="discover">
+<section class="home-section discover-section" id="discover-events">
     <div class="container">
         <div class="home-section-heading">
             <div>
@@ -129,45 +129,52 @@
         </div>
 
         <div class="discover-toolbar" aria-label="活动时间筛选">
-            <button class="filter-pill is-active" type="button" data-time-filter="any">全部日期</button>
-            <button class="filter-pill" type="button" data-time-filter="today">今天</button>
-            <button class="filter-pill" type="button" data-time-filter="weekend">本周末</button>
-            <button class="filter-pill" type="button" data-time-filter="week">本周</button>
+            <a class="filter-pill is-active" href="{{ url_for('activity.index') }}#discover-events" data-time-filter="any">全部时间</a>
+            <a class="filter-pill" href="{{ url_for('activity.index', time='today') }}#discover-events" data-time-filter="today">今天</a>
+            <a class="filter-pill" href="{{ url_for('activity.index', time='tomorrow') }}#discover-events" data-time-filter="tomorrow">明天</a>
+            <a class="filter-pill" href="{{ url_for('activity.index', time='week') }}#discover-events" data-time-filter="week">本周</a>
+            <a class="filter-pill" href="{{ url_for('activity.index', time='weekend') }}#discover-events" data-time-filter="weekend">本周末</a>
+            <a class="filter-pill" href="{{ url_for('activity.index', time='month') }}#discover-events" data-time-filter="month">本月</a>
         </div>
 
-        <section class="interest-section {% if expand_tags_by_default %}is-expanded{% endif %}" aria-labelledby="interest-title">
+        <section class="interest-section" aria-labelledby="interest-title">
             <div class="interest-header">
                 <h3 class="interest-title" id="interest-title">按兴趣探索</h3>
                 <p class="interest-subtitle">点击分类即可筛选活动。</p>
             </div>
-            <div class="interest-tags icon-category-nav">
-                <a class="interest-chip icon-category {% if not selected_tag %}is-active{% endif %}" href="{{ url_for('activity.index') }}" data-tag="all">
-                    <span aria-hidden="true">&#10024;</span><span>全部活动</span>
-                </a>
-                {% if interest_tags %}
-                {% set icons = ["&#128247;", "&#127939;", "&#9749;", "&#128214;", "&#127912;", "&#127925;", "&#127916;", "&#128205;", "&#127922;", "&#128187;", "&#127859;", "&#129309;"] %}
-                {% for tag in interest_tags %}
-                <a class="interest-chip icon-category {% if loop.index > visible_tag_count %}is-extra-tag{% endif %} {% if selected_tag == tag %}is-active{% endif %}"
-                   href="{{ url_for('activity.index', tag=tag) }}" data-tag="{{ tag }}">
-                    <span aria-hidden="true">{{ icons[loop.index0]|safe }}</span><span>{{ tag }}</span>
+            {% set meetup_categories = [
+                ("✨", "全部活动", "all", ""),
+                ("👥", "来自同好圈", "circles", ""),
+                ("🎉", "社交活动", "social", "咖啡茶饮,游戏桌游"),
+                ("🎨", "兴趣爱好", "hobbies", "影像摄影,阅读出版,手作艺术,音乐演出,观影戏剧,美食烘焙"),
+                ("⚽", "运动户外", "sports", "运动户外"),
+                ("🌲", "旅行探索", "travel", "城市探索"),
+                ("💼", "职业商业", "career", ""),
+                ("💻", "科技数码", "technology", "科技数码"),
+                ("🏙", "城市生活", "city-life", "城市探索,咖啡茶饮,美食烘焙"),
+                ("🎮", "游戏娱乐", "games", "游戏桌游,观影戏剧"),
+                ("🎵", "音乐舞蹈", "music", "音乐演出"),
+                ("💗", "支持成长", "support", ""),
+                ("🌿", "健康生活", "wellness", "运动户外"),
+                ("🖼", "艺术文化", "arts", "影像摄影,手作艺术,音乐演出,观影戏剧"),
+                ("🔬", "科学教育", "education", "科技数码,阅读出版"),
+                ("🐱", "宠物动物", "pets", ""),
+                ("📖", "阅读写作", "reading", "阅读出版"),
+                ("👨‍👩‍👧", "家庭亲子", "family", ""),
+                ("🤝", "公益志愿", "volunteering", "公益志愿")
+            ] %}
+            <div class="interest-tags icon-category-nav" role="navigation" aria-label="活动分类">
+                {% for icon, label, value, filter_tags in meetup_categories %}
+                <a class="interest-chip icon-category {% if value == 'all' %}is-active{% endif %}"
+                   href="{{ url_for('activity.index', category=value) if value != 'all' else url_for('activity.index') }}#discover-events"
+                   data-category="{{ value }}" data-filter-tags="{{ filter_tags }}">
+                    <span class="icon-category-symbol" aria-hidden="true">{{ icon }}</span>
+                    <span class="icon-category-label">{{ label }}</span>
                 </a>
                 {% endfor %}
-                {% else %}
-                <span class="interest-subtitle">暂无兴趣标签</span>
-                {% endif %}
             </div>
-            {% if interest_tags|length > visible_tag_count %}
-            <button type="button" class="interest-toggle" data-tag-toggle aria-expanded="{{ 'true' if expand_tags_by_default else 'false' }}">
-                {{ '收起标签' if expand_tags_by_default else '展开更多兴趣' }}
-            </button>
-            {% endif %}
             <div class="filter-status">
-                {% if selected_tag %}
-                <span>当前正在浏览：{{ selected_tag }}</span>
-                <a href="#" class="clear-filter-link">查看全部活动 / 清除筛选</a>
-                {% else %}
                 <span>当前正在浏览：全部活动</span>
-                {% endif %}
             </div>
         </section>
 
