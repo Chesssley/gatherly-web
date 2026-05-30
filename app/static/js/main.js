@@ -401,6 +401,12 @@ document.addEventListener("DOMContentLoaded", () => {
     filterMembers();
   });
 
+  document.querySelectorAll("[data-organizer-banner-dismiss]").forEach(button => {
+    button.addEventListener("click", () => {
+      button.closest("[data-organizer-banner]")?.remove();
+    });
+  });
+
   const togglePanel = (button, panel, shouldOpen) => {
     if (!button || !panel) {
       return;
