@@ -2453,6 +2453,67 @@ textarea.form-input {
   max-width: 260px;
 }
 
+.avatar-editor-layout {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.avatar-current {
+  display: grid;
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #e8f0ed;
+  color: var(--color-primary-dark);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.avatar-current img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-crop-panel {
+  max-width: 320px;
+  margin-top: 16px;
+}
+
+.avatar-crop-canvas {
+  display: block;
+  width: min(100%, 320px);
+  height: auto;
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.avatar-crop-canvas:active {
+  cursor: grabbing;
+}
+
+.avatar-zoom-label,
+.avatar-remove-option {
+  display: block;
+  margin-top: 12px;
+}
+
+.avatar-remove-option input {
+  width: auto;
+  margin-right: 6px;
+}
+
+.form-hint {
+  margin: 6px 0 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
 .circle-inline-form {
   display: inline;
 }
