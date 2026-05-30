@@ -216,6 +216,64 @@ def unban_user(user_id):
     return _update_user_ban_status(user_id, "active")
 
 
+@admin_bp.route("/admin/users/<int:user_id>/promote-admin", methods=["POST"])
+@admin_required
+def promote_admin(user_id):
+    _ensure_admin_schema()
+    user = User.query.get_or_404(user_id)
+    admin = get_current_user()
+
+    if user.status != "active":
+        flash("只有正常状态的用户可以设为管理员。", "error")
+        return redirect(url_for("admin.admin_users"))
+    if user.role == "admin":
+        flash("该用户已经是管理员。", "info")
+        return redirect(url_for("admin.admin_users"))
+
+    previous_role = user.role
+    user.role = "admin"
+    log_admin_action(
+        admin.id,
+        "promote_admin",
+        "用户",
+        user.id,
+        f"role: {previous_role} -> admin",
+    )
+    db.session.commit()
+    flash("已设为管理员", "success")
+    return redirect(url_for("admin.admin_users"))
+
+
+@admin_bp.route("/admin/users/<int:user_id>/demote-admin", methods=["POST"])
+@admin_required
+def demote_admin(user_id):
+    _ensure_admin_schema()
+    user = User.query.get_or_404(user_id)
+    admin = get_current_user()
+
+    if user.id == admin.id:
+        flash("不能撤销自己的管理员权限。", "error")
+        return redirect(url_for("admin.admin_users"))
+    if user.role != "admin":
+        flash("该用户不是管理员。", "info")
+        return redirect(url_for("admin.admin_users"))
+    if User.query.filter_by(role="admin").count() <= 1:
+        flash("系统必须保留至少一个管理员。", "error")
+        return redirect(url_for("admin.admin_users"))
+
+    user.role = "user"
+    log_admin_action(
+        admin.id,
+        "demote_admin",
+        "用户",
+        user.id,
+        "role: admin -> user",
+    )
+    db.session.commit()
+    flash("已撤销管理员权限", "success")
+    return redirect(url_for("admin.admin_users"))
+
+
 @admin_bp.route("/admin/activities")
 @admin_required
 def admin_activities():

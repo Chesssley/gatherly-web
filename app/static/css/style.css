@@ -2247,6 +2247,22 @@ textarea.form-input {
   font: inherit;
 }
 
+.admin-user-actions,
+.admin-action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-user-actions {
+  min-width: 180px;
+}
+
+.admin-action-group form {
+  margin: 0;
+}
+
 .button.button-small.button-danger {
   border-color: #8b4638;
   background: #8b4638;
