@@ -43,6 +43,10 @@ def login():
             flash("账号、邮箱或密码错误", "error")
             return render_template("login.html")
 
+        if user.status == "banned":
+            flash("该账号已被封禁", "error")
+            return render_template("login.html")
+
         # 登录成功，写入 session
         session.clear()
         session["user_id"] = user.id

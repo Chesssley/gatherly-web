@@ -17,6 +17,7 @@ class User(db.Model):
     role = db.Column(db.String(20), default="user", nullable=False)
     trust_score = db.Column(db.Integer, default=100, nullable=False)
     status = db.Column(db.String(20), default="active", nullable=False)
+    banned_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     activities = db.relationship("Activity", back_populates="organizer")

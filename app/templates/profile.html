@@ -5,6 +5,9 @@
 {% block content %}
 <section class="section">
   <div class="container">
+    {% if user.status == 'banned' %}
+    <div class="profile-banned-notice" role="status">该账号已被封禁</div>
+    {% endif %}
     <div class="detail-info-card">
       <div class="detail-info-row">
         <span class="detail-info-label">头像</span>
