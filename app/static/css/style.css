@@ -2247,6 +2247,26 @@ textarea.form-input {
   font: inherit;
 }
 
+.button.button-small.button-danger {
+  border-color: #8b4638;
+  background: #8b4638;
+}
+
+.button.button-small.button-danger:hover {
+  border-color: #71372d;
+  background: #71372d;
+}
+
+.profile-banned-notice {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid #d9aaa0;
+  border-radius: 8px;
+  background: #f8e8e4;
+  color: #8b4638;
+  font-weight: 700;
+}
+
 .admin-account-form {
   display: grid;
   gap: 28px;

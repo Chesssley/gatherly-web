@@ -10,7 +10,17 @@
     <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>信任分</th><th>创建时间</th><th>状态</th><th>操作</th></tr></thead>
     <tbody>{% for user in users %}<tr>
       <td>{{ user.id }}</td><td>{{ user.username }}</td><td>{{ user.email }}</td><td>{{ user.role }}</td><td>{{ user.trust_score }}</td><td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><span class="admin-status status-{{ user.status }}">{{ user.status }}</span></td>
-      <td><form class="admin-action" method="post" action="{{ url_for('admin.update_user_status', user_id=user.id) }}"><select name="status" aria-label="修改 {{ user.username }} 的状态"><option value="active" {% if user.status == 'active' %}selected{% endif %}>active</option><option value="banned" {% if user.status == 'banned' %}selected{% endif %}>banned</option></select><button class="button button-small" type="submit">保存</button></form></td>
+      <td>
+        {% if user.id == current_user.id %}
+          <span class="admin-muted">当前管理员，不可封禁</span>
+        {% elif user.status == 'active' %}
+          <form method="post" action="{{ url_for('admin.ban_user', user_id=user.id) }}"><button class="button button-small button-danger" type="submit">封禁</button></form>
+        {% elif user.status == 'banned' %}
+          <form method="post" action="{{ url_for('admin.unban_user', user_id=user.id) }}"><button class="button button-small" type="submit">解封</button></form>
+        {% else %}
+          <span class="admin-muted">当前状态不可操作</span>
+        {% endif %}
+      </td>
     </tr>{% else %}<tr><td class="admin-empty" colspan="8">暂无用户。</td></tr>{% endfor %}</tbody>
   </table></div>
 </div></section>

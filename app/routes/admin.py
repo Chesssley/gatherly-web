@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import wraps
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
@@ -55,6 +56,12 @@ def _ensure_admin_schema():
         if rows and column_name not in {row[1] for row in rows}:
             db.session.execute(text(statement))
             changed = True
+    user_columns = {
+        row[1] for row in db.session.execute(text('PRAGMA table_info("user")')).fetchall()
+    }
+    if user_columns and "banned_at" not in user_columns:
+        db.session.execute(text("ALTER TABLE user ADD COLUMN banned_at DATETIME"))
+        changed = True
     if changed:
         db.session.commit()
 
@@ -166,10 +173,47 @@ def admin_users():
     return render_template("admin_users.html", users=users)
 
 
-@admin_bp.route("/admin/users/<int:user_id>/status", methods=["POST"])
+def _update_user_ban_status(user_id, new_status):
+    _ensure_admin_schema()
+    user = User.query.get_or_404(user_id)
+    admin = get_current_user()
+
+    if new_status == "banned" and user.id == admin.id:
+        flash("不能封禁当前登录的管理员账号。", "error")
+        return redirect(url_for("admin.admin_users"))
+
+    previous_status = user.status
+    if previous_status == new_status:
+        flash("账号状态没有变化。", "info")
+        return redirect(url_for("admin.admin_users"))
+    if previous_status not in USER_STATUSES:
+        flash("当前账号状态不支持此操作。", "error")
+        return redirect(url_for("admin.admin_users"))
+
+    user.status = new_status
+    user.banned_at = datetime.utcnow() if new_status == "banned" else None
+    log_admin_action(
+        admin.id,
+        "ban_user" if new_status == "banned" else "unban_user",
+        "用户",
+        user.id,
+        f"status: {previous_status} -> {new_status}",
+    )
+    db.session.commit()
+    flash("用户已封禁" if new_status == "banned" else "用户已解封", "success")
+    return redirect(url_for("admin.admin_users"))
+
+
+@admin_bp.route("/admin/users/<int:user_id>/ban", methods=["POST"])
 @admin_required
-def update_user_status(user_id):
-    return _update_status(User, user_id, USER_STATUSES, "用户", "admin.admin_users")
+def ban_user(user_id):
+    return _update_user_ban_status(user_id, "banned")
+
+
+@admin_bp.route("/admin/users/<int:user_id>/unban", methods=["POST"])
+@admin_required
+def unban_user(user_id):
+    return _update_user_ban_status(user_id, "active")
 
 
 @admin_bp.route("/admin/activities")
