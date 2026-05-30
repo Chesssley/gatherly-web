@@ -8,6 +8,20 @@ from werkzeug.utils import secure_filename
 ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 
 
+def _content_matches_extension(content, extension):
+    if extension in {"jpg", "jpeg"}:
+        return content.startswith(b"\xff\xd8\xff")
+    if extension == "png":
+        return content.startswith(b"\x89PNG\r\n\x1a\n")
+    if extension == "webp":
+        return (
+            len(content) >= 12
+            and content.startswith(b"RIFF")
+            and content[8:12] == b"WEBP"
+        )
+    return False
+
+
 def validate_image_files(files, max_count, max_bytes):
     selected_files = [file for file in files if file and file.filename]
     if len(selected_files) > max_count:
@@ -29,6 +43,8 @@ def validate_image_files(files, max_count, max_bytes):
             raise ValueError("图片文件不能为空。")
         if len(content) > max_bytes:
             raise ValueError(f"单张图片不能超过 {max_bytes // 1024}KB。")
+        if not _content_matches_extension(content, extension):
+            raise ValueError("图片文件内容与格式不匹配，请重新选择图片。")
 
         validated_files.append((file, extension))
 

@@ -193,11 +193,7 @@ def _activity_label(activity_id):
     activity = Activity.query.get(activity_id)
     if activity:
         return activity.title
-
-    from app.routes.activity import activities
-
-    mock_activity = next((item for item in activities if item.get("id") == activity_id), None)
-    return mock_activity["title"] if mock_activity else f"活动 #{activity_id}"
+    return f"活动 #{activity_id}"
 
 
 def _circle_label(circle_id):
@@ -230,17 +226,7 @@ def _registration_matches(activity_id, query):
             activity.organizer.username if activity.organizer else None,
         )
 
-    from app.routes.activity import activities
-
-    mock_activity = next((item for item in activities if item.get("id") == activity_id), {})
-    return _matches_text(
-        query,
-        mock_activity.get("title"),
-        mock_activity.get("description"),
-        mock_activity.get("detail"),
-        mock_activity.get("location"),
-        mock_activity.get("category"),
-    )
+    return False
 
 
 def _membership_matches(circle_id, query):

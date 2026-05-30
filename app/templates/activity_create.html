@@ -5,125 +5,82 @@
 {% block content %}
 <section class="section">
     <div class="container narrow-page">
-        <!-- 返回首页 -->
-        <a href="{{ url_for('activity.index') }}" class="back-link">← 返回活动列表</a>
-
+        <a href="{{ url_for('activity.index') }}" class="back-link">&larr; 返回活动列表</a>
         <h1 class="detail-title">发布新活动</h1>
 
-        <!-- Flash 消息 -->
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="flash-msg {{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
+            {% for category, message in messages %}
+                <div class="flash-msg {{ category }}">{{ message }}</div>
+            {% endfor %}
         {% endwith %}
 
-        <!-- 活动发布表单卡片 -->
         <div class="form-card">
-            <form method="post" action="#">
-                <!-- 活动标题 -->
+            <form method="post" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label for="title" class="form-label">
-                        活动标题 <span class="form-required">*</span>
-                    </label>
-                    <input type="text" id="title" name="title" class="form-input" 
-                           placeholder="例如：周末城市骑行探索" required>
-                    <p class="form-hint">简洁明了的标题，吸引参与者关注</p>
-                </div>#新的
-
-                <!-- 活动介绍 -->
-                <div class="form-group">
-                    <label for="description" class="form-label">
-                        活动介绍 <span class="form-required">*</span>
-                    </label>
-                    <textarea id="description" name="description" class="form-input"
-                              rows="6" placeholder="详细描述活动内容、流程、注意事项等" required></textarea>
-                    <p class="form-hint">详细介绍活动，让参与者了解具体安排。支持换行输入。</p>
+                    <label for="title" class="form-label">活动标题 <span class="form-required">*</span></label>
+                    <input type="text" id="title" name="title" class="form-input" maxlength="120" value="{{ request.form.get('title', '') }}" required>
                 </div>
 
-                <!-- 活动时间 -->
+                <div class="form-group">
+                    <label for="description" class="form-label">活动简介 <span class="form-required">*</span></label>
+                    <textarea id="description" name="description" class="form-input" rows="3" required>{{ request.form.get('description', '') }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="detail" class="form-label">活动详情 <span class="form-required">*</span></label>
+                    <textarea id="detail" name="detail" class="form-input" rows="6" required>{{ request.form.get('detail', '') }}</textarea>
+                </div>
+
                 <div class="form-group">
                     <label for="start_time" class="form-label">活动时间 <span class="form-required">*</span></label>
-                    <input type="datetime-local" id="start_time" name="start_time" class="form-input" required>
-                    <p class="form-hint">请选择活动开始的具体日期和时间</p>
+                    <input type="datetime-local" id="start_time" name="start_time" class="form-input" value="{{ request.form.get('start_time', '') }}" required>
                 </div>
 
-                <!-- 活动地点 -->
                 <div class="form-group">
-                    <label for="location" class="form-label">活动地点 <span class="form-required">*</span></label>
-                    <input type="text" id="location" name="location" class="form-input" 
-                           placeholder="例如：西湖文化广场集合" required>
-                    <p class="form-hint">详细地址或集合点</p>
+                    <label for="city" class="form-label">城市 / 地区 <span class="form-required">*</span></label>
+                    <input type="text" id="city" name="city" class="form-input" maxlength="80" value="{{ request.form.get('city', '') }}" placeholder="例如：上海市徐汇区" required>
                 </div>
 
-                <!-- 人数上限 -->
+                <div class="form-group">
+                    <label for="location" class="form-label">详细地点 <span class="form-required">*</span></label>
+                    <input type="text" id="location" name="location" class="form-input" maxlength="255" value="{{ request.form.get('location', '') }}" required>
+                </div>
+
                 <div class="form-group">
                     <label for="max_participants" class="form-label">人数上限 <span class="form-required">*</span></label>
-                    <input type="number" id="max_participants" name="max_participants" 
-                           class="form-input" min="1" placeholder="例如：20" required>
-                    <p class="form-hint">设定活动可报名的人数上限</p>
+                    <input type="number" id="max_participants" name="max_participants" class="form-input" min="1" value="{{ request.form.get('max_participants', '') }}" required>
                 </div>
 
-                <!-- 活动费用 -->
                 <div class="form-group">
-                    <label for="fee" class="form-label">活动费用 <span class="form-required">*</span></label>
-                    <input type="text" id="fee" name="fee" class="form-input" 
-                           placeholder="例如：免费 / ¥30 / AA制" required>
-                    <p class="form-hint">填写费用金额或收费方式</p>
+                    <label for="fee" class="form-label">费用（元） <span class="form-required">*</span></label>
+                    <input type="number" id="fee" name="fee" class="form-input" min="0" step="0.01" value="{{ request.form.get('fee', '0') }}" required>
                 </div>
 
-                <!-- 兴趣标签 -->
-                <div class="form-group">
-                    <span class="form-label">兴趣标签</span>
+                <fieldset class="form-group">
+                    <legend class="form-label">兴趣标签 <span class="form-required">*</span></legend>
                     <div class="tags-grid">
+                        {% for tag in interest_tags %}
                         <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="胶片摄影">
-                            <span>胶片摄影</span>
+                            <input type="checkbox" name="tags" value="{{ tag }}" {% if tag in request.form.getlist('tags') %}checked{% endif %}>
+                            <span>{{ tag }}</span>
                         </label>
-                        <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="城市骑行">
-                            <span>城市骑行</span>
-                        </label>
-                        <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="手冲咖啡">
-                            <span>手冲咖啡</span>
-                        </label>
-                        <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="独立出版">
-                            <span>独立出版</span>
-                        </label>
-                        <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="桌游">
-                            <span>桌游</span>
-                        </label>
-                        <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="徒步">
-                            <span>徒步</span>
-                        </label>
-                        <label class="tag-checkbox">
-                            <input type="checkbox" name="tags[]" value="音乐现场">
-                            <span>音乐现场</span>
-                        </label>
+                        {% endfor %}
                     </div>
-                    <p class="form-hint">选择与活动相关的兴趣标签，可多选</p>
-                </div>
+                </fieldset>
 
-                <!-- 准备事项 -->
                 <div class="form-group">
-                    <label for="preparation" class="form-label">活动准备事项 <span class="form-required">*</span></label>
-                    <textarea id="preparation" name="preparation" class="form-input" 
-                              rows="4" placeholder="例如：
-1. 携带相机和备用电池
-2. 穿着舒适运动鞋
-3. 自备饮用水" required></textarea>
-                    <p class="form-hint">每项一行，支持换行显示</p>
+                    <label for="preparation" class="form-label">准备事项 <span class="form-required">*</span></label>
+                    <textarea id="preparation" name="preparation" class="form-input" rows="4" required>{{ request.form.get('preparation', '') }}</textarea>
                 </div>
 
-                <!-- 表单按钮 -->
+                <div class="form-group">
+                    <label for="image" class="form-label">活动图片 <span class="form-required">*</span></label>
+                    <input type="file" id="image" name="image" class="form-input" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required>
+                    <p class="form-hint">支持 JPG、PNG、WebP，单张图片小于 800KB。</p>
+                </div>
+
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-register" disabled>发布活动（功能待实现）</button>
-                    <p class="form-note">本页面仅用于展示，提交功能将在后续任务中实现</p>
+                    <button type="submit" class="btn btn-register">发布活动</button>
                 </div>
             </form>
         </div>
