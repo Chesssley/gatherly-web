@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}同好圈管理 - Gatherly{% endblock %}
+{% block content %}
+<section class="section"><div class="container">
+  <nav class="admin-nav" aria-label="后台管理导航">
+    <a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a><a href="{{ url_for('admin.admin_account') }}">账号设置</a><a href="{{ url_for('admin.admin_users') }}">用户</a><a href="{{ url_for('admin.admin_activities') }}">活动</a><a class="is-active" href="{{ url_for('admin.admin_circles') }}">同好圈</a><a href="{{ url_for('admin.admin_posts') }}">帖子</a><a href="{{ url_for('admin.admin_comments') }}">评论</a><a href="{{ url_for('admin.admin_dashboard') }}#operation-logs">操作日志</a>
+  </nav>
+  <div class="page-title"><p class="eyebrow">Admin Circles</p><h1>同好圈管理</h1><p>查看同好圈，并维护官方圈子状态。</p></div>
+  <div class="admin-table-wrap"><table class="admin-table">
+    <thead><tr><th>ID</th><th>名称</th><th>标签</th><th>是否官方</th><th>帖子数</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody>{% for circle, post_count in circles %}<tr>
+      <td>{{ circle.id }}</td><td>{{ circle.name }}</td><td>{{ circle.tag or '-' }}</td><td>{{ '是' if circle.is_system else '否' }}</td><td>{{ post_count }}</td><td><span class="admin-status status-{{ circle.status }}">{{ circle.status }}</span></td>
+      <td>{% if circle.is_system %}<form class="admin-action" method="post" action="{{ url_for('admin.update_circle_status', circle_id=circle.id) }}"><select name="status" aria-label="修改 {{ circle.name }} 的状态"><option value="active" {% if circle.status == 'active' %}selected{% endif %}>active</option><option value="hidden" {% if circle.status == 'hidden' %}selected{% endif %}>hidden</option></select><button class="button button-small" type="submit">保存</button></form>{% else %}<span class="admin-muted">仅官方圈子可管理</span>{% endif %}</td>
+    </tr>{% else %}<tr><td class="admin-empty" colspan="7">暂无同好圈。</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div></section>
+{% endblock %}

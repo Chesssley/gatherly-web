@@ -16,6 +16,7 @@ class User(db.Model):
     interests = db.Column(db.Text)
     role = db.Column(db.String(20), default="user", nullable=False)
     trust_score = db.Column(db.Integer, default=100, nullable=False)
+    status = db.Column(db.String(20), default="active", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     activities = db.relationship("Activity", back_populates="organizer")
@@ -93,6 +94,7 @@ class Circle(db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     is_system = db.Column(db.Boolean, default=False, nullable=False)
     member_count = db.Column(db.Integer, default=0, nullable=False)
+    status = db.Column(db.String(20), default="active", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     posts = db.relationship("Post", back_populates="circle")

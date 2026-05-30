@@ -5,7 +5,16 @@
 {% block content %}
 <section class="section">
   <div class="container narrow-page">
-    <a class="back-link" href="{{ url_for('admin.admin_dashboard') }}">返回后台管理</a>
+    <nav class="admin-nav" aria-label="后台管理导航">
+      <a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a>
+      <a class="is-active" href="{{ url_for('admin.admin_account') }}">账号设置</a>
+      <a href="{{ url_for('admin.admin_users') }}">用户</a>
+      <a href="{{ url_for('admin.admin_activities') }}">活动</a>
+      <a href="{{ url_for('admin.admin_circles') }}">同好圈</a>
+      <a href="{{ url_for('admin.admin_posts') }}">帖子</a>
+      <a href="{{ url_for('admin.admin_comments') }}">评论</a>
+      <a href="{{ url_for('admin.admin_dashboard') }}#operation-logs">操作日志</a>
+    </nav>
     <div class="page-title">
       <p class="eyebrow">Admin Account</p>
       <h1>账号设置</h1>

@@ -2116,6 +2116,137 @@ textarea.form-input {
   color: var(--color-muted);
 }
 
+.admin-card strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--color-primary);
+  font-size: 34px;
+  line-height: 1;
+}
+
+.admin-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 28px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+}
+
+.admin-nav a {
+  flex: 0 0 auto;
+  padding: 7px 11px;
+  border-radius: 999px;
+  color: var(--color-muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.admin-nav a:hover,
+.admin-nav a.is-active {
+  background: #e8f0ed;
+  color: var(--color-primary-dark);
+}
+
+.admin-panel {
+  margin-top: 36px;
+}
+
+.admin-panel-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.admin-panel-heading h2,
+.admin-panel-heading p {
+  margin-bottom: 0;
+}
+
+.admin-panel-heading > p,
+.admin-muted {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  box-shadow: 0 8px 20px rgba(34, 34, 34, 0.05);
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.admin-table th {
+  background: #fbfaf7;
+  color: var(--color-primary-dark);
+  white-space: nowrap;
+}
+
+.admin-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-summary {
+  max-width: 280px;
+}
+
+.admin-empty {
+  padding: 24px !important;
+  color: var(--color-muted);
+  text-align: center !important;
+}
+
+.admin-status {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e8f0ed;
+  color: var(--color-primary-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-status.status-hidden,
+.admin-status.status-banned,
+.admin-status.status-closed {
+  background: #f4e4df;
+  color: #8b4638;
+}
+
+.admin-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-action select {
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
 .admin-account-form {
   display: grid;
   gap: 28px;
@@ -2149,5 +2280,11 @@ textarea.form-input {
   .admin-account-form {
     gap: 20px;
     padding: 20px 16px;
+  }
+
+  .admin-panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 }

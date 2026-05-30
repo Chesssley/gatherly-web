@@ -5,42 +5,57 @@
 {% block content %}
 <section class="section">
   <div class="container">
+    <nav class="admin-nav" aria-label="后台管理导航">
+      <a class="is-active" href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('admin.admin_account') }}">账号设置</a>
+      <a href="{{ url_for('admin.admin_users') }}">用户</a>
+      <a href="{{ url_for('admin.admin_activities') }}">活动</a>
+      <a href="{{ url_for('admin.admin_circles') }}">同好圈</a>
+      <a href="{{ url_for('admin.admin_posts') }}">帖子</a>
+      <a href="{{ url_for('admin.admin_comments') }}">评论</a>
+      <a href="#operation-logs">操作日志</a>
+    </nav>
+
     <div class="page-title">
       <p class="eyebrow">Admin Dashboard</p>
       <h1>后台管理</h1>
-      <p>欢迎进入 Gatherly 后台管理系统。请选择需要管理的模块。</p>
+      <p>查看平台内容概况，并进入对应模块维护状态。</p>
     </div>
 
-    <div class="admin-grid" aria-label="后台管理导航">
-      <a class="admin-card" href="{{ url_for('admin.admin_account') }}">
-        <h2>账号设置</h2>
-        <p>修改管理员昵称、登录账号、邮箱和密码。</p>
-      </a>
-      <a class="admin-card" href="#user-management">
-        <h2>用户管理</h2>
-        <p>查看和维护平台用户信息。</p>
-      </a>
-      <a class="admin-card" href="#activity-management">
-        <h2>活动管理</h2>
-        <p>管理活动内容和活动状态。</p>
-      </a>
-      <a class="admin-card" href="#circle-management">
-        <h2>同好圈管理</h2>
-        <p>维护同好圈和圈内秩序。</p>
-      </a>
-      <a class="admin-card" href="#post-management">
-        <h2>帖子管理</h2>
-        <p>查看和处理社区帖子。</p>
-      </a>
-      <a class="admin-card" href="#comment-management">
-        <h2>评论管理</h2>
-        <p>查看和处理用户评论。</p>
-      </a>
-      <a class="admin-card" href="#operation-logs">
-        <h2>操作日志</h2>
-        <p>查看后台管理操作记录。</p>
-      </a>
+    <div class="admin-grid" aria-label="后台管理模块">
+      <a class="admin-card" href="{{ url_for('admin.admin_users') }}"><h2>用户</h2><strong>{{ stats.users }}</strong><p>查看账号并维护用户状态。</p></a>
+      <a class="admin-card" href="{{ url_for('admin.admin_activities') }}"><h2>活动</h2><strong>{{ stats.activities }}</strong><p>维护活动公开状态。</p></a>
+      <a class="admin-card" href="{{ url_for('admin.admin_circles') }}"><h2>同好圈</h2><strong>{{ stats.circles }}</strong><p>维护官方圈子状态。</p></a>
+      <a class="admin-card" href="{{ url_for('admin.admin_posts') }}"><h2>帖子</h2><strong>{{ stats.posts }}</strong><p>隐藏或恢复圈内帖子。</p></a>
+      <a class="admin-card" href="{{ url_for('admin.admin_comments') }}"><h2>评论</h2><strong>{{ stats.comments }}</strong><p>处理评论和评论回复。</p></a>
+      <a class="admin-card" href="{{ url_for('admin.admin_account') }}"><h2>账号设置</h2><p>修改管理员账号信息和密码。</p></a>
     </div>
+
+    <section class="admin-panel" id="operation-logs">
+      <div class="admin-panel-heading">
+        <div><p class="eyebrow">Audit Trail</p><h2>操作日志</h2></div>
+        <p>最近 30 条后台状态修改记录</p>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>时间</th><th>管理员</th><th>操作</th><th>对象</th><th>详情</th><th>IP</th></tr></thead>
+          <tbody>
+            {% for log in logs %}
+              <tr>
+                <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ log.admin.username }}</td>
+                <td>{{ log.action }}</td>
+                <td>{{ log.target_type }}{% if log.target_id %} #{{ log.target_id }}{% endif %}</td>
+                <td>{{ log.detail or '-' }}</td>
+                <td>{{ log.ip_address or '-' }}</td>
+              </tr>
+            {% else %}
+              <tr><td class="admin-empty" colspan="6">暂无后台操作日志。</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </section>
 {% endblock %}
