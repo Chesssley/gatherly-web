@@ -1,7 +1,7 @@
 from flask import Flask, flash, redirect, request, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 
-from app.models import db
+from app.models import db, ensure_activity_schema, ensure_user_account_schema
 
 
 def create_app():
@@ -12,6 +12,9 @@ def create_app():
     app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
     db.init_app(app)
+    with app.app_context():
+        ensure_user_account_schema()
+        ensure_activity_schema()
 
     from app.routes.activity import activity_bp
     from app.routes.admin import admin_bp

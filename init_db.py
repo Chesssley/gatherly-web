@@ -6,13 +6,15 @@ import os
 from werkzeug.security import generate_password_hash
 
 from app import create_app
-from app.models import Activity, User, activities, db, ensure_user_account_schema
+from app.models import Activity, User, db, ensure_activity_schema, ensure_user_account_schema
+from seed_data import DEMO_ACTIVITIES
 
 app = create_app()
 
 with app.app_context():
     db.create_all()
     ensure_user_account_schema()
+    ensure_activity_schema()
 
     demo_organizer = User.query.filter_by(username="gatherly_demo").first()
     if demo_organizer is None:
@@ -25,20 +27,14 @@ with app.app_context():
         db.session.add(demo_organizer)
         db.session.flush()
 
-    for activity_data in activities:
-        if db.session.get(Activity, activity_data["id"]) is None:
-            db.session.add(
-                Activity(
-                    id=activity_data["id"],
-                    title=activity_data["title"],
-                    description=activity_data.get("description"),
-                    location=activity_data.get("location"),
-                    max_participants=activity_data.get("capacity")
-                    if isinstance(activity_data.get("capacity"), int)
-                    else None,
-                    organizer_id=demo_organizer.id,
-                )
-            )
+    for activity_data in DEMO_ACTIVITIES:
+        activity = db.session.get(Activity, activity_data["id"])
+        if activity is None:
+            activity = Activity(id=activity_data["id"], organizer_id=demo_organizer.id)
+            db.session.add(activity)
+        for field, value in activity_data.items():
+            if field != "id":
+                setattr(activity, field, value)
     db.session.commit()
 
     print("数据库初始化完成！")

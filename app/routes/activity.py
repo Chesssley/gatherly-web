@@ -1,6 +1,8 @@
+import os
+
 from flask import Blueprint, abort, jsonify, render_template, request, session, redirect, url_for, flash
 from functools import wraps
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
@@ -13,8 +15,8 @@ from app.models import (
     TrustScoreLog,
     User,
     UserReview,
-    activities,
 )
+from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
 def login_required(f):
     """登录态检查装饰器，未登录重定向到登录页"""
@@ -32,6 +34,8 @@ activity_bp = Blueprint("activity", __name__)
 
 RATING_ELIGIBLE_STATUSES = {"attended", "completed"}
 TRUST_SCORE_THRESHOLD = 60
+ACTIVITY_IMAGE_MAX_BYTES = 800 * 1024
+ACTIVITY_IMAGE_UPLOAD_SUBDIR = os.path.join("images", "activities")
 
 USER_REVIEW_FIELDS = (
     "punctuality_score",
@@ -58,26 +62,6 @@ OFFICIAL_INTEREST_TAGS = [
 ]
 
 DEFAULT_ACTIVITY_TAG = "城市探索"
-
-ACTIVITY_TAG_OVERRIDES = {
-    1: DEFAULT_ACTIVITY_TAG,
-}
-
-
-def _official_activity_tag(activity):
-    tag = ACTIVITY_TAG_OVERRIDES.get(activity.get("id"), activity.get("category", ""))
-    if tag in OFFICIAL_INTEREST_TAGS:
-        return tag
-    return DEFAULT_ACTIVITY_TAG
-
-
-def _with_official_activity_tags(activity):
-    normalized = dict(activity)
-    official_tag = _official_activity_tag(activity)
-    normalized["category"] = official_tag
-    normalized["tags"] = [official_tag]
-    return normalized
-
 
 def _parse_rating_score(field_name):
     raw_value = request.form.get(field_name)
@@ -173,39 +157,53 @@ def _get_rating_stats(activity_id):
     }
 
 
-def _format_home_activity_time(db_activity, fallback_activity):
-    if db_activity and db_activity.start_time:
-        return db_activity.start_time.strftime("%Y-%m-%d %H:%M")
-    return fallback_activity.get("time", "时间待定")
+def _split_tags(tags):
+    return [tag.strip() for tag in (tags or "").split(",") if tag.strip()]
 
 
-def _build_home_activity_summary(activity_id, static_lookup, db_activity_map, reg_counts):
-    fallback_activity = dict(static_lookup.get(activity_id, {"id": activity_id}))
-    db_activity = db_activity_map.get(activity_id)
-    organizer_name = fallback_activity.get("organizer", "Gatherly 活动发起人")
+def _activity_time_filter(start_time):
+    if not start_time:
+        return "any"
 
-    if db_activity and db_activity.organizer:
-        organizer_name = db_activity.organizer.nickname or db_activity.organizer.username
+    today = datetime.now().date()
+    activity_date = start_time.date()
+    if activity_date == today:
+        return "today"
+    if activity_date == today + timedelta(days=1):
+        return "tomorrow"
+    if activity_date.year == today.year and activity_date.month == today.month:
+        week_end = today + timedelta(days=6 - today.weekday())
+        if today <= activity_date <= week_end:
+            return "weekend" if activity_date.weekday() >= 5 else "week"
+        return "month"
+    return "any"
 
-    if db_activity:
-        fallback_activity.update(
-            {
-                "id": db_activity.id,
-                "title": db_activity.title,
-                "location": db_activity.location or fallback_activity.get("location", "地点待定"),
-                "image_url": db_activity.image or fallback_activity.get("image_url"),
-                "organizer": organizer_name,
-                "time": _format_home_activity_time(db_activity, fallback_activity),
-            }
-        )
 
-    if not fallback_activity.get("category"):
-        fallback_activity["category"] = DEFAULT_ACTIVITY_TAG
-
-    summary = _with_official_activity_tags(fallback_activity)
-    summary["current_people"] = reg_counts.get(activity_id, 0)
-    summary["detail_url"] = url_for("activity.activity_detail", activity_id=activity_id)
-    return summary
+def _activity_to_summary(activity, registration_count=0):
+    tags = _split_tags(activity.tags)
+    category = tags[0] if tags else DEFAULT_ACTIVITY_TAG
+    return {
+        "id": activity.id,
+        "title": activity.title,
+        "description": activity.description,
+        "detail": activity.detail,
+        "city": activity.city,
+        "location": activity.location,
+        "time": activity.start_time.strftime("%Y-%m-%d %H:%M") if activity.start_time else "时间待定",
+        "time_filter": _activity_time_filter(activity.start_time),
+        "category": category,
+        "tags": tags or [category],
+        "image_url": activity.image,
+        "organizer": (
+            activity.organizer.nickname or activity.organizer.username
+            if activity.organizer
+            else "Gatherly 活动发起人"
+        ),
+        "current_people": (activity.initial_participants or 0) + registration_count,
+        "fee": activity.fee,
+        "status": activity.status,
+        "demo": activity.id <= 7,
+    }
 
 
 @activity_bp.route("/")
@@ -214,7 +212,16 @@ def index():
     interest_tags = OFFICIAL_INTEREST_TAGS
     categories = interest_tags
     visible_tag_count = len(interest_tags)
-    normalized_activities = [_with_official_activity_tags(activity) for activity in activities]
+    db_activities = Activity.query.order_by(Activity.start_time.asc(), Activity.id.asc()).all()
+    reg_counts = dict(
+        db.session.query(Registration.activity_id, func.count(Registration.id))
+        .group_by(Registration.activity_id)
+        .all()
+    )
+    normalized_activities = [
+        _activity_to_summary(activity, reg_counts.get(activity.id, 0))
+        for activity in db_activities
+    ]
 
     if selected_tag and selected_tag in interest_tags:
         filtered_activities = [
@@ -229,21 +236,12 @@ def index():
         and interest_tags.index(selected_tag) >= visible_tag_count
     )
 
-    # 合并真实报名人数到硬编码活动数据
-    reg_counts = dict(
-        db.session.query(Registration.activity_id, func.count(Registration.id))
-        .group_by(Registration.activity_id)
-        .all()
-    )
-    for act in normalized_activities:
-        act["current_people"] = reg_counts.get(act["id"], 0)
-
     favorite_activity_ids = set()
     favorite_activities = []
     registered_activities = []
     if "user_id" in session:
         user_id = session["user_id"]
-        static_lookup = {activity["id"]: activity for activity in normalized_activities}
+        activity_lookup = {activity.id: activity for activity in db_activities}
 
         registration_rows = (
             Registration.query.filter_by(user_id=user_id)
@@ -257,33 +255,15 @@ def index():
         )
 
         favorite_activity_ids = {favorite.activity_id for favorite in favorite_rows}
-        user_activity_ids = {
-            row.activity_id for row in registration_rows
-        } | favorite_activity_ids
-        db_activity_map = {}
-        if user_activity_ids:
-            db_activity_map = {
-                activity.id: activity
-                for activity in Activity.query.filter(Activity.id.in_(user_activity_ids)).all()
-            }
-
         registered_activities = [
-            _build_home_activity_summary(
-                row.activity_id,
-                static_lookup,
-                db_activity_map,
-                reg_counts,
-            )
+            _activity_to_summary(activity_lookup[row.activity_id], reg_counts.get(row.activity_id, 0))
             for row in registration_rows
+            if row.activity_id in activity_lookup
         ]
         favorite_activities = [
-            _build_home_activity_summary(
-                row.activity_id,
-                static_lookup,
-                db_activity_map,
-                reg_counts,
-            )
+            _activity_to_summary(activity_lookup[row.activity_id], reg_counts.get(row.activity_id, 0))
             for row in favorite_rows
+            if row.activity_id in activity_lookup
         ]
 
     return render_template(
@@ -302,15 +282,14 @@ def index():
 
 @activity_bp.route("/activity/<int:activity_id>")
 def activity_detail(activity_id):
-    activity = next((a for a in activities if a.get("id") == activity_id), None)
-    if activity is None:
+    db_activity = Activity.query.get_or_404(activity_id)
+    registration_rows_count = Registration.query.filter_by(activity_id=activity_id).count()
+    registration_count = (db_activity.initial_participants or 0) + registration_rows_count
+    activity = _activity_to_summary(db_activity, registration_rows_count)
+    if db_activity is None:
         abort(404)
-    activity = _with_official_activity_tags(activity)
-
-    registration_count = Registration.query.filter_by(activity_id=activity_id).count()
-    db_activity = Activity.query.get(activity_id)
-    max_participants = db_activity.max_participants if db_activity else None
-    preparation = db_activity.preparation if db_activity else None
+    max_participants = db_activity.max_participants
+    preparation = db_activity.preparation
     rating_stats = _get_rating_stats(activity_id)
 
     user_registered = False
@@ -429,9 +408,7 @@ def toggle_activity_favorite(activity_id):
             }
         ), 401
 
-    activity = next((a for a in activities if a.get("id") == activity_id), None)
-    if activity is None:
-        abort(404)
+    Activity.query.get_or_404(activity_id)
 
     favorite = ActivityFavorite.query.filter_by(
         user_id=session["user_id"],
@@ -458,7 +435,7 @@ def toggle_activity_favorite(activity_id):
     return jsonify({"is_favorited": is_favorited})
 
 
-@activity_bp.route("/activities/create")
+@activity_bp.route("/activities/create", methods=["GET", "POST"])
 @login_required  # 登录校验
 def create_activity():
     current_user = User.query.get(session["user_id"])
@@ -469,7 +446,106 @@ def create_activity():
     ):
         flash("Your trust score is below 60, so you cannot create activities yet.", "error")
         return redirect(url_for("activity.index"))
-    return render_template("activity_create.html")
+
+    if request.method == "GET":
+        return render_template("activity_create.html", interest_tags=OFFICIAL_INTEREST_TAGS)
+
+    title = request.form.get("title", "").strip()
+    description = request.form.get("description", "").strip()
+    detail = request.form.get("detail", "").strip()
+    city = request.form.get("city", "").strip()
+    location = request.form.get("location", "").strip()
+    preparation = request.form.get("preparation", "").strip()
+    tags = [
+        tag for tag in request.form.getlist("tags")
+        if tag in OFFICIAL_INTEREST_TAGS
+    ]
+    errors = []
+
+    try:
+        start_time = datetime.fromisoformat(request.form.get("start_time", ""))
+        if start_time <= datetime.now():
+            errors.append("活动时间必须晚于当前时间。")
+    except ValueError:
+        start_time = None
+        errors.append("请选择有效的活动时间。")
+
+    try:
+        max_participants = int(request.form.get("max_participants", ""))
+        if max_participants < 1:
+            raise ValueError
+    except ValueError:
+        max_participants = None
+        errors.append("人数上限必须是大于 0 的整数。")
+
+    try:
+        fee = float(request.form.get("fee", ""))
+        if fee < 0:
+            raise ValueError
+    except ValueError:
+        fee = None
+        errors.append("费用必须是大于等于 0 的数字。")
+
+    if not title:
+        errors.append("请填写活动标题。")
+    if not description:
+        errors.append("请填写活动简介。")
+    if not detail:
+        errors.append("请填写活动详情。")
+    if not city:
+        errors.append("请填写城市或地区。")
+    if not location:
+        errors.append("请填写详细地点。")
+    if not tags:
+        errors.append("请至少选择一个兴趣标签。")
+    if not preparation:
+        errors.append("请填写准备事项。")
+
+    validated_images = []
+    try:
+        validated_images = validate_image_files(
+            [request.files.get("image")],
+            max_count=1,
+            max_bytes=ACTIVITY_IMAGE_MAX_BYTES,
+        )
+        if not validated_images:
+            errors.append("请上传一张活动图片。")
+    except ValueError as exc:
+        errors.append(str(exc))
+
+    if errors:
+        for error in errors:
+            flash(error, "error")
+        return render_template("activity_create.html", interest_tags=OFFICIAL_INTEREST_TAGS), 400
+
+    saved_paths = []
+    try:
+        saved_paths = save_image_files(validated_images, ACTIVITY_IMAGE_UPLOAD_SUBDIR)
+        activity = Activity(
+            title=title,
+            description=description,
+            detail=detail,
+            city=city,
+            location=location,
+            start_time=start_time,
+            max_participants=max_participants,
+            initial_participants=0,
+            image=f"/static/{saved_paths[0]}",
+            fee=fee,
+            tags=",".join(tags),
+            preparation=preparation,
+            organizer_id=current_user.id,
+        )
+        db.session.add(activity)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        delete_saved_images(saved_paths)
+        flash("活动发布失败，请稍后重试。", "error")
+        return render_template("activity_create.html", interest_tags=OFFICIAL_INTEREST_TAGS), 500
+
+    flash("活动发布成功。", "success")
+    return redirect(url_for("activity.activity_detail", activity_id=activity.id))
 
 @activity_bp.route("/activity/<int:activity_id>/register", methods=["POST"])
 def register_activity(activity_id):
@@ -480,9 +556,7 @@ def register_activity(activity_id):
         next_url = url_for("activity.activity_detail", activity_id=activity_id)
         return redirect(url_for("auth.login", next=next_url))
 
-    activity = next((a for a in activities if a.get("id") == activity_id), None)
-    if activity is None:
-        abort(404)
+    db_activity = Activity.query.get_or_404(activity_id)
 
     user_id = session["user_id"]
 
@@ -493,14 +567,16 @@ def register_activity(activity_id):
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     # 检查活动是否已过期
-    db_activity = Activity.query.get(activity_id)
-    if db_activity and db_activity.start_time and db_activity.start_time < datetime.utcnow():
+    if db_activity.start_time and db_activity.start_time < datetime.utcnow():
         flash("该活动已过期，无法报名", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     # 检查是否已满员
-    if db_activity and db_activity.max_participants is not None:
-        current_count = Registration.query.filter_by(activity_id=activity_id).count()
+    if db_activity.max_participants is not None:
+        current_count = (
+            (db_activity.initial_participants or 0)
+            + Registration.query.filter_by(activity_id=activity_id).count()
+        )
         if current_count >= db_activity.max_participants:
             flash("该活动已满员，无法报名", "error")
             return redirect(url_for("activity.activity_detail", activity_id=activity_id))
@@ -530,9 +606,7 @@ def submit_rating(activity_id):
         flash("请先登录后再评分", "error")
         return redirect(url_for("auth.login", next=url_for("activity.activity_detail", activity_id=activity_id)))
 
-    activity = next((a for a in activities if a.get("id") == activity_id), None)
-    if activity is None:
-        abort(404)
+    Activity.query.get_or_404(activity_id)
 
     user_id = session["user_id"]
 
@@ -608,9 +682,7 @@ def submit_user_review(activity_id):
         flash("Please log in before reviewing participants.", "error")
         return redirect(url_for("auth.login", next=url_for("activity.activity_detail", activity_id=activity_id)))
 
-    activity = next((a for a in activities if a.get("id") == activity_id), None)
-    if activity is None:
-        abort(404)
+    Activity.query.get_or_404(activity_id)
 
     db_activity = Activity.query.get(activity_id)
     if not _activity_has_ended(db_activity):
