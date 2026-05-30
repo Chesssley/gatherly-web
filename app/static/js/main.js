@@ -186,12 +186,52 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  document.querySelectorAll("[data-favorite-placeholder]").forEach(button => {
-    button.addEventListener("click", () => {
-      const isActive = button.classList.toggle("is-active");
-      button.setAttribute("aria-pressed", String(isActive));
-      button.querySelector("span").innerHTML = isActive ? "&#9829;" : "&#9825;";
-      showShareToast(isActive ? "已添加到收藏预览" : "已取消收藏预览");
+  const syncFavoriteButtons = (activityId, isFavorited) => {
+    document.querySelectorAll(`[data-activity-favorite][data-activity-id="${activityId}"]`).forEach(button => {
+      button.classList.toggle("is-active", isFavorited);
+      button.setAttribute("aria-pressed", String(isFavorited));
+      const icon = button.querySelector("span[aria-hidden='true']");
+      const label = button.querySelector("[data-favorite-label]");
+      if (icon) {
+        icon.innerHTML = isFavorited ? "&#9829;" : "&#9825;";
+      }
+      if (label) {
+        label.textContent = isFavorited ? "已收藏" : "收藏活动";
+      }
+    });
+  };
+
+  document.querySelectorAll("[data-activity-favorite]").forEach(button => {
+    button.addEventListener("click", async () => {
+      if (!button.dataset.favoriteUrl) {
+        return;
+      }
+
+      button.disabled = true;
+      try {
+        const response = await fetch(button.dataset.favoriteUrl, {
+          method: "POST",
+          headers: { Accept: "application/json" },
+        });
+        const result = await response.json();
+        if (response.status === 401 && result.login_url) {
+          showShareToast("请先登录后再收藏活动");
+          window.setTimeout(() => {
+            window.location.href = result.login_url;
+          }, 500);
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(result.error || "favorite request failed");
+        }
+
+        syncFavoriteButtons(button.dataset.activityId, result.is_favorited);
+        showShareToast(result.is_favorited ? "已收藏活动" : "已取消收藏");
+      } catch (error) {
+        showShareToast("收藏操作失败，请稍后重试");
+      } finally {
+        button.disabled = false;
+      }
     });
   });
 
