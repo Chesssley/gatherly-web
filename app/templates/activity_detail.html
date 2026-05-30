@@ -28,6 +28,25 @@
         </div>
 
         <h1 class="detail-title">{{ activity.title }}</h1>
+        <div class="detail-secondary-actions">
+            <button class="detail-action-button favorite-button {% if is_favorited %}is-active{% endif %}"
+                    type="button"
+                    aria-pressed="{{ 'true' if is_favorited else 'false' }}"
+                    data-activity-favorite
+                    data-activity-id="{{ activity.id }}"
+                    data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=activity.id) }}"
+                    data-login-url="{{ url_for('auth.login', next=url_for('activity.activity_detail', activity_id=activity.id)) }}">
+                <span aria-hidden="true">{% if is_favorited %}&#9829;{% else %}&#9825;{% endif %}</span>
+                <span data-favorite-label>{% if is_favorited %}已收藏{% else %}收藏活动{% endif %}</span>
+            </button>
+            <button class="detail-action-button"
+                    type="button"
+                    data-activity-share
+                    data-share-url="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
+                <span aria-hidden="true">&#8599;</span>
+                <span>复制链接</span>
+            </button>
+        </div>
 
         <!-- Flash 消息 -->
         {% with messages = get_flashed_messages(with_categories=true) %}

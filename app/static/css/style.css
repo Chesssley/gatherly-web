@@ -1136,6 +1136,40 @@ img {
   margin: 16px 0 24px;
 }
 
+.detail-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: -10px 0 24px;
+}
+
+.detail-action-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-primary-dark);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.detail-action-button:hover {
+  border-color: var(--color-primary);
+  background: #e8f0ed;
+}
+
+.detail-action-button.favorite-button.is-active {
+  border-color: #e8a6b1;
+  color: #e04f67;
+}
+
 /* 基础信息卡片 */
 .detail-info-card {
   border: none;
@@ -3253,6 +3287,28 @@ textarea.form-input {
 .home-tab-panel p {
   margin-bottom: 7px;
   color: var(--color-muted);
+}
+
+.favorite-activity-list {
+  display: grid;
+  gap: 8px;
+}
+
+.favorite-activity-item {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f7faf8;
+}
+
+.favorite-activity-item:hover {
+  background: #e8f0ed;
+}
+
+.favorite-activity-item span {
+  color: var(--color-muted);
+  font-size: 13px;
 }
 
 .discover-toolbar {

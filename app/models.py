@@ -25,6 +25,11 @@ class User(db.Model):
 
     activities = db.relationship("Activity", back_populates="organizer")
     registrations = db.relationship("Registration", back_populates="user")
+    activity_favorites = db.relationship(
+        "ActivityFavorite",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
     posts = db.relationship("Post", back_populates="user")
     reviews = db.relationship("Review", back_populates="user")
     activity_reviews = db.relationship("ActivityReview", back_populates="reviewer")
@@ -98,6 +103,11 @@ class Activity(db.Model):
 
     organizer = db.relationship("User", back_populates="activities")
     registrations = db.relationship("Registration", back_populates="activity")
+    favorites = db.relationship(
+        "ActivityFavorite",
+        back_populates="activity",
+        cascade="all, delete-orphan",
+    )
     reviews = db.relationship("Review", back_populates="activity")
     activity_reviews = db.relationship("ActivityReview", back_populates="activity")
     user_reviews = db.relationship("UserReview", back_populates="activity")
@@ -113,6 +123,24 @@ class Registration(db.Model):
 
     user = db.relationship("User", back_populates="registrations")
     activity = db.relationship("Activity", back_populates="registrations")
+
+
+class ActivityFavorite(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id",
+            "activity_id",
+            name="uq_activity_favorite_user_activity",
+        ),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship("User", back_populates="activity_favorites")
+    activity = db.relationship("Activity", back_populates="favorites")
 
 
 class Circle(db.Model):

@@ -1,4 +1,4 @@
-from flask import Blueprint, abort, render_template, request, session, redirect, url_for, flash
+from flask import Blueprint, abort, jsonify, render_template, request, session, redirect, url_for, flash
 from functools import wraps
 from datetime import datetime
 from sqlalchemy import func
@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from app.models import (
     db,
     Activity,
+    ActivityFavorite,
     ActivityReview,
     Registration,
     TrustScoreLog,
@@ -199,8 +200,23 @@ def index():
         .group_by(Registration.activity_id)
         .all()
     )
-    for act in filtered_activities:
+    for act in normalized_activities:
         act["current_people"] = reg_counts.get(act["id"], 0)
+
+    favorite_activity_ids = set()
+    favorite_activities = []
+    if "user_id" in session:
+        favorite_activity_ids = {
+            favorite.activity_id
+            for favorite in ActivityFavorite.query.filter_by(
+                user_id=session["user_id"]
+            ).all()
+        }
+        favorite_activities = [
+            activity
+            for activity in normalized_activities
+            if activity["id"] in favorite_activity_ids
+        ]
 
     return render_template(
         "index.html",
@@ -210,6 +226,8 @@ def index():
         interest_tags=interest_tags,
         selected_tag=selected_tag,
         visible_tag_count=visible_tag_count,
+        favorite_activity_ids=favorite_activity_ids,
+        favorite_activities=favorite_activities,
     )
 
 
@@ -227,6 +245,7 @@ def activity_detail(activity_id):
     rating_stats = _get_rating_stats(activity_id)
 
     user_registered = False
+    is_favorited = False
     user_attended = False
     has_rated = False
     can_rate = False
@@ -235,6 +254,9 @@ def activity_detail(activity_id):
     if "user_id" not in session:
         rating_notice = "请先登录后再评分。"
     else:
+        is_favorited = ActivityFavorite.query.filter_by(
+            user_id=session["user_id"], activity_id=activity_id
+        ).first() is not None
         registration = Registration.query.filter_by(
             user_id=session["user_id"], activity_id=activity_id
         ).first()
@@ -314,6 +336,7 @@ def activity_detail(activity_id):
         max_participants=max_participants,
         preparation=preparation,
         user_registered=user_registered,
+        is_favorited=is_favorited,
         has_rated=has_rated,
         can_rate=can_rate,
         rating_notice=rating_notice,
@@ -322,6 +345,48 @@ def activity_detail(activity_id):
         user_review_candidates=user_review_candidates,
         user_review_notice=user_review_notice,
     )
+
+
+@activity_bp.route("/activity/<int:activity_id>/favorite", methods=["POST"])
+def toggle_activity_favorite(activity_id):
+    if "user_id" not in session:
+        return jsonify(
+            {
+                "error": "login_required",
+                "login_url": url_for(
+                    "auth.login",
+                    next=url_for("activity.activity_detail", activity_id=activity_id),
+                ),
+            }
+        ), 401
+
+    activity = next((a for a in activities if a.get("id") == activity_id), None)
+    if activity is None:
+        abort(404)
+
+    favorite = ActivityFavorite.query.filter_by(
+        user_id=session["user_id"],
+        activity_id=activity_id,
+    ).first()
+    if favorite is not None:
+        db.session.delete(favorite)
+        is_favorited = False
+    else:
+        db.session.add(
+            ActivityFavorite(
+                user_id=session["user_id"],
+                activity_id=activity_id,
+            )
+        )
+        is_favorited = True
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        is_favorited = True
+
+    return jsonify({"is_favorited": is_favorited})
 
 
 @activity_bp.route("/activities/create")
