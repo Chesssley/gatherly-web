@@ -2506,3 +2506,34 @@ textarea.form-input {
     gap: 4px;
   }
 }
+
+/* ============================================
+   商家认证审核 (US-10-02)
+   ============================================ */
+
+.btn-approve {
+  background: #2e7d32;
+  border-color: #2e7d32;
+  color: #ffffff;
+}
+
+.btn-approve:hover {
+  background: #1b5e20;
+  border-color: #1b5e20;
+}
+
+.btn-reject {
+  background: #c62828;
+  border-color: #c62828;
+  color: #ffffff;
+}
+
+.btn-reject:hover {
+  background: #b71c1c;
+  border-color: #b71c1c;
+}
+
+.admin-merchant-actions {
+  display: flex;
+  gap: 8px;
+}

@@ -698,3 +698,68 @@ def admin_account():
                 return redirect(url_for("admin.admin_account"))
 
     return render_template("admin_account.html", user=user)
+
+
+# ---------------------------------------------------------------------------
+#  US-10-02  管理员审核商家认证申请
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/admin/merchant-verify")
+@admin_required
+def admin_merchant_verify():
+    _ensure_admin_schema()
+    pending_users = (
+        User.query.filter_by(merchant_status="pending")
+        .order_by(User.created_at.desc())
+        .all()
+    )
+    return render_template("admin_verify.html", pending_users=pending_users)
+
+
+@admin_bp.route("/admin/merchant-verify/<int:user_id>/approve", methods=["POST"])
+@admin_required
+def approve_merchant(user_id):
+    _ensure_admin_schema()
+    user = User.query.get_or_404(user_id)
+    admin = get_current_user()
+
+    if user.merchant_status != "pending":
+        flash("该申请已处理，无需重复操作。", "error")
+        return redirect(url_for("admin.admin_merchant_verify"))
+
+    user.merchant_status = "approved"
+    user.is_merchant = True
+    log_admin_action(
+        admin.id,
+        "approve_merchant",
+        "用户",
+        user.id,
+        f"merchant_name: {user.merchant_name}",
+    )
+    db.session.commit()
+    flash(f"已通过 {user.username} 的商家认证申请。", "success")
+    return redirect(url_for("admin.admin_merchant_verify"))
+
+
+@admin_bp.route("/admin/merchant-verify/<int:user_id>/reject", methods=["POST"])
+@admin_required
+def reject_merchant(user_id):
+    _ensure_admin_schema()
+    user = User.query.get_or_404(user_id)
+    admin = get_current_user()
+
+    if user.merchant_status != "pending":
+        flash("该申请已处理，无需重复操作。", "error")
+        return redirect(url_for("admin.admin_merchant_verify"))
+
+    user.merchant_status = "rejected"
+    log_admin_action(
+        admin.id,
+        "reject_merchant",
+        "用户",
+        user.id,
+        f"merchant_name: {user.merchant_name}",
+    )
+    db.session.commit()
+    flash(f"已拒绝 {user.username} 的商家认证申请。", "success")
+    return redirect(url_for("admin.admin_merchant_verify"))

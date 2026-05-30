@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}商家认证审核 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <nav class="admin-nav" aria-label="后台管理导航">
+      <a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('admin.admin_account') }}">账号设置</a>
+      <a href="{{ url_for('admin.admin_users') }}">用户</a>
+      <a href="{{ url_for('admin.admin_activities') }}">活动</a>
+      <a href="{{ url_for('admin.admin_circles') }}">同好圈</a>
+      <a href="{{ url_for('admin.admin_posts') }}">帖子</a>
+      <a href="{{ url_for('admin.admin_comments') }}">评论</a>
+      <a href="{{ url_for('admin.admin_logs') }}">操作日志</a>
+      <a class="is-active" href="{{ url_for('admin.admin_merchant_verify') }}">商家认证</a>
+    </nav>
+
+    <div class="page-title">
+      <p class="eyebrow">Merchant Verification</p>
+      <h1>商家认证审核</h1>
+    </div>
+
+    {% if pending_users %}
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>申请用户</th>
+            <th>商家名称</th>
+            <th>营业执照文件</th>
+            <th>申请描述</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in pending_users %}
+          <tr>
+            <td>{{ user.username }}</td>
+            <td>{{ user.merchant_name }}</td>
+            <td>
+              {% if user.merchant_license %}
+              <a href="{{ url_for('static', filename=user.merchant_license) }}" target="_blank">查看执照</a>
+              {% else %}
+              -
+              {% endif %}
+            </td>
+            <td>{{ user.merchant_description or '-' }}</td>
+            <td>
+              <div class="admin-merchant-actions">
+                <form method="POST" action="{{ url_for('admin.approve_merchant', user_id=user.id) }}">
+                  <button type="submit" class="button button-small btn-approve">通过</button>
+                </form>
+                <form method="POST" action="{{ url_for('admin.reject_merchant', user_id=user.id) }}">
+                  <button type="submit" class="button button-small btn-reject">拒绝</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="admin-empty" style="padding: 24px; text-align: center; color: var(--color-muted);">暂无待审核的商家认证申请。</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
