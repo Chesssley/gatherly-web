@@ -17,6 +17,10 @@
                     aria-pressed="{{ 'true' if favorite_activity_id in favorite_activity_ids else 'false' }}"
                     data-activity-favorite
                     data-activity-id="{{ favorite_activity_id }}"
+                    data-activity-title="{{ activity.title }}"
+                    data-activity-time="{{ activity.time }}"
+                    data-activity-location="{{ activity.location }}"
+                    data-activity-detail-url="{{ detail_url }}"
                     data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=favorite_activity_id) }}"
                     data-login-url="{{ url_for('auth.login', next=detail_url) }}">
                 <span aria-hidden="true">{% if favorite_activity_id in favorite_activity_ids %}&#9829;{% else %}&#9825;{% endif %}</span>
@@ -111,30 +115,67 @@
                 <button class="home-tab" type="button" role="tab" aria-selected="false" data-home-tab="favorited">已收藏</button>
             </div>
             <div class="home-tab-panel" data-home-tab-panel="registered">
-                <p>报名后的活动会集中展示在这里，方便你快速查看行程。</p>
                 {% if session.get("user_id") %}
-                <a class="section-link" href="{{ url_for('profile.joined_activities') }}">查看我的报名 <span aria-hidden="true">&#8594;</span></a>
+                    {% if registered_activities %}
+                    <div class="my-activity-list">
+                        {% for activity in registered_activities %}
+                        <a class="my-activity-item" href="{{ activity.detail_url }}">
+                            <div class="my-activity-item-main">
+                                <span class="tag">{{ activity.category }}</span>
+                                <strong>{{ activity.title }}</strong>
+                            </div>
+                            <span>{{ activity.time }} / {{ activity.location }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="my-activity-empty-state">
+                        <h3>你还没有报名活动</h3>
+                        <p>找到感兴趣的活动，和同频的人一起出发。</p>
+                        <a class="button button-secondary" href="#discover-events">寻找活动</a>
+                    </div>
+                    {% endif %}
                 {% else %}
-                <a class="section-link" href="{{ url_for('auth.login') }}">登录后查看报名 <span aria-hidden="true">&#8594;</span></a>
+                    <div class="my-activity-login-guide">
+                        <h3>登录后查看你的活动</h3>
+                        <p>登录后可查看已报名活动，并持续追踪你的线下安排。</p>
+                        <a class="button" href="{{ url_for('auth.login', next=url_for('activity.index')) }}">立即登录</a>
+                    </div>
                 {% endif %}
             </div>
             <div class="home-tab-panel" data-home-tab-panel="favorited" hidden>
                 {% if session.get("user_id") %}
                     {% if favorite_activities %}
-                    <div class="favorite-activity-list">
+                    <div class="my-activity-list favorite-activity-list" data-favorite-activity-list>
                         {% for activity in favorite_activities %}
-                        <a class="favorite-activity-item" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
-                            <strong>{{ activity.title }}</strong>
-                            <span>{{ activity.time }} · {{ activity.location }}</span>
+                        <a class="my-activity-item favorite-activity-item" href="{{ activity.detail_url }}" data-favorite-activity-item="{{ activity.id }}">
+                            <div class="my-activity-item-main">
+                                <span class="tag">{{ activity.category }}</span>
+                                <strong>{{ activity.title }}</strong>
+                            </div>
+                            <span>{{ activity.time }} / {{ activity.location }}</span>
                         </a>
                         {% endfor %}
                     </div>
+                    <div class="my-activity-empty-state" data-favorite-empty-state hidden>
+                        <h3>你还没有收藏活动</h3>
+                        <p>看到感兴趣的活动，可以点击卡片右上角收藏。</p>
+                        <a class="button button-secondary" href="#discover-events">去发现活动</a>
+                    </div>
                     {% else %}
-                    <p>暂未收藏活动。点击活动卡片右上角的心形按钮即可收藏。</p>
+                    <div class="my-activity-list favorite-activity-list" data-favorite-activity-list hidden></div>
+                    <div class="my-activity-empty-state" data-favorite-empty-state>
+                        <h3>你还没有收藏活动</h3>
+                        <p>看到感兴趣的活动，可以点击卡片右上角收藏。</p>
+                        <a class="button button-secondary" href="#discover-events">去发现活动</a>
+                    </div>
                     {% endif %}
                 {% else %}
-                <p>登录后即可收藏活动，并在这里集中查看。</p>
-                <a class="section-link" href="{{ url_for('auth.login') }}">登录后查看收藏 <span aria-hidden="true">&#8594;</span></a>
+                    <div class="my-activity-login-guide">
+                        <h3>登录后查看你的收藏</h3>
+                        <p>看到感兴趣的活动后可以随时收藏，首页会集中展示在这里。</p>
+                        <a class="button" href="{{ url_for('auth.login', next=url_for('activity.index')) }}">立即登录</a>
+                    </div>
                 {% endif %}
             </div>
         </div>
