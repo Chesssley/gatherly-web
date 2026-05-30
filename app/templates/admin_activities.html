@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}活动管理 - Gatherly{% endblock %}
+{% block content %}
+<section class="section"><div class="container">
+  <nav class="admin-nav" aria-label="后台管理导航">
+    <a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a><a href="{{ url_for('admin.admin_account') }}">账号设置</a><a href="{{ url_for('admin.admin_users') }}">用户</a><a class="is-active" href="{{ url_for('admin.admin_activities') }}">活动</a><a href="{{ url_for('admin.admin_circles') }}">同好圈</a><a href="{{ url_for('admin.admin_posts') }}">帖子</a><a href="{{ url_for('admin.admin_comments') }}">评论</a><a href="{{ url_for('admin.admin_dashboard') }}#operation-logs">操作日志</a>
+  </nav>
+  <div class="page-title"><p class="eyebrow">Admin Activities</p><h1>活动管理</h1><p>查看活动并维护 open、hidden 或 closed 状态。</p></div>
+  <div class="admin-table-wrap"><table class="admin-table">
+    <thead><tr><th>ID</th><th>标题</th><th>组织者</th><th>地点</th><th>开始时间</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody>{% for activity in activities %}<tr>
+      <td>{{ activity.id }}</td><td>{{ activity.title }}</td><td>{{ activity.organizer.username }}</td><td>{{ activity.location or '-' }}</td><td>{{ activity.start_time.strftime('%Y-%m-%d %H:%M') if activity.start_time else '-' }}</td><td><span class="admin-status status-{{ activity.status }}">{{ activity.status }}</span></td>
+      <td><form class="admin-action" method="post" action="{{ url_for('admin.update_activity_status', activity_id=activity.id) }}"><select name="status" aria-label="修改 {{ activity.title }} 的状态">{% for status in ['open', 'hidden', 'closed'] %}<option value="{{ status }}" {% if activity.status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select><button class="button button-small" type="submit">保存</button></form></td>
+    </tr>{% else %}<tr><td class="admin-empty" colspan="7">暂无活动。</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div></section>
+{% endblock %}

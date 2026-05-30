@@ -1,18 +1,25 @@
 from functools import wraps
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.models import User, db
+from app.models import Activity, AdminLog, Circle, Comment, Post, User, db
 
 admin_bp = Blueprint("admin", __name__)
+
+USER_STATUSES = {"active", "banned"}
+ACTIVITY_STATUSES = {"open", "hidden", "closed"}
+CIRCLE_STATUSES = {"active", "hidden"}
+CONTENT_STATUSES = {"published", "hidden"}
 
 
 def get_current_user():
     user_id = session.get("user_id")
     if not user_id:
         return None
+    _ensure_admin_schema()
     return User.query.get(user_id)
 
 
@@ -30,6 +37,71 @@ def admin_required(view):
     return wrapped_view
 
 
+def _ensure_admin_schema():
+    AdminLog.__table__.create(db.engine, checkfirst=True)
+    if db.engine.dialect.name != "sqlite":
+        return
+
+    table_columns = {
+        "user": ("status", "ALTER TABLE user ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active'"),
+        "activity": ("status", "ALTER TABLE activity ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'open'"),
+        "circle": ("status", "ALTER TABLE circle ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active'"),
+        "post": ("status", "ALTER TABLE post ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'published'"),
+        "comment": ("status", "ALTER TABLE comment ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'published'"),
+    }
+    changed = False
+    for table_name, (column_name, statement) in table_columns.items():
+        rows = db.session.execute(text(f'PRAGMA table_info("{table_name}")')).fetchall()
+        if rows and column_name not in {row[1] for row in rows}:
+            db.session.execute(text(statement))
+            changed = True
+    if changed:
+        db.session.commit()
+
+
+@admin_bp.before_app_request
+def ensure_admin_schema():
+    _ensure_admin_schema()
+
+
+def _log_admin_action(action, target_type, target_id, detail):
+    db.session.add(
+        AdminLog(
+            admin_id=get_current_user().id,
+            action=action,
+            target_type=target_type,
+            target_id=target_id,
+            detail=detail,
+            ip_address=request.remote_addr,
+        )
+    )
+
+
+def _update_status(model, target_id, allowed_statuses, target_type, list_endpoint):
+    _ensure_admin_schema()
+    target = model.query.get_or_404(target_id)
+    new_status = request.form.get("status", "").strip()
+    if new_status not in allowed_statuses:
+        flash("无效的状态值，未进行修改。", "error")
+        return redirect(url_for(list_endpoint))
+
+    previous_status = target.status
+    if previous_status == new_status:
+        flash("状态没有变化。", "success")
+        return redirect(url_for(list_endpoint))
+
+    target.status = new_status
+    _log_admin_action(
+        "update_status",
+        target_type,
+        target.id,
+        f"{previous_status} -> {new_status}",
+    )
+    db.session.commit()
+    flash(f"{target_type} #{target.id} 状态已更新为 {new_status}。", "success")
+    return redirect(url_for(list_endpoint))
+
+
 @admin_bp.app_context_processor
 def inject_current_user():
     return {"current_user": get_current_user()}
@@ -38,7 +110,109 @@ def inject_current_user():
 @admin_bp.route("/admin")
 @admin_required
 def admin_dashboard():
-    return render_template("admin_dashboard.html")
+    _ensure_admin_schema()
+    stats = {
+        "users": User.query.count(),
+        "activities": Activity.query.count(),
+        "circles": Circle.query.count(),
+        "posts": Post.query.count(),
+        "comments": Comment.query.count(),
+    }
+    logs = AdminLog.query.order_by(AdminLog.created_at.desc()).limit(30).all()
+    return render_template("admin_dashboard.html", stats=stats, logs=logs)
+
+
+@admin_bp.route("/admin/users")
+@admin_required
+def admin_users():
+    _ensure_admin_schema()
+    users = User.query.order_by(User.created_at.desc(), User.id.desc()).all()
+    return render_template("admin_users.html", users=users)
+
+
+@admin_bp.route("/admin/users/<int:user_id>/status", methods=["POST"])
+@admin_required
+def update_user_status(user_id):
+    return _update_status(User, user_id, USER_STATUSES, "用户", "admin.admin_users")
+
+
+@admin_bp.route("/admin/activities")
+@admin_required
+def admin_activities():
+    _ensure_admin_schema()
+    activities = Activity.query.order_by(Activity.created_at.desc(), Activity.id.desc()).all()
+    return render_template("admin_activities.html", activities=activities)
+
+
+@admin_bp.route("/admin/activities/<int:activity_id>/status", methods=["POST"])
+@admin_required
+def update_activity_status(activity_id):
+    return _update_status(
+        Activity,
+        activity_id,
+        ACTIVITY_STATUSES,
+        "活动",
+        "admin.admin_activities",
+    )
+
+
+@admin_bp.route("/admin/circles")
+@admin_required
+def admin_circles():
+    _ensure_admin_schema()
+    circles = (
+        db.session.query(Circle, func.count(Post.id).label("post_count"))
+        .outerjoin(Post, Post.circle_id == Circle.id)
+        .group_by(Circle.id)
+        .order_by(Circle.created_at.desc(), Circle.id.desc())
+        .all()
+    )
+    return render_template("admin_circles.html", circles=circles)
+
+
+@admin_bp.route("/admin/circles/<int:circle_id>/status", methods=["POST"])
+@admin_required
+def update_circle_status(circle_id):
+    _ensure_admin_schema()
+    circle = Circle.query.get_or_404(circle_id)
+    if not circle.is_system:
+        flash("仅允许修改官方圈子状态。", "error")
+        return redirect(url_for("admin.admin_circles"))
+    return _update_status(Circle, circle_id, CIRCLE_STATUSES, "同好圈", "admin.admin_circles")
+
+
+@admin_bp.route("/admin/posts")
+@admin_required
+def admin_posts():
+    _ensure_admin_schema()
+    posts = Post.query.order_by(Post.created_at.desc(), Post.id.desc()).all()
+    return render_template("admin_posts.html", posts=posts)
+
+
+@admin_bp.route("/admin/posts/<int:post_id>/status", methods=["POST"])
+@admin_required
+def update_post_status(post_id):
+    return _update_status(Post, post_id, CONTENT_STATUSES, "帖子", "admin.admin_posts")
+
+
+@admin_bp.route("/admin/comments")
+@admin_required
+def admin_comments():
+    _ensure_admin_schema()
+    comments = Comment.query.order_by(Comment.created_at.desc(), Comment.id.desc()).all()
+    return render_template("admin_comments.html", comments=comments)
+
+
+@admin_bp.route("/admin/comments/<int:comment_id>/status", methods=["POST"])
+@admin_required
+def update_comment_status(comment_id):
+    return _update_status(
+        Comment,
+        comment_id,
+        CONTENT_STATUSES,
+        "评论",
+        "admin.admin_comments",
+    )
 
 
 @admin_bp.route("/admin/account", methods=["GET", "POST"])
