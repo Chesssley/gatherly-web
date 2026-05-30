@@ -1,0 +1,50 @@
+{% macro list_filters(endpoint, filters, status_options=(), type_options=(), prefix='', reset_url='', anchor='', show_empty_filters=false) %}
+{% set field_prefix = prefix ~ '_' if prefix else '' %}
+{% set field_id = prefix if prefix else endpoint|replace('.', '-') %}
+<form class="list-filter-card" method="get" action="{{ request.path }}{% if anchor %}#{{ anchor }}{% endif %}">
+  {% if prefix %}
+    {% for key, value in request.args.items() %}
+      {% if not key.startswith(field_prefix) %}
+      <input type="hidden" name="{{ key }}" value="{{ value }}">
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+  <div class="list-filter-field list-filter-search">
+    <label for="{{ field_id }}-q">搜索</label>
+    <input class="form-input" id="{{ field_id }}-q" name="{{ field_prefix }}q" type="search" value="{{ filters.q }}" placeholder="搜索标题、正文、用户名、地点、标签或圈子名">
+  </div>
+  {% if status_options or show_empty_filters %}
+  <div class="list-filter-field">
+    <label for="{{ field_id }}-status">状态</label>
+    <select class="form-input" id="{{ field_id }}-status" name="{{ field_prefix }}status" {% if not status_options %}disabled{% endif %}>
+      {% if status_options %}<option value="">全部状态</option>{% else %}<option value="">无可用状态</option>{% endif %}
+      {% for option in status_options %}
+      <option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  {% if type_options or show_empty_filters %}
+  <div class="list-filter-field">
+    <label for="{{ field_id }}-type">类型</label>
+    <select class="form-input" id="{{ field_id }}-type" name="{{ field_prefix }}type" {% if not type_options %}disabled{% endif %}>
+      {% if type_options %}<option value="">全部类型</option>{% else %}<option value="">无可用类型</option>{% endif %}
+      {% for option in type_options %}
+      <option value="{{ option }}" {% if filters.type == option %}selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  <div class="list-filter-field">
+    <label for="{{ field_id }}-sort">排序</label>
+    <select class="form-input" id="{{ field_id }}-sort" name="{{ field_prefix }}sort">
+      <option value="newest" {% if filters.sort == 'newest' %}selected{% endif %}>最新优先</option>
+      <option value="oldest" {% if filters.sort == 'oldest' %}selected{% endif %}>最早优先</option>
+    </select>
+  </div>
+  <div class="list-filter-actions">
+    <button class="button button-small" type="submit">筛选</button>
+    <a class="button button-small button-secondary" href="{{ reset_url or request.path }}">重置</a>
+  </div>
+</form>
+{% endmacro %}
