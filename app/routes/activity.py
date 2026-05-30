@@ -173,6 +173,41 @@ def _get_rating_stats(activity_id):
     }
 
 
+def _format_home_activity_time(db_activity, fallback_activity):
+    if db_activity and db_activity.start_time:
+        return db_activity.start_time.strftime("%Y-%m-%d %H:%M")
+    return fallback_activity.get("time", "时间待定")
+
+
+def _build_home_activity_summary(activity_id, static_lookup, db_activity_map, reg_counts):
+    fallback_activity = dict(static_lookup.get(activity_id, {"id": activity_id}))
+    db_activity = db_activity_map.get(activity_id)
+    organizer_name = fallback_activity.get("organizer", "Gatherly 活动发起人")
+
+    if db_activity and db_activity.organizer:
+        organizer_name = db_activity.organizer.nickname or db_activity.organizer.username
+
+    if db_activity:
+        fallback_activity.update(
+            {
+                "id": db_activity.id,
+                "title": db_activity.title,
+                "location": db_activity.location or fallback_activity.get("location", "地点待定"),
+                "image_url": db_activity.image or fallback_activity.get("image_url"),
+                "organizer": organizer_name,
+                "time": _format_home_activity_time(db_activity, fallback_activity),
+            }
+        )
+
+    if not fallback_activity.get("category"):
+        fallback_activity["category"] = DEFAULT_ACTIVITY_TAG
+
+    summary = _with_official_activity_tags(fallback_activity)
+    summary["current_people"] = reg_counts.get(activity_id, 0)
+    summary["detail_url"] = url_for("activity.activity_detail", activity_id=activity_id)
+    return summary
+
+
 @activity_bp.route("/")
 def index():
     selected_tag = request.args.get("tag", "").strip()
@@ -205,17 +240,50 @@ def index():
 
     favorite_activity_ids = set()
     favorite_activities = []
+    registered_activities = []
     if "user_id" in session:
-        favorite_activity_ids = {
-            favorite.activity_id
-            for favorite in ActivityFavorite.query.filter_by(
-                user_id=session["user_id"]
-            ).all()
-        }
+        user_id = session["user_id"]
+        static_lookup = {activity["id"]: activity for activity in normalized_activities}
+
+        registration_rows = (
+            Registration.query.filter_by(user_id=user_id)
+            .order_by(Registration.register_time.desc())
+            .all()
+        )
+        favorite_rows = (
+            ActivityFavorite.query.filter_by(user_id=user_id)
+            .order_by(ActivityFavorite.created_at.desc())
+            .all()
+        )
+
+        favorite_activity_ids = {favorite.activity_id for favorite in favorite_rows}
+        user_activity_ids = {
+            row.activity_id for row in registration_rows
+        } | favorite_activity_ids
+        db_activity_map = {}
+        if user_activity_ids:
+            db_activity_map = {
+                activity.id: activity
+                for activity in Activity.query.filter(Activity.id.in_(user_activity_ids)).all()
+            }
+
+        registered_activities = [
+            _build_home_activity_summary(
+                row.activity_id,
+                static_lookup,
+                db_activity_map,
+                reg_counts,
+            )
+            for row in registration_rows
+        ]
         favorite_activities = [
-            activity
-            for activity in normalized_activities
-            if activity["id"] in favorite_activity_ids
+            _build_home_activity_summary(
+                row.activity_id,
+                static_lookup,
+                db_activity_map,
+                reg_counts,
+            )
+            for row in favorite_rows
         ]
 
     return render_template(
@@ -226,6 +294,7 @@ def index():
         interest_tags=interest_tags,
         selected_tag=selected_tag,
         visible_tag_count=visible_tag_count,
+        registered_activities=registered_activities,
         favorite_activity_ids=favorite_activity_ids,
         favorite_activities=favorite_activities,
     )

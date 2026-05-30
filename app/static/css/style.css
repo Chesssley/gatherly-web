@@ -3289,26 +3289,70 @@ textarea.form-input {
   color: var(--color-muted);
 }
 
-.favorite-activity-list {
+.my-activity-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
-.favorite-activity-item {
+.my-activity-item {
   display: grid;
-  gap: 2px;
-  padding: 10px 12px;
-  border-radius: 10px;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
   background: #f7faf8;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.favorite-activity-item:hover {
-  background: #e8f0ed;
+.my-activity-item:hover {
+  border-color: #c7ddd6;
+  background: #eef6f3;
 }
 
-.favorite-activity-item span {
+.my-activity-item-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.my-activity-item strong {
+  color: var(--color-text);
+  font-size: 15px;
+}
+
+.my-activity-item span:last-child {
   color: var(--color-muted);
   font-size: 13px;
+}
+
+.my-activity-empty-state,
+.my-activity-login-guide {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 22px;
+  border: 1px dashed var(--color-border);
+  border-radius: 16px;
+  background: #fbfaf7;
+}
+
+.my-activity-empty-state h3,
+.my-activity-login-guide h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 20px;
+}
+
+.my-activity-empty-state p,
+.my-activity-login-guide p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.favorite-activity-list {
+  display: grid;
+  gap: 10px;
 }
 
 .discover-toolbar {
@@ -3714,6 +3758,17 @@ textarea.form-input {
   .featured-card {
     min-height: 176px;
     padding: 20px;
+  }
+
+  .my-activity-item-main {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .my-activity-empty-state,
+  .my-activity-login-guide {
+    padding: 18px;
   }
 
   .discover-section .interest-section {
