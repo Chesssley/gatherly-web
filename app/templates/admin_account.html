@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}管理员账号设置 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container narrow-page">
+    <a class="back-link" href="{{ url_for('admin.admin_dashboard') }}">返回后台管理</a>
+    <div class="page-title">
+      <p class="eyebrow">Admin Account</p>
+      <h1>账号设置</h1>
+      <p>修改管理员账号信息。保存任何修改前，都需要输入当前密码确认身份。</p>
+    </div>
+
+    <form class="form-card admin-account-form" method="post">
+      <div class="admin-account-section">
+        <h2>基本信息</h2>
+        <div class="form-group">
+          <label class="form-label" for="nickname">昵称</label>
+          <input class="form-input" id="nickname" name="nickname" value="{{ user.nickname or '' }}" maxlength="80" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="username">用户名</label>
+          <input class="form-input" id="username" name="username" value="{{ user.username }}" maxlength="80" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="email">邮箱</label>
+          <input class="form-input" id="email" name="email" type="email" value="{{ user.email }}" maxlength="120" autocomplete="email" required>
+        </div>
+      </div>
+
+      <div class="admin-account-section">
+        <h2>身份确认与密码</h2>
+        <div class="form-group">
+          <label class="form-label" for="current_password">当前密码</label>
+          <input class="form-input" id="current_password" name="current_password" type="password" autocomplete="current-password" required>
+          <p class="form-hint">保存昵称、用户名或邮箱修改时，也必须输入当前密码。</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new_password">新密码</label>
+          <input class="form-input" id="new_password" name="new_password" type="password" minlength="6" autocomplete="new-password">
+          <p class="form-hint">不修改密码时请留空；新密码至少需要 6 个字符。</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="confirm_password">确认新密码</label>
+          <input class="form-input" id="confirm_password" name="confirm_password" type="password" minlength="6" autocomplete="new-password">
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="button" type="submit">保存账号设置</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
