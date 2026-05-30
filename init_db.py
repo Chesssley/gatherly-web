@@ -6,13 +6,41 @@ import os
 from werkzeug.security import generate_password_hash
 
 from app import create_app
-from app.models import User, db, ensure_user_account_schema
+from app.models import Activity, User, activities, db, ensure_user_account_schema
 
 app = create_app()
 
 with app.app_context():
     db.create_all()
     ensure_user_account_schema()
+
+    demo_organizer = User.query.filter_by(username="gatherly_demo").first()
+    if demo_organizer is None:
+        demo_organizer = User(
+            username="gatherly_demo",
+            nickname="Gatherly 活动发起人",
+            email="gatherly_demo@example.invalid",
+            password=generate_password_hash(os.urandom(32).hex()),
+        )
+        db.session.add(demo_organizer)
+        db.session.flush()
+
+    for activity_data in activities:
+        if db.session.get(Activity, activity_data["id"]) is None:
+            db.session.add(
+                Activity(
+                    id=activity_data["id"],
+                    title=activity_data["title"],
+                    description=activity_data.get("description"),
+                    location=activity_data.get("location"),
+                    max_participants=activity_data.get("capacity")
+                    if isinstance(activity_data.get("capacity"), int)
+                    else None,
+                    organizer_id=demo_organizer.id,
+                )
+            )
+    db.session.commit()
+
     print("数据库初始化完成！")
     print("数据库文件: gatherly.db")
 
