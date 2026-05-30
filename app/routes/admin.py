@@ -499,6 +499,10 @@ def _delete_post_record(post):
     Interaction.query.filter_by(target_type="post", target_id=post.id).delete(
         synchronize_session=False,
     )
+    Circle.query.filter_by(pinned_post_id=post.id).update(
+        {"pinned_post_id": None},
+        synchronize_session=False,
+    )
     db.session.delete(post)
 
 

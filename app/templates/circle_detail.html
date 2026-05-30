@@ -103,7 +103,82 @@
                 <p>{{ circle.member_count }} 位成员</p>
                 <p>{{ circle.post_count | default(0) }} 篇帖子</p>
                 <p>{{ circle.active_level }}</p>
+                <p>圈主：{{ (circle.owner.nickname or circle.owner.username) if circle.owner else '暂未设置' }}</p>
             </div>
+
+            <div class="circle-announcement">
+                <strong>圈内公告</strong>
+                <p>{{ circle.announcement or '暂无公告。' }}</p>
+            </div>
+
+            {% if can_manage_circle %}
+            <details class="circle-management-panel">
+                <summary>管理圈子</summary>
+                <section class="management-card">
+                    <h2 class="circle-management-title">编辑圈内公告</h2>
+                    <form method="POST" action="{{ url_for('circle.update_announcement', circle_id=circle.id) }}">
+                        <label class="form-label" for="announcement">公告内容</label>
+                        <textarea class="form-input" id="announcement" name="announcement" rows="4" maxlength="1000">{{ circle.announcement or '' }}</textarea>
+                        <div class="management-actions">
+                            <button class="button button-small management-button" type="submit">保存公告</button>
+                        </div>
+                    </form>
+                </section>
+
+                {% if is_circle_owner %}
+                <section class="management-card member-picker" data-member-picker>
+                    <h2 class="circle-management-title">设置管理员</h2>
+                    <p class="form-hint">按昵称、用户名或邮箱搜索当前圈内成员。</p>
+                    <label class="form-label" for="moderator-member-search">搜索成员</label>
+                    <input class="form-input member-picker-search" id="moderator-member-search" type="search" placeholder="输入昵称、用户名或邮箱" autocomplete="off" data-member-search>
+                    <div class="member-picker-list" data-member-list>
+                        {% for membership in circle_members %}
+                            {% if membership.user_id != circle.owner_id %}
+                            <div class="circle-member-row" data-member-item data-member-search-text="{{ membership.user.nickname or '' }} {{ membership.user.username }} {{ membership.user.email }}">
+                                <div class="circle-member-info">
+                                    <strong>{{ membership.user.nickname or membership.user.username }}</strong>
+                                    <span>@{{ membership.user.username }} · {{ membership.user.email }}</span>
+                                </div>
+                                <span class="tag">{{ '管理员' if membership.role in ['moderator', 'admin'] else '成员' }}</span>
+                                <form method="POST" action="{{ url_for('circle.update_circle_member_role', circle_id=circle.id, user_id=membership.user_id) }}">
+                                    <input type="hidden" name="role" value="{{ 'member' if membership.role in ['moderator', 'admin'] else 'moderator' }}">
+                                    <button class="button button-small management-button {{ 'button-danger' if membership.role in ['moderator', 'admin'] else 'button-secondary' }}" type="submit">
+                                        {{ '移除管理员' if membership.role in ['moderator', 'admin'] else '设为管理员' }}
+                                    </button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    <p class="member-picker-empty is-hidden" data-member-empty>没有匹配的圈内成员。</p>
+                </section>
+
+                <section class="management-card member-picker" data-member-picker>
+                    <h2 class="circle-management-title">转移圈主</h2>
+                    <p class="form-hint">转移后你将成为普通成员，请谨慎操作。</p>
+                    <label class="form-label" for="owner-member-search">搜索接任成员</label>
+                    <input class="form-input member-picker-search" id="owner-member-search" type="search" placeholder="输入昵称、用户名或邮箱" autocomplete="off" data-member-search>
+                    <div class="member-picker-list" data-member-list>
+                        {% for membership in circle_members %}
+                            {% if membership.user_id != circle.owner_id %}
+                            <div class="circle-member-row" data-member-item data-member-search-text="{{ membership.user.nickname or '' }} {{ membership.user.username }} {{ membership.user.email }}">
+                                <div class="circle-member-info">
+                                    <strong>{{ membership.user.nickname or membership.user.username }}</strong>
+                                    <span>@{{ membership.user.username }} · {{ membership.user.email }}</span>
+                                </div>
+                                <form method="POST" action="{{ url_for('circle.transfer_circle_owner', circle_id=circle.id) }}" onsubmit="return confirm('确定将圈主身份转移给该成员吗？');">
+                                    <input type="hidden" name="user_id" value="{{ membership.user_id }}">
+                                    <button class="button button-small button-danger management-button" type="submit">转移圈主</button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    <p class="member-picker-empty is-hidden" data-member-empty>没有匹配的圈内成员。</p>
+                </section>
+                {% endif %}
+            </details>
+            {% endif %}
 
             {% if current_user %}
                 {% if is_member %}
@@ -136,6 +211,7 @@
                             <span>{{ post.user.nickname or post.user.username }}</span>
                         </a>
                         <span class="tag">{{ post.type }}</span>
+                        {% if item.is_pinned %}<span class="tag circle-pinned-tag">置顶</span>{% endif %}
                     </div>
                     <h2 class="card-title">{{ post.title }}</h2>
                     <p class="circle-description">{{ post.content }}</p>
@@ -168,6 +244,11 @@
                             type="button"
                             data-share-url="{{ url_for('circle.circle_detail', circle_id=circle.id, _anchor='post-' ~ post.id) }}"
                         >转发</button>
+                        {% if can_manage_circle %}
+                        <form method="POST" action="{{ url_for('circle.toggle_pin_post', circle_id=circle.id, post_id=post.id) }}">
+                            <button class="circle-action-button circle-management-action" type="submit">{{ '取消置顶' if item.is_pinned else '置顶' }}</button>
+                        </form>
+                        {% endif %}
                         {% if item.can_delete %}
                         <form method="POST" action="{{ url_for('circle.delete_post', post_id=post.id) }}" onsubmit="return confirm('确定删除这篇帖子吗？');">
                             <button class="circle-action-button circle-delete-button" type="submit">删除</button>

@@ -212,4 +212,32 @@ document.addEventListener("DOMContentLoaded", () => {
       target.textContent = count > 0 ? `已选择 ${count} 张图片` : "未选择图片";
     });
   });
+
+  document.querySelectorAll("[data-member-picker]").forEach(picker => {
+    const search = picker.querySelector("[data-member-search]");
+    const members = picker.querySelectorAll("[data-member-item]");
+    const emptyMessage = picker.querySelector("[data-member-empty]");
+    if (!search) {
+      return;
+    }
+
+    const filterMembers = () => {
+      const query = search.value.trim().toLocaleLowerCase();
+      let visibleCount = 0;
+      members.forEach(member => {
+        const searchText = (member.dataset.memberSearchText || "").toLocaleLowerCase();
+        const isVisible = !query || searchText.includes(query);
+        member.classList.toggle("is-hidden", !isVisible);
+        if (isVisible) {
+          visibleCount += 1;
+        }
+      });
+      if (emptyMessage) {
+        emptyMessage.classList.toggle("is-hidden", visibleCount > 0);
+      }
+    };
+
+    search.addEventListener("input", filterMembers);
+    filterMembers();
+  });
 });
