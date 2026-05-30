@@ -14,6 +14,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     avatar = db.Column(db.String(255))
+    bio = db.Column(db.Text)
     interests = db.Column(db.Text)
     role = db.Column(db.String(20), default="user", nullable=False)
     trust_score = db.Column(db.Integer, default=100, nullable=False)
@@ -63,8 +64,15 @@ def ensure_user_account_schema():
 
     rows = db.session.execute(text('PRAGMA table_info("user")')).fetchall()
     existing_columns = {row[1] for row in rows}
+    statements = []
     if rows and "deleted_at" not in existing_columns:
-        db.session.execute(text('ALTER TABLE "user" ADD COLUMN deleted_at DATETIME'))
+        statements.append('ALTER TABLE "user" ADD COLUMN deleted_at DATETIME')
+    if rows and "bio" not in existing_columns:
+        statements.append('ALTER TABLE "user" ADD COLUMN bio TEXT')
+
+    for statement in statements:
+        db.session.execute(text(statement))
+    if statements:
         db.session.commit()
 
 

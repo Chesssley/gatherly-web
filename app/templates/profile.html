@@ -28,7 +28,7 @@
       </div>
       <div class="detail-info-row">
         <span class="detail-info-label">简介</span>
-        <span class="detail-info-value">{{ user.username }} 的 Gatherly 个人主页</span>
+        <span class="detail-info-value profile-bio">{{ user.bio or '暂未填写个人简介' }}</span>
       </div>
       <div class="detail-info-row">
         <span class="detail-info-label">信用分</span>
@@ -43,7 +43,7 @@
       {% if permissions.interests %}
       <div class="detail-info-row">
         <span class="detail-info-label">兴趣</span>
-        <span class="detail-info-value">
+        <span class="detail-info-value tag-group">
           {% if interests %}
             {% for interest in interests %}<span class="tag">{{ interest }}</span>{% endfor %}
           {% else %}

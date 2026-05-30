@@ -26,8 +26,13 @@
         <input class="form-input" id="avatar" name="avatar" value="{{ user.avatar or '' }}" maxlength="255">
       </div>
       <div class="form-group">
+        <label class="form-label" for="bio">个人简介</label>
+        <textarea class="form-input" id="bio" name="bio" rows="5" maxlength="300" placeholder="简单介绍一下自己、常参加的活动或希望认识的伙伴。">{{ user.bio or '' }}</textarea>
+        <p class="form-hint">最多 300 个字符。</p>
+      </div>
+      <div class="form-group">
         <label class="form-label" for="interests">兴趣标签</label>
-        <input class="form-input" id="interests" name="interests" value="{{ user.interests or '' }}" placeholder="摄影, 露营, 桌游">
+        <input class="form-input" id="interests" name="interests" value="{{ user.interests or '' }}" maxlength="500" placeholder="摄影, 露营, 桌游">
         <p class="form-hint">多个标签用逗号分隔。</p>
       </div>
       <div class="form-group">
