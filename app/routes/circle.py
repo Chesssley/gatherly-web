@@ -78,6 +78,10 @@ def _ensure_circle_columns():
         statements.append("ALTER TABLE circle ADD COLUMN announcement TEXT")
     if "pinned_post_id" not in existing_columns:
         statements.append("ALTER TABLE circle ADD COLUMN pinned_post_id INTEGER")
+    if "is_pinned" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0")
+    if "pinned_at" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN pinned_at DATETIME")
     if "is_system" not in existing_columns:
         statements.append("ALTER TABLE circle ADD COLUMN is_system BOOLEAN NOT NULL DEFAULT 0")
     if "member_count" not in existing_columns:
@@ -463,6 +467,8 @@ def circles():
     circle_rows = (
         Circle.query.filter_by(status="active")
         .order_by(
+            Circle.is_pinned.desc(),
+            Circle.pinned_at.desc(),
             Circle.is_system.desc(),
             Circle.member_count.desc(),
             func.coalesce(Circle.updated_at, Circle.created_at).desc(),
