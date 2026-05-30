@@ -1,0 +1,39 @@
+<aside class="profile-sidebar-card" aria-label="个人资料">
+  <div class="profile-avatar-large">
+    {% if user.avatar %}
+      <img src="{{ user.avatar }}" alt="{{ display_name }}">
+    {% else %}
+      <span aria-hidden="true">{{ display_name[:1]|upper }}</span>
+    {% endif %}
+  </div>
+
+  <h1>{{ display_name }}</h1>
+  <p class="profile-email">{{ user.email }}</p>
+  {% if is_owner %}
+  <a class="profile-edit-link" href="{{ url_for('profile.edit_profile') }}">编辑资料</a>
+  {% endif %}
+
+  {% if user.bio %}
+  <p class="profile-sidebar-bio">{{ user.bio }}</p>
+  {% endif %}
+
+  <div class="profile-sidebar-meta">
+    <p><span aria-hidden="true">&#128205;</span> 城市未设置</p>
+    <p><span aria-hidden="true">&#128197;</span> 加入于 {{ user.created_at.strftime('%Y年%m月') if user.created_at else '-' }}</p>
+  </div>
+
+  <dl class="profile-sidebar-stats">
+    <div>
+      <dt>{{ profile_stats.circles if profile_stats.circles is not none else '-' }}</dt>
+      <dd>同好圈</dd>
+    </div>
+    <div>
+      <dt>{{ profile_stats.interests if profile_stats.interests is not none else '-' }}</dt>
+      <dd>兴趣</dd>
+    </div>
+    <div>
+      <dt>{{ profile_stats.registrations if profile_stats.registrations is not none else '-' }}</dt>
+      <dd>报名</dd>
+    </div>
+  </dl>
+</aside>

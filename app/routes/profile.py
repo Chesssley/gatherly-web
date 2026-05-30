@@ -10,6 +10,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.models import (
     Activity,
+    ActivityFavorite,
     ActivityReview,
     Circle,
     CircleMember,
@@ -265,6 +266,8 @@ def _owner_profile_or_404():
 
 
 def _profile_context(user, visibility, is_owner=True):
+    circle_count = CircleMember.query.filter_by(user_id=user.id, status="active").count()
+    registration_count = Registration.query.filter_by(user_id=user.id).count()
     return {
         "user": user,
         "display_name": get_user_display_name(user),
@@ -278,6 +281,11 @@ def _profile_context(user, visibility, is_owner=True):
             "trust_score": _scope_is_visible(visibility.trust_score_scope, is_owner),
         },
         "interests": _split_interests(user.interests) if (is_owner or bool(visibility.show_interests)) else [],
+        "profile_stats": {
+            "circles": circle_count if is_owner or visibility.circle_scope == PUBLIC_SCOPE else None,
+            "interests": len(_split_interests(user.interests)) if is_owner or visibility.show_interests else None,
+            "registrations": registration_count if is_owner or visibility.activity_scope == PUBLIC_SCOPE else None,
+        },
     }
 
 
@@ -509,6 +517,7 @@ def view_profile(user_id):
     circles = _circle_items(user, default_filters)
     posts = _profile_posts(user, default_filters)
     comments = _profile_comments(user, default_filters)
+    favorite_activities_count = ActivityFavorite.query.filter_by(user_id=user.id).count()
     activity_interactions = _activity_interactions(user, default_filters)
     circle_interactions = _circle_interactions(user, default_filters)
 
@@ -525,6 +534,7 @@ def view_profile(user_id):
         profile_posts_count=len(posts),
         profile_comments_preview=_preview_items(comments),
         profile_comments_count=len(comments),
+        favorite_activities_count=favorite_activities_count,
         activity_interactions_preview=_preview_items(activity_interactions),
         activity_interactions_count=len(activity_interactions),
         circle_interactions_preview=_preview_items(circle_interactions),

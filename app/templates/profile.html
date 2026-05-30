@@ -3,235 +3,78 @@
 {% block title %}{{ display_name }} 的个人主页 - Gatherly{% endblock %}
 
 {% block content %}
-<section class="section">
+<section class="section profile-page">
   <div class="container">
     {% if user.status == 'deleted' %}
     <div class="profile-deleted-notice" role="status">该账号已注销</div>
     {% else %}
-    {% if user.status == 'banned' %}
-    <div class="profile-banned-notice" role="status">该账号已被封禁</div>
-    {% endif %}
-    <div class="detail-info-card">
-      <div class="detail-info-row">
-        <span class="detail-info-label">头像</span>
-        <span class="detail-info-value">
-          {% if user.avatar %}
-            <img src="{{ user.avatar }}" alt="{{ user.nickname or user.username }}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;">
-          {% else %}
-            <span class="tag">{{ (user.nickname or user.username)[:1] }}</span>
-          {% endif %}
-        </span>
-      </div>
-      <div class="detail-info-row">
-        <span class="detail-info-label">昵称</span>
-        <span class="detail-info-value">{{ user.nickname or user.username }}</span>
-      </div>
-      <div class="detail-info-row">
-        <span class="detail-info-label">简介</span>
-        <span class="detail-info-value profile-bio">{{ user.bio or '暂未填写个人简介' }}</span>
-      </div>
-      <div class="detail-info-row">
-        <span class="detail-info-label">信用分</span>
-        <span class="detail-info-value">
-          {% if permissions.trust_score %}{{ user.trust_score }}{% else %}未公开{% endif %}
-        </span>
-      </div>
-      <div class="detail-info-row">
-        <span class="detail-info-label">账号角色</span>
-        <span class="detail-info-value"><span class="status-badge status-open">{{ user.role }}</span></span>
-      </div>
-      {% if permissions.interests %}
-      <div class="detail-info-row">
-        <span class="detail-info-label">兴趣</span>
-        <span class="detail-info-value tag-group">
-          {% if interests %}
-            {% for interest in interests %}<span class="tag">{{ interest }}</span>{% endfor %}
-          {% else %}
-            暂未填写兴趣标签
-          {% endif %}
-        </span>
-      </div>
+      {% if user.status == 'banned' %}
+      <div class="profile-banned-notice" role="status">该账号已被封禁</div>
       {% endif %}
-      {% if is_owner %}
-      <div class="registration-action">
-        <a class="button" href="{{ url_for('profile.edit_profile') }}">编辑个人资料</a>
-        <a class="button button-secondary" href="{{ url_for('auth.account_settings') }}">账号设置</a>
+
+      <div class="profile-layout">
+        {% include "_profile_sidebar.html" %}
+
+        <div class="profile-main">
+          {% if permissions.interests %}
+          <section class="profile-interest-section" aria-labelledby="profile-interests-title">
+            <div class="profile-section-title">
+              <h2 id="profile-interests-title">我的兴趣</h2>
+              <span>{{ interests|length }}</span>
+            </div>
+            <div class="profile-interest-chips">
+              {% for interest in interests %}
+              <span class="profile-interest-chip">{{ interest }}</span>
+              {% else %}
+              <p class="profile-muted">暂未填写兴趣标签。</p>
+              {% endfor %}
+            </div>
+          </section>
+          {% endif %}
+
+          {% if is_owner %}
+          {% set active_profile_tab = 'overview' %}
+          {% include "_profile_tabs.html" %}
+
+          <section class="profile-overview-panel" aria-labelledby="profile-overview-title">
+            <div class="profile-section-title">
+              <div>
+                <p class="eyebrow">Overview</p>
+                <h2 id="profile-overview-title">个人概览</h2>
+              </div>
+              <a class="button button-small" href="{{ url_for('activity.index') }}#discover-events">发现活动</a>
+            </div>
+
+            <div class="profile-summary-grid">
+              <a href="{{ url_for('profile.created_activities') }}">
+                <strong>{{ created_activities_count }}</strong>
+                <span>我创建的活动</span>
+              </a>
+              <a href="{{ url_for('profile.joined_activities') }}">
+                <strong>{{ joined_activities_count }}</strong>
+                <span>我报名的活动</span>
+              </a>
+              <a href="{{ url_for('activity.my_events', tab='saved') }}">
+                <strong>{{ favorite_activities_count }}</strong>
+                <span>我收藏的活动</span>
+              </a>
+              <a href="{{ url_for('profile.my_circles') }}">
+                <strong>{{ circle_memberships_count }}</strong>
+                <span>我的同好圈</span>
+              </a>
+              <a href="{{ url_for('profile.my_posts') }}">
+                <strong>{{ profile_posts_count }}</strong>
+                <span>我的帖子</span>
+              </a>
+              <a href="{{ url_for('profile.my_comments') }}">
+                <strong>{{ profile_comments_count }}</strong>
+                <span>我的评论</span>
+              </a>
+            </div>
+          </section>
+          {% endif %}
+        </div>
       </div>
-      {% endif %}
-    </div>
-
-    {% if is_owner %}
-    <div class="profile-overview-grid">
-      <section class="rating-section profile-overview-card">
-        <div class="profile-overview-heading">
-          <div>
-            <h3>我发布的活动</h3>
-            <p>{{ created_activities_count }} 条</p>
-          </div>
-          <a class="button button-small" href="{{ url_for('profile.created_activities') }}">查看全部</a>
-        </div>
-        {% if created_activities_preview %}
-          <div class="card-grid">
-            {% for activity in created_activities_preview %}
-            <a class="activity-card" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
-              <div class="card-body">
-                <h4 class="card-title">{{ activity.title }}</h4>
-                <div class="card-meta">
-                  <p>地点：{{ activity.location or '-' }}</p>
-                  <p>状态：{{ activity.status }}</p>
-                </div>
-              </div>
-            </a>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="rating-empty">暂无已发布活动。</p>
-        {% endif %}
-      </section>
-
-      <section class="rating-section profile-overview-card">
-        <div class="profile-overview-heading">
-          <div>
-            <h3>报名的活动</h3>
-            <p>{{ joined_activities_count }} 条</p>
-          </div>
-          <a class="button button-small" href="{{ url_for('profile.joined_activities') }}">查看全部</a>
-        </div>
-        {% if joined_activities_preview %}
-          <div class="card-grid">
-            {% for item in joined_activities_preview %}
-            <a class="activity-card" href="{{ url_for('activity.activity_detail', activity_id=item.id) }}">
-              <div class="card-body">
-                <h4 class="card-title">{{ item.title }}</h4>
-                <div class="card-meta">
-                  <p>状态：{{ item.status }}</p>
-                  <p>报名时间：{{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</p>
-                </div>
-              </div>
-            </a>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="rating-empty">暂无报名活动。</p>
-        {% endif %}
-      </section>
-
-      <section class="rating-section profile-overview-card">
-        <div class="profile-overview-heading">
-          <div>
-            <h3>加入的同好圈</h3>
-            <p>{{ circle_memberships_count }} 条</p>
-          </div>
-          <a class="button button-small" href="{{ url_for('profile.my_circles') }}">查看全部</a>
-        </div>
-        {% if circle_memberships_preview %}
-          <div class="card-grid">
-            {% for item in circle_memberships_preview %}
-            <a class="activity-card" href="{{ url_for('circle.circle_detail', circle_id=item.id) }}">
-              <div class="card-body">
-                <h4 class="card-title">{{ item.name }}</h4>
-                <div class="card-meta">
-                  <p>身份：{{ item.role }}</p>
-                  <p>加入时间：{{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</p>
-                </div>
-              </div>
-            </a>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="rating-empty">暂无加入的同好圈。</p>
-        {% endif %}
-      </section>
-
-      <section class="rating-section profile-overview-card">
-        <div class="profile-overview-heading">
-          <div>
-            <h3>我的帖子</h3>
-            <p>{{ profile_posts_count }} 条</p>
-          </div>
-          <a class="button button-small" href="{{ url_for('profile.my_posts') }}">管理</a>
-        </div>
-        {% if profile_posts_preview %}
-          <div class="profile-overview-list">
-            {% for post in profile_posts_preview %}
-            <a class="profile-overview-item" href="{{ url_for('circle.circle_detail', circle_id=post.circle_id, _anchor='post-' ~ post.id) }}">
-              <strong>{{ post.title }}</strong>
-              <span>{{ post.circle.name if post.circle else '-' }} · {{ post.created_at.strftime('%Y-%m-%d %H:%M') if post.created_at else '-' }}</span>
-            </a>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="rating-empty">暂无帖子。</p>
-        {% endif %}
-      </section>
-
-      <section class="rating-section profile-overview-card">
-        <div class="profile-overview-heading">
-          <div>
-            <h3>我的评论</h3>
-            <p>{{ profile_comments_count }} 条</p>
-          </div>
-          <a class="button button-small" href="{{ url_for('profile.my_comments') }}">管理</a>
-        </div>
-        {% if profile_comments_preview %}
-          <div class="profile-overview-list">
-            {% for comment in profile_comments_preview %}
-            <a class="profile-overview-item" href="{% if comment.post and comment.post.circle %}{{ url_for('circle.circle_detail', circle_id=comment.post.circle_id, _anchor='comment-' ~ comment.id) }}{% elif comment.activity %}{{ url_for('activity.activity_detail', activity_id=comment.activity_id, _anchor='comment-' ~ comment.id) }}{% else %}#{% endif %}">
-              <strong>{{ comment.content|trim|truncate(48, True) or '图片评论' }}</strong>
-              <span>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') if comment.created_at else '-' }}</span>
-            </a>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="rating-empty">暂无评论。</p>
-        {% endif %}
-      </section>
-
-      <section class="rating-section profile-overview-card">
-        <div class="profile-overview-heading">
-          <div>
-            <h3>活动互动记录</h3>
-            <p>{{ activity_interactions_count }} 条</p>
-          </div>
-          <a class="button button-small" href="{{ url_for('profile.my_activity_interactions') }}">查看全部</a>
-        </div>
-        {% if activity_interactions_preview %}
-          <div class="profile-overview-list">
-            {% for item in activity_interactions_preview %}
-            <a class="profile-overview-item" href="{{ item.url }}">
-              <strong>{{ item.title }}</strong>
-              <span>{{ item.action }} · {{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</span>
-            </a>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="rating-empty">暂无活动互动记录。</p>
-        {% endif %}
-      </section>
-
-      <section class="rating-section profile-overview-card">
-        <div class="profile-overview-heading">
-          <div>
-            <h3>同好圈互动记录</h3>
-            <p>{{ circle_interactions_count }} 条</p>
-          </div>
-          <a class="button button-small" href="{{ url_for('profile.my_circle_interactions') }}">查看全部</a>
-        </div>
-        {% if circle_interactions_preview %}
-          <div class="profile-overview-list">
-            {% for item in circle_interactions_preview %}
-            <a class="profile-overview-item" href="{{ item.url }}">
-              <strong>{{ item.title }}</strong>
-              <span>{{ item.action }} · {{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</span>
-            </a>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="rating-empty">暂无同好圈互动记录。</p>
-        {% endif %}
-      </section>
-    </div>
-    {% endif %}
     {% endif %}
   </div>
 </section>
