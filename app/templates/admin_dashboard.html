@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}后台管理 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="page-title">
+      <p class="eyebrow">Admin Dashboard</p>
+      <h1>后台管理</h1>
+      <p>欢迎进入 Gatherly 后台管理系统。请选择需要管理的模块。</p>
+    </div>
+
+    <div class="admin-grid" aria-label="后台管理导航">
+      <a class="admin-card" href="#user-management">
+        <h2>用户管理</h2>
+        <p>查看和维护平台用户信息。</p>
+      </a>
+      <a class="admin-card" href="#activity-management">
+        <h2>活动管理</h2>
+        <p>管理活动内容和活动状态。</p>
+      </a>
+      <a class="admin-card" href="#circle-management">
+        <h2>同好圈管理</h2>
+        <p>维护同好圈和圈内秩序。</p>
+      </a>
+      <a class="admin-card" href="#post-management">
+        <h2>帖子管理</h2>
+        <p>查看和处理社区帖子。</p>
+      </a>
+      <a class="admin-card" href="#comment-management">
+        <h2>评论管理</h2>
+        <p>查看和处理用户评论。</p>
+      </a>
+      <a class="admin-card" href="#operation-logs">
+        <h2>操作日志</h2>
+        <p>查看后台管理操作记录。</p>
+      </a>
+    </div>
+  </div>
+</section>
+{% endblock %}
