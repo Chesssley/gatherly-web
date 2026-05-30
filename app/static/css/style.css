@@ -2226,7 +2226,8 @@ textarea.form-input {
 
 .admin-status.status-hidden,
 .admin-status.status-banned,
-.admin-status.status-closed {
+.admin-status.status-closed,
+.admin-status.status-deleted {
   background: #f4e4df;
   color: #8b4638;
 }
@@ -2290,6 +2291,32 @@ textarea.form-input {
   background: #f8e8e4;
   color: #8b4638;
   font-weight: 700;
+}
+
+.profile-content-section {
+  margin-top: 24px;
+}
+
+.profile-content-subsection + .profile-content-subsection {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.profile-content-subsection h4 {
+  margin-bottom: 12px;
+}
+
+.profile-content-table {
+  min-width: 760px;
+}
+
+.profile-comment-summary {
+  max-width: 260px;
+}
+
+.circle-inline-form {
+  display: inline;
 }
 
 .account-settings-container {
