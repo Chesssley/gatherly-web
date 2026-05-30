@@ -253,4 +253,68 @@ document.addEventListener("DOMContentLoaded", () => {
     search.addEventListener("input", filterMembers);
     filterMembers();
   });
+
+  const togglePanel = (button, panel, shouldOpen) => {
+    if (!button || !panel) {
+      return;
+    }
+
+    button.setAttribute("aria-expanded", String(shouldOpen));
+    panel.hidden = !shouldOpen;
+  };
+
+  const accountMenuButton = document.querySelector("[data-nav-menu-toggle]");
+  const accountMenu = document.querySelector("[data-nav-menu]");
+  const mobileSearchButton = document.querySelector("[data-mobile-search-toggle]");
+  const mobileSearchPanel = document.querySelector("[data-mobile-search]");
+  const mobileMenuButton = document.querySelector("[data-mobile-menu-toggle]");
+  const mobileMenu = document.querySelector("[data-mobile-menu]");
+
+  const closeNavigationPanels = () => {
+    togglePanel(accountMenuButton, accountMenu, false);
+    togglePanel(mobileSearchButton, mobileSearchPanel, false);
+    togglePanel(mobileMenuButton, mobileMenu, false);
+  };
+
+  if (accountMenuButton && accountMenu) {
+    accountMenuButton.addEventListener("click", event => {
+      event.stopPropagation();
+      const shouldOpen = accountMenu.hidden;
+      closeNavigationPanels();
+      togglePanel(accountMenuButton, accountMenu, shouldOpen);
+    });
+  }
+
+  if (mobileSearchButton && mobileSearchPanel) {
+    mobileSearchButton.addEventListener("click", event => {
+      event.stopPropagation();
+      const shouldOpen = mobileSearchPanel.hidden;
+      closeNavigationPanels();
+      togglePanel(mobileSearchButton, mobileSearchPanel, shouldOpen);
+      if (shouldOpen) {
+        mobileSearchPanel.querySelector("input")?.focus();
+      }
+    });
+  }
+
+  if (mobileMenuButton && mobileMenu) {
+    mobileMenuButton.addEventListener("click", event => {
+      event.stopPropagation();
+      const shouldOpen = mobileMenu.hidden;
+      closeNavigationPanels();
+      togglePanel(mobileMenuButton, mobileMenu, shouldOpen);
+    });
+  }
+
+  document.addEventListener("click", event => {
+    if (!event.target.closest(".site-header")) {
+      closeNavigationPanels();
+    }
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      closeNavigationPanels();
+    }
+  });
 });
