@@ -1,7 +1,9 @@
 from functools import wraps
+import os
 from urllib.parse import urlencode
+from uuid import uuid4
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -29,6 +31,12 @@ PRIVATE_SCOPE = "private"
 SORT_OPTIONS = {"newest", "oldest"}
 BIO_MAX_LENGTH = 300
 INTERESTS_MAX_LENGTH = 500
+AVATAR_UPLOAD_SUBDIR = os.path.join("uploads", "avatars")
+AVATAR_MAX_BYTES = 700 * 1024
+AVATAR_ALLOWED_TYPES = {
+    "image/jpeg": ("jpg", b"\xff\xd8\xff"),
+    "image/webp": ("webp", b"RIFF"),
+}
 
 
 def _section_filters(prefix):
@@ -129,6 +137,48 @@ def _split_interests(interests):
 
 def _normalize_interests(interests):
     return ", ".join(dict.fromkeys(_split_interests(interests)))
+
+
+def _avatar_upload_dir():
+    upload_dir = os.path.join(current_app.static_folder, AVATAR_UPLOAD_SUBDIR)
+    os.makedirs(upload_dir, exist_ok=True)
+    return upload_dir
+
+
+def _save_avatar(file):
+    if not file or not file.filename:
+        return None
+
+    expected = AVATAR_ALLOWED_TYPES.get(file.mimetype)
+    if expected is None:
+        raise ValueError("头像只支持 JPEG 或 WebP 格式。")
+
+    content = file.stream.read(AVATAR_MAX_BYTES + 1)
+    if not content:
+        raise ValueError("头像文件不能为空。")
+    if len(content) > AVATAR_MAX_BYTES:
+        raise ValueError("裁剪后的头像不能超过 700KB。")
+
+    extension, signature = expected
+    if not content.startswith(signature):
+        raise ValueError("头像文件内容与格式不匹配。")
+    if extension == "webp" and (len(content) < 12 or content[8:12] != b"WEBP"):
+        raise ValueError("头像文件内容与格式不匹配。")
+
+    filename = f"{uuid4().hex}.{extension}"
+    with open(os.path.join(_avatar_upload_dir(), filename), "wb") as avatar_file:
+        avatar_file.write(content)
+    return f"/static/{AVATAR_UPLOAD_SUBDIR.replace(os.sep, '/')}/{filename}"
+
+
+def _delete_managed_avatar(avatar_url):
+    prefix = f"/static/{AVATAR_UPLOAD_SUBDIR.replace(os.sep, '/')}/"
+    if not avatar_url or not avatar_url.startswith(prefix):
+        return
+
+    avatar_path = os.path.join(_avatar_upload_dir(), os.path.basename(avatar_url))
+    if os.path.isfile(avatar_path):
+        os.remove(avatar_path)
 
 
 def _safe_all(query):
@@ -672,7 +722,6 @@ def edit_profile():
         if form_type == "profile":
             nickname = request.form.get("nickname", "").strip() or user.username
             email = request.form.get("email", "").strip()
-            avatar = request.form.get("avatar", "").strip() or None
             bio = request.form.get("bio", "").strip() or None
             interests = _normalize_interests(request.form.get("interests", "")) or None
 
@@ -684,9 +733,6 @@ def edit_profile():
                 return render_template("edit_profile.html", user=user, visibility=visibility)
             if len(email) > 120:
                 flash("邮箱不能超过 120 个字符。", "error")
-                return render_template("edit_profile.html", user=user, visibility=visibility)
-            if avatar and len(avatar) > 255:
-                flash("头像 URL 不能超过 255 个字符。", "error")
                 return render_template("edit_profile.html", user=user, visibility=visibility)
             if bio and len(bio) > BIO_MAX_LENGTH:
                 flash(f"个人简介不能超过 {BIO_MAX_LENGTH} 个字符。", "error")
@@ -710,18 +756,32 @@ def edit_profile():
                     return render_template("edit_profile.html", user=user, visibility=visibility)
                 user.password = generate_password_hash(new_password)
 
+            old_avatar = user.avatar
+            new_avatar = None
+            try:
+                new_avatar = _save_avatar(request.files.get("avatar_file"))
+            except ValueError as error:
+                flash(str(error), "error")
+                return render_template("edit_profile.html", user=user, visibility=visibility)
+
             user.nickname = nickname
             user.email = email
-            user.avatar = avatar
+            if new_avatar:
+                user.avatar = new_avatar
+            elif request.form.get("remove_avatar"):
+                user.avatar = None
             user.bio = bio
             user.interests = interests
 
             try:
                 db.session.commit()
+                if old_avatar != user.avatar:
+                    _delete_managed_avatar(old_avatar)
                 session["nickname"] = user.nickname or user.username
                 flash("个人资料已更新。", "success")
             except IntegrityError:
                 db.session.rollback()
+                _delete_managed_avatar(new_avatar)
                 flash("用户名或邮箱已被使用，请换一个。", "error")
         elif form_type == "visibility":
             visibility.activity_scope = PUBLIC_SCOPE if request.form.get("show_activities") else PRIVATE_SCOPE

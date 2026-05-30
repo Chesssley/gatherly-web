@@ -32,3 +32,7 @@ instance/*.db
 *.sqlite3
 .env
 .flaskenv
+
+# User uploads
+app/static/uploads/avatars/*
+!app/static/uploads/avatars/.gitkeep
