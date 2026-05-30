@@ -2,7 +2,7 @@ from datetime import datetime
 from functools import wraps
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
-from sqlalchemy import func, text
+from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -14,6 +14,24 @@ USER_STATUSES = {"active", "banned"}
 ACTIVITY_STATUSES = {"open", "hidden", "closed"}
 CIRCLE_STATUSES = {"active", "hidden"}
 CONTENT_STATUSES = {"published", "hidden"}
+SORT_OPTIONS = {"newest", "oldest"}
+
+
+def _list_filters():
+    return {
+        "q": request.args.get("q", "").strip(),
+        "status": request.args.get("status", "").strip(),
+        "type": request.args.get("type", "").strip(),
+        "sort": request.args.get("sort", "newest").strip()
+        if request.args.get("sort", "newest").strip() in SORT_OPTIONS
+        else "newest",
+    }
+
+
+def _apply_sort(query, created_at, item_id):
+    if request.args.get("sort") == "oldest":
+        return query.order_by(created_at.asc(), item_id.asc())
+    return query.order_by(created_at.desc(), item_id.desc())
 
 
 def get_current_user():
@@ -161,16 +179,61 @@ def admin_dashboard():
 @admin_required
 def admin_logs():
     _ensure_admin_schema()
-    logs = AdminLog.query.order_by(AdminLog.created_at.desc()).limit(100).all()
-    return render_template("admin_logs.html", logs=logs)
+    filters = _list_filters()
+    query = AdminLog.query.join(AdminLog.admin)
+    if filters["q"]:
+        pattern = f"%{filters['q']}%"
+        query = query.filter(
+            or_(
+                User.username.ilike(pattern),
+                AdminLog.action.ilike(pattern),
+                AdminLog.target_type.ilike(pattern),
+                AdminLog.detail.ilike(pattern),
+                AdminLog.ip_address.ilike(pattern),
+            )
+        )
+    if filters["type"]:
+        query = query.filter(AdminLog.target_type == filters["type"])
+    logs = _apply_sort(query, AdminLog.created_at, AdminLog.id).limit(100).all()
+    type_options = [
+        row[0]
+        for row in db.session.query(AdminLog.target_type)
+        .distinct()
+        .order_by(AdminLog.target_type)
+        .all()
+        if row[0]
+    ]
+    return render_template("admin_logs.html", logs=logs, filters=filters, type_options=type_options)
 
 
 @admin_bp.route("/admin/users")
 @admin_required
 def admin_users():
     _ensure_admin_schema()
-    users = User.query.order_by(User.created_at.desc(), User.id.desc()).all()
-    return render_template("admin_users.html", users=users)
+    filters = _list_filters()
+    query = User.query
+    if filters["q"]:
+        pattern = f"%{filters['q']}%"
+        query = query.filter(
+            or_(
+                User.username.ilike(pattern),
+                User.nickname.ilike(pattern),
+                User.email.ilike(pattern),
+                User.interests.ilike(pattern),
+            )
+        )
+    if filters["status"]:
+        query = query.filter(User.status == filters["status"])
+    if filters["type"]:
+        query = query.filter(User.role == filters["type"])
+    users = _apply_sort(query, User.created_at, User.id).all()
+    return render_template(
+        "admin_users.html",
+        users=users,
+        filters=filters,
+        status_options=sorted(USER_STATUSES | {"deleted"}),
+        type_options=["user", "admin"],
+    )
 
 
 def _update_user_ban_status(user_id, new_status):
@@ -278,8 +341,28 @@ def demote_admin(user_id):
 @admin_required
 def admin_activities():
     _ensure_admin_schema()
-    activities = Activity.query.order_by(Activity.created_at.desc(), Activity.id.desc()).all()
-    return render_template("admin_activities.html", activities=activities)
+    filters = _list_filters()
+    query = Activity.query.join(Activity.organizer)
+    if filters["q"]:
+        pattern = f"%{filters['q']}%"
+        query = query.filter(
+            or_(
+                Activity.title.ilike(pattern),
+                Activity.description.ilike(pattern),
+                Activity.location.ilike(pattern),
+                Activity.preparation.ilike(pattern),
+                User.username.ilike(pattern),
+            )
+        )
+    if filters["status"]:
+        query = query.filter(Activity.status == filters["status"])
+    activities = _apply_sort(query, Activity.created_at, Activity.id).all()
+    return render_template(
+        "admin_activities.html",
+        activities=activities,
+        filters=filters,
+        status_options=sorted(ACTIVITY_STATUSES),
+    )
 
 
 @admin_bp.route("/admin/activities/<int:activity_id>/status", methods=["POST"])
@@ -298,15 +381,36 @@ def update_activity_status(activity_id):
 @admin_required
 def admin_circles():
     _ensure_admin_schema()
+    filters = _list_filters()
     circles = (
         db.session.query(Circle, func.count(Post.id).label("post_count"))
         .outerjoin(Post, Post.circle_id == Circle.id)
         .filter(Circle.status != "deleted")
-        .group_by(Circle.id)
-        .order_by(Circle.created_at.desc(), Circle.id.desc())
-        .all()
     )
-    return render_template("admin_circles.html", circles=circles)
+    if filters["q"]:
+        pattern = f"%{filters['q']}%"
+        circles = circles.filter(
+            or_(
+                Circle.name.ilike(pattern),
+                Circle.tag.ilike(pattern),
+                Circle.description.ilike(pattern),
+            )
+        )
+    if filters["status"]:
+        circles = circles.filter(Circle.status == filters["status"])
+    if filters["type"] == "official":
+        circles = circles.filter(Circle.is_system.is_(True))
+    elif filters["type"] == "custom":
+        circles = circles.filter(Circle.is_system.is_(False))
+    circles = circles.group_by(Circle.id)
+    circles = _apply_sort(circles, Circle.created_at, Circle.id).all()
+    return render_template(
+        "admin_circles.html",
+        circles=circles,
+        filters=filters,
+        status_options=sorted(CIRCLE_STATUSES),
+        type_options=["official", "custom"],
+    )
 
 
 @admin_bp.route("/admin/circles/<int:circle_id>/status", methods=["POST"])
@@ -320,8 +424,36 @@ def update_circle_status(circle_id):
 @admin_required
 def admin_posts():
     _ensure_admin_schema()
-    posts = Post.query.order_by(Post.created_at.desc(), Post.id.desc()).all()
-    return render_template("admin_posts.html", posts=posts)
+    filters = _list_filters()
+    query = Post.query.join(Post.user).join(Post.circle)
+    if filters["q"]:
+        pattern = f"%{filters['q']}%"
+        query = query.filter(
+            or_(
+                Post.title.ilike(pattern),
+                Post.content.ilike(pattern),
+                User.username.ilike(pattern),
+                Circle.name.ilike(pattern),
+                Circle.tag.ilike(pattern),
+            )
+        )
+    if filters["status"]:
+        query = query.filter(Post.status == filters["status"])
+    if filters["type"]:
+        query = query.filter(Post.type == filters["type"])
+    posts = _apply_sort(query, Post.created_at, Post.id).all()
+    type_options = [
+        row[0]
+        for row in db.session.query(Post.type).distinct().order_by(Post.type).all()
+        if row[0]
+    ]
+    return render_template(
+        "admin_posts.html",
+        posts=posts,
+        filters=filters,
+        status_options=sorted(CONTENT_STATUSES | {"deleted"}),
+        type_options=type_options,
+    )
 
 
 def _delete_comment_record(comment):
@@ -446,8 +578,34 @@ def update_post_status(post_id):
 @admin_required
 def admin_comments():
     _ensure_admin_schema()
-    comments = Comment.query.order_by(Comment.created_at.desc(), Comment.id.desc()).all()
-    return render_template("admin_comments.html", comments=comments)
+    filters = _list_filters()
+    query = Comment.query.join(Comment.author).outerjoin(Comment.post).outerjoin(Post.circle)
+    if filters["q"]:
+        pattern = f"%{filters['q']}%"
+        query = query.filter(
+            or_(
+                Comment.content.ilike(pattern),
+                User.username.ilike(pattern),
+                Post.title.ilike(pattern),
+                Circle.name.ilike(pattern),
+            )
+        )
+    if filters["status"]:
+        query = query.filter(Comment.status == filters["status"])
+    if filters["type"] == "reply":
+        query = query.filter(Comment.parent_id.isnot(None))
+    elif filters["type"] == "post":
+        query = query.filter(Comment.post_id.isnot(None), Comment.parent_id.is_(None))
+    elif filters["type"] == "activity":
+        query = query.filter(Comment.activity_id.isnot(None), Comment.parent_id.is_(None))
+    comments = _apply_sort(query, Comment.created_at, Comment.id).all()
+    return render_template(
+        "admin_comments.html",
+        comments=comments,
+        filters=filters,
+        status_options=sorted(CONTENT_STATUSES | {"deleted"}),
+        type_options=["post", "activity", "reply"],
+    )
 
 
 @admin_bp.route("/admin/comments/<int:comment_id>/delete", methods=["POST"])

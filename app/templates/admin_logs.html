@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_list_filters.html" import list_filters %}
 
 {% block title %}操作日志 - Gatherly{% endblock %}
 
@@ -22,6 +23,7 @@
       <p>查看最近 100 条管理员操作记录。</p>
     </div>
 
+    {{ list_filters('admin.admin_logs', filters, (), type_options) }}
     <div class="admin-table-wrap">
       <table class="admin-table">
         <thead><tr><th>时间</th><th>管理员</th><th>操作</th><th>对象</th><th>详情</th><th>IP</th></tr></thead>

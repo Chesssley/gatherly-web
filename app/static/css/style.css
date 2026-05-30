@@ -2148,6 +2148,47 @@ textarea.form-input {
   color: var(--color-primary-dark);
 }
 
+.list-filter-card {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  box-shadow: 0 8px 20px rgba(34, 34, 34, 0.05);
+}
+
+.list-filter-field {
+  flex: 0 1 160px;
+  min-width: 0;
+}
+
+.list-filter-search {
+  flex: 1 1 280px;
+}
+
+.list-filter-field label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--color-primary-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.list-filter-field .form-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.list-filter-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  padding-bottom: 1px;
+}
+
 .admin-panel {
   margin-top: 36px;
 }
@@ -2297,6 +2338,62 @@ textarea.form-input {
   margin-top: 24px;
 }
 
+.profile-overview-grid {
+  display: grid;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.profile-overview-card {
+  margin-top: 0;
+}
+
+.profile-overview-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.profile-overview-heading h3,
+.profile-overview-heading p {
+  margin-bottom: 0;
+}
+
+.profile-overview-heading p {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.profile-overview-list {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-overview-item {
+  display: block;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fbfaf7;
+}
+
+.profile-overview-item strong,
+.profile-overview-item span {
+  display: block;
+}
+
+.profile-overview-item span {
+  margin-top: 4px;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.profile-section-panel {
+  margin-top: 0;
+}
+
 .profile-content-subsection + .profile-content-subsection {
   margin-top: 24px;
   padding-top: 20px;
@@ -2373,6 +2470,27 @@ textarea.form-input {
 }
 
 @media (max-width: 720px) {
+  .list-filter-card {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 14px;
+  }
+
+  .list-filter-field,
+  .list-filter-search {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .list-filter-actions {
+    flex-wrap: wrap;
+  }
+
+  .profile-overview-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .admin-grid {
     grid-template-columns: 1fr;
   }

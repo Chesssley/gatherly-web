@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% from "_list_filters.html" import list_filters %}
+
+{% block title %}{{ page_title }} - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <a class="back-link" href="{{ url_for('profile.my_profile') }}">返回个人主页</a>
+    <div class="page-title">
+      <p class="eyebrow">Profile Section</p>
+      <h1>{{ section_heading }}</h1>
+    </div>
+
+    {{ list_filters('profile.my_profile', filters, status_options, type_options, filter_prefix, reset_url, '', true) }}
+
+    <div class="rating-section profile-section-panel">
+      {% if section_key in ['created_activity', 'joined_activity', 'circle'] %}
+        {% if items %}
+        <div class="card-grid">
+          {% for item in items %}
+          {% if section_key == 'circle' %}
+          <a class="activity-card" href="{{ url_for('circle.circle_detail', circle_id=item.id) }}">
+            <div class="card-body">
+              <h3 class="card-title">{{ item.name }}</h3>
+              <div class="card-meta">
+                <p>身份：{{ item.role }}</p>
+                <p>状态：{{ item.status }}</p>
+                <p>加入时间：{{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</p>
+              </div>
+            </div>
+          </a>
+          {% else %}
+          <a class="activity-card" href="{{ url_for('activity.activity_detail', activity_id=item.id) }}">
+            <div class="card-body">
+              <h3 class="card-title">{{ item.title }}</h3>
+              <div class="card-meta">
+                {% if section_key == 'created_activity' %}
+                <p>地点：{{ item.location or '-' }}</p>
+                <p>状态：{{ item.status }}</p>
+                <p>发布时间：{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else '-' }}</p>
+                {% else %}
+                <p>状态：{{ item.status }}</p>
+                <p>报名时间：{{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</p>
+                {% endif %}
+              </div>
+            </div>
+          </a>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="rating-empty">当前筛选条件下暂无内容。</p>
+        {% endif %}
+      {% elif section_key == 'post' %}
+        {% if items %}
+        <div class="admin-table-wrap">
+          <table class="admin-table profile-content-table">
+            <thead>
+              <tr>
+                <th>标题</th>
+                <th>所属同好圈</th>
+                <th>发布时间</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for post in items %}
+              <tr>
+                <td>{% if post.circle %}<a href="{{ url_for('circle.circle_detail', circle_id=post.circle_id, _anchor='post-' ~ post.id) }}">{{ post.title }}</a>{% else %}{{ post.title }}{% endif %}</td>
+                <td>{{ post.circle.name if post.circle else '-' }}</td>
+                <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') if post.created_at else '-' }}</td>
+                <td><span class="admin-status status-{{ post.status }}">{{ post.status }}</span></td>
+                <td>
+                  <div class="admin-action-group">
+                    {% if post.circle %}
+                    <a class="button button-small button-secondary" href="{{ url_for('circle.circle_detail', circle_id=post.circle_id, _anchor='post-' ~ post.id) }}">查看</a>
+                    {% endif %}
+                    {% if post.status != 'deleted' %}
+                    <form method="post" action="{{ url_for('profile.delete_post', post_id=post.id) }}" onsubmit="return confirm('确定删除这篇帖子吗？');">
+                      <button class="button button-small button-danger" type="submit">删除</button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="rating-empty">当前筛选条件下暂无帖子。</p>
+        {% endif %}
+      {% elif section_key == 'comment' %}
+        {% if items %}
+        <div class="admin-table-wrap">
+          <table class="admin-table profile-content-table">
+            <thead>
+              <tr>
+                <th>评论摘要</th>
+                <th>所属内容</th>
+                <th>发布时间</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for comment in items %}
+              <tr>
+                <td class="profile-comment-summary">{% if comment.post and comment.post.circle %}<a href="{{ url_for('circle.circle_detail', circle_id=comment.post.circle_id, _anchor='comment-' ~ comment.id) }}">{{ comment.content|trim|truncate(48, True) or '图片评论' }}</a>{% elif comment.activity %}<a href="{{ url_for('activity.activity_detail', activity_id=comment.activity_id, _anchor='comment-' ~ comment.id) }}">{{ comment.content|trim|truncate(48, True) or '图片评论' }}</a>{% else %}{{ comment.content|trim|truncate(48, True) or '图片评论' }}{% endif %}</td>
+                <td>
+                  {% if comment.post %}
+                  {{ comment.post.title }} / {{ comment.post.circle.name if comment.post.circle else '-' }}
+                  {% elif comment.activity %}
+                  {{ comment.activity.title }}
+                  {% else %}
+                  -
+                  {% endif %}
+                </td>
+                <td>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') if comment.created_at else '-' }}</td>
+                <td><span class="admin-status status-{{ comment.status }}">{{ comment.status }}</span></td>
+                <td>
+                  <div class="admin-action-group">
+                    {% if comment.post and comment.post.circle %}
+                    <a class="button button-small button-secondary" href="{{ url_for('circle.circle_detail', circle_id=comment.post.circle_id, _anchor='comment-' ~ comment.id) }}">查看</a>
+                    {% elif comment.activity %}
+                    <a class="button button-small button-secondary" href="{{ url_for('activity.activity_detail', activity_id=comment.activity_id, _anchor='comment-' ~ comment.id) }}">查看</a>
+                    {% endif %}
+                    {% if comment.status != 'deleted' %}
+                    <form method="post" action="{{ url_for('profile.delete_comment', comment_id=comment.id) }}" onsubmit="return confirm('确定删除这条评论吗？');">
+                      <button class="button button-small button-danger" type="submit">删除</button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="rating-empty">当前筛选条件下暂无评论。</p>
+        {% endif %}
+      {% else %}
+        {% if items %}
+          {% for item in items %}
+          <div class="detail-info-row">
+            <span class="detail-info-label">{{ item.action }}</span>
+            <span class="detail-info-value"><a href="{{ item.url }}">{{ item.title }}</a> · {{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</span>
+          </div>
+          {% endfor %}
+        {% else %}
+        <p class="rating-empty">当前筛选条件下暂无互动记录。</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
