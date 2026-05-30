@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}账号设置 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container account-settings-container">
+    <a class="back-link" href="{{ url_for('profile.my_profile') }}">返回个人主页</a>
+    <h1>账号设置</h1>
+
+    <div class="form-card danger-zone">
+      <h2>注销账号</h2>
+      <p>注销后无法恢复。你的帖子、评论、回复和其他历史记录会保留，并统一显示为“已注销用户”。</p>
+      <form method="post" action="{{ url_for('auth.delete_account') }}">
+        <div class="form-group">
+          <label class="form-label" for="current_password">当前密码</label>
+          <input class="form-input" id="current_password" name="current_password" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="confirm_text">输入“注销账户”确认操作</label>
+          <input class="form-input" id="confirm_text" name="confirm_text" required>
+        </div>
+        <div class="form-actions">
+          <button class="button button-danger" type="submit">注销账号</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

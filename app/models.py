@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 
 
 db = SQLAlchemy()
@@ -18,6 +19,7 @@ class User(db.Model):
     trust_score = db.Column(db.Integer, default=100, nullable=False)
     status = db.Column(db.String(20), default="active", nullable=False)
     banned_at = db.Column(db.DateTime, nullable=True)
+    deleted_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     activities = db.relationship("Activity", back_populates="organizer")
@@ -53,6 +55,24 @@ class User(db.Model):
         foreign_keys="AdminLog.admin_id",
         back_populates="admin",
     )
+
+
+def ensure_user_account_schema():
+    if db.engine.dialect.name != "sqlite":
+        return
+
+    rows = db.session.execute(text('PRAGMA table_info("user")')).fetchall()
+    existing_columns = {row[1] for row in rows}
+    if rows and "deleted_at" not in existing_columns:
+        db.session.execute(text('ALTER TABLE "user" ADD COLUMN deleted_at DATETIME'))
+        db.session.commit()
+
+
+def get_user_display_name(user):
+    if user.status == "deleted":
+        return "已注销用户"
+    return user.nickname or user.username
+
 
 class Activity(db.Model):
     id = db.Column(db.Integer, primary_key=True)

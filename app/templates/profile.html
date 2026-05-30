@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}{{ user.nickname or user.username }} 的个人主页 - Gatherly{% endblock %}
+{% block title %}{{ display_name }} 的个人主页 - Gatherly{% endblock %}
 
 {% block content %}
 <section class="section">
   <div class="container">
+    {% if user.status == 'deleted' %}
+    <div class="profile-deleted-notice" role="status">该账号已注销</div>
+    {% else %}
     {% if user.status == 'banned' %}
     <div class="profile-banned-notice" role="status">该账号已被封禁</div>
     {% endif %}
@@ -131,6 +134,7 @@
         <p class="rating-empty">暂无同好圈互动记录。</p>
       {% endif %}
     </div>
+    {% endif %}
     {% endif %}
   </div>
 </section>

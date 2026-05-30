@@ -1,12 +1,26 @@
 # -*- coding: utf-8 -*-
 """认证相关路由（登录 / 注册 / 登出）"""
 
+from datetime import datetime
+
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from werkzeug.security import generate_password_hash, check_password_hash
-from app.models import db, User
+from app.models import User, db, ensure_user_account_schema
 from app.forms import RegistrationForm
 
 auth_bp = Blueprint("auth", __name__)
+
+
+@auth_bp.before_app_request
+def ensure_account_schema():
+    ensure_user_account_schema()
+
+
+def _get_session_user():
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    return User.query.get(user_id)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -39,6 +53,10 @@ def login():
             return render_template("login.html")
 
         # 验证密码
+        if user.status == "deleted":
+            flash("该账号已注销", "error")
+            return render_template("login.html")
+
         if not check_password_hash(user.password, password):
             flash("账号、邮箱或密码错误", "error")
             return render_template("login.html")
@@ -65,6 +83,51 @@ def logout():
     """退出登录，清除 session 并重定向到首页"""
     session.clear()
     flash("您已退出登录", "info")
+    return redirect(url_for("activity.index"))
+
+
+@auth_bp.route("/account/settings")
+def account_settings():
+    user = _get_session_user()
+    if user is None:
+        return redirect(url_for("auth.login", next=request.url))
+    if user.status == "deleted":
+        session.clear()
+        flash("该账号已注销", "error")
+        return redirect(url_for("activity.index"))
+    return render_template("account_settings.html", user=user)
+
+
+@auth_bp.route("/account/delete", methods=["POST"])
+def delete_account():
+    user = _get_session_user()
+    if user is None:
+        return redirect(url_for("auth.login", next=url_for("auth.account_settings")))
+    if user.status == "deleted":
+        session.clear()
+        flash("该账号已注销", "error")
+        return redirect(url_for("activity.index"))
+
+    current_password = request.form.get("current_password", "")
+    confirm_text = request.form.get("confirm_text", "").strip()
+    if not check_password_hash(user.password, current_password):
+        flash("当前密码错误", "error")
+        return redirect(url_for("auth.account_settings"))
+    if confirm_text != "注销账户":
+        flash("确认文字不正确", "error")
+        return redirect(url_for("auth.account_settings"))
+
+    old_email = user.email
+    user.status = "deleted"
+    user.deleted_at = datetime.utcnow()
+    user.username = f"deleted_user_{user.id}"
+    user.email = f"deleted_{user.id}_{old_email}"
+    user.nickname = "已注销用户"
+    user.avatar = None
+    db.session.commit()
+
+    session.clear()
+    flash("账号已注销", "success")
     return redirect(url_for("activity.index"))
 
 

@@ -17,6 +17,7 @@ from app.models import (
     User,
     UserReview,
     db,
+    get_user_display_name,
 )
 
 profile_bp = Blueprint("profile", __name__, url_prefix="/profile")
@@ -215,6 +216,10 @@ def my_profile():
 @profile_bp.route("/<int:user_id>")
 def view_profile(user_id):
     user = User.query.get_or_404(user_id)
+    display_name = get_user_display_name(user)
+    if user.status == "deleted":
+        return render_template("profile.html", user=user, display_name=display_name)
+
     is_owner = session.get("user_id") == user.id
     visibility = _get_or_create_visibility(user)
 
@@ -232,6 +237,7 @@ def view_profile(user_id):
     return render_template(
         "profile.html",
         user=user,
+        display_name=display_name,
         is_owner=is_owner,
         visibility=visibility,
         permissions=permissions,
