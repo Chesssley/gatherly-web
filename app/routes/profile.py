@@ -682,6 +682,10 @@ def delete_post(post_id):
         flash("该帖子已经删除。", "info")
         return redirect(fallback_url)
 
+    Circle.query.filter_by(pinned_post_id=post.id).update(
+        {"pinned_post_id": None},
+        synchronize_session=False,
+    )
     post.status = "deleted"
     db.session.commit()
     flash("帖子已删除。", "success")

@@ -2518,6 +2518,122 @@ textarea.form-input {
   display: inline;
 }
 
+.circle-announcement,
+.circle-management-panel {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fbfaf7;
+}
+
+.circle-announcement p {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+}
+
+.circle-management-panel summary {
+  cursor: pointer;
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.circle-management-panel form {
+  margin-top: 14px;
+}
+
+.management-card {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.circle-management-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.management-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.management-button {
+  min-width: 112px;
+  min-height: 36px;
+}
+
+.member-picker-search {
+  margin-top: 6px;
+}
+
+.member-picker-list {
+  display: grid;
+  gap: 0;
+  margin-top: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.circle-member-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.circle-member-info {
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+  margin-right: auto;
+}
+
+.circle-member-info span,
+.member-picker-empty {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.member-picker .is-hidden {
+  display: none;
+}
+
+.circle-member-row form {
+  margin: 0;
+}
+
+.circle-management-action {
+  border-color: var(--color-primary);
+}
+
+.circle-pinned-tag {
+  background: #fff1cc;
+  color: #8a5a1f;
+}
+
+@media (max-width: 640px) {
+  .circle-management-panel,
+  .management-card {
+    padding: 12px;
+  }
+
+  .management-actions,
+  .circle-member-row,
+  .circle-member-row form {
+    width: 100%;
+  }
+
+  .management-button {
+    width: 100%;
+  }
+}
+
 .account-settings-container {
   max-width: 720px;
 }

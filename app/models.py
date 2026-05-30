@@ -120,7 +120,9 @@ class Circle(db.Model):
     name = db.Column(db.String(120), nullable=False)
     tag = db.Column(db.String(50))
     description = db.Column(db.Text)
+    announcement = db.Column(db.Text)
     owner_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    pinned_post_id = db.Column(db.Integer, db.ForeignKey("post.id"))
     is_system = db.Column(db.Boolean, default=False, nullable=False)
     initial_member_count = db.Column(db.Integer, default=0, nullable=False)
     member_count = db.Column(db.Integer, default=0, nullable=False)
@@ -133,9 +135,10 @@ class Circle(db.Model):
         nullable=False,
     )
 
-    posts = db.relationship("Post", back_populates="circle")
+    posts = db.relationship("Post", back_populates="circle", foreign_keys="Post.circle_id")
     members = db.relationship("CircleMember", back_populates="circle")
     owner = db.relationship("User", foreign_keys=[owner_id])
+    pinned_post = db.relationship("Post", foreign_keys=[pinned_post_id], post_update=True)
 
 
 class Post(db.Model):
@@ -149,7 +152,7 @@ class Post(db.Model):
     circle_id = db.Column(db.Integer, db.ForeignKey("circle.id"), nullable=False)
 
     user = db.relationship("User", back_populates="posts")
-    circle = db.relationship("Circle", back_populates="posts")
+    circle = db.relationship("Circle", back_populates="posts", foreign_keys=[circle_id])
     comments = db.relationship("Comment", back_populates="post")
     images = db.relationship(
         "PostImage",

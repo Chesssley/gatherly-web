@@ -74,6 +74,10 @@ def _ensure_circle_columns():
     statements = []
     if "owner_id" not in existing_columns:
         statements.append("ALTER TABLE circle ADD COLUMN owner_id INTEGER")
+    if "announcement" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN announcement TEXT")
+    if "pinned_post_id" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN pinned_post_id INTEGER")
     if "is_system" not in existing_columns:
         statements.append("ALTER TABLE circle ADD COLUMN is_system BOOLEAN NOT NULL DEFAULT 0")
     if "member_count" not in existing_columns:
@@ -85,6 +89,23 @@ def _ensure_circle_columns():
 
     for statement in statements:
         db.session.execute(text(statement))
+    member_rows = db.session.execute(text("PRAGMA table_info(circle_member)")).fetchall()
+    member_columns = {row[1] for row in member_rows}
+    if member_rows and "role" not in member_columns:
+        db.session.execute(
+            text("ALTER TABLE circle_member ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'member'")
+        )
+        statements.append("ALTER TABLE circle_member ADD COLUMN role")
+    normalized_roles = 0
+    legacy_role_count = 0
+    if member_rows:
+        legacy_role_count = db.session.execute(
+            text("SELECT COUNT(*) FROM circle_member WHERE role = 'admin'")
+        ).scalar()
+    if legacy_role_count:
+        normalized_roles = db.session.execute(
+            text("UPDATE circle_member SET role = 'moderator' WHERE role = 'admin'")
+        ).rowcount
     if rows and "initial_member_count" not in existing_columns:
         db.session.execute(
             text(
@@ -104,7 +125,7 @@ def _ensure_circle_columns():
         )
     if rows and "updated_at" not in existing_columns:
         db.session.execute(text("UPDATE circle SET updated_at = created_at WHERE updated_at IS NULL"))
-    if statements:
+    if statements or normalized_roles:
         db.session.commit()
 
 
@@ -259,6 +280,18 @@ def _circle_member_role(circle_id, user_id):
     return member.role if member else None
 
 
+def _can_manage_circle(user, circle):
+    if user is None:
+        return False
+    if user.role == "admin" or circle.owner_id == user.id:
+        return True
+    return _circle_member_role(circle.id, user.id) in {"owner", "moderator", "admin"}
+
+
+def _is_circle_owner(user, circle):
+    return bool(user and circle.owner_id == user.id)
+
+
 def _can_manage_circle_content(user, circle, author_id):
     if user is None:
         return False
@@ -266,9 +299,7 @@ def _can_manage_circle_content(user, circle, author_id):
         return True
     if author_id == user.id:
         return True
-    if circle.owner_id == user.id:
-        return True
-    return _circle_member_role(circle.id, user.id) in {"owner", "admin"}
+    return _can_manage_circle(user, circle)
 
 
 def _can_view_circle(user, circle):
@@ -518,7 +549,10 @@ def circle_detail(circle_id):
         post_query = post_query.filter(Post.status.in_(["published", "hidden"]))
     else:
         post_query = post_query.filter_by(status="published")
-    posts = post_query.order_by(Post.created_at.desc()).all()
+    posts = post_query.order_by(
+        (Post.id == circle.pinned_post_id).desc(),
+        Post.created_at.desc(),
+    ).all()
     post_items = []
     for post in posts:
         comments = (
@@ -529,6 +563,7 @@ def circle_detail(circle_id):
         post_items.append(
             {
                 "post": post,
+                "is_pinned": post.id == circle.pinned_post_id,
                 "counts": _interaction_counts("post", post.id),
                 "states": _user_interaction_states(
                     current_user.id if current_user else None,
@@ -544,12 +579,21 @@ def circle_detail(circle_id):
                 ),
             }
         )
+    active_members = (
+        CircleMember.query.filter_by(circle_id=circle.id, status="active")
+        .join(User, CircleMember.user_id == User.id)
+        .order_by(User.nickname.asc(), User.username.asc())
+        .all()
+    )
     return render_template(
         "circle_detail.html",
         circle=_decorate_circle(circle),
         posts=post_items,
         current_user=current_user,
         is_member=_is_member(circle.id),
+        can_manage_circle=_can_manage_circle(current_user, circle),
+        is_circle_owner=_is_circle_owner(current_user, circle),
+        circle_members=active_members,
     )
 
 
@@ -569,6 +613,7 @@ def join_circle(circle_id):
         db.session.add(CircleMember(circle_id=circle.id, user_id=user.id, role="member"))
     elif member.status != "active":
         member.status = "active"
+        member.role = "owner" if circle.owner_id == user.id else "member"
         member.updated_at = datetime.utcnow()
     else:
         flash("您已经加入该同好圈。", "info")
@@ -605,11 +650,122 @@ def leave_circle(circle_id):
         flash("您尚未加入该同好圈。", "info")
         return redirect(url_for("circle.circle_detail", circle_id=circle.id))
 
+    if circle.owner_id == user.id:
+        flash("请先将圈主身份转移给其他成员，再退出圈子。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
     member.status = "inactive"
+    member.role = "member"
     member.updated_at = datetime.utcnow()
     _refresh_member_count(circle)
     db.session.commit()
     flash("已退出同好圈。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
+@circle_bp.route("/circle/<int:circle_id>/announcement", methods=["POST"])
+def update_announcement(circle_id):
+    user = _current_user()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _can_manage_circle(user, circle):
+        flash("没有权限编辑圈内公告。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    announcement = request.form.get("announcement", "").strip()
+    if len(announcement) > 1000:
+        flash("圈内公告不能超过 1000 个字符。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    circle.announcement = announcement or None
+    db.session.commit()
+    flash("圈内公告已更新。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
+@circle_bp.route("/circle/<int:circle_id>/post/<int:post_id>/pin", methods=["POST"])
+def toggle_pin_post(circle_id, post_id):
+    user = _current_user()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _can_manage_circle(user, circle):
+        flash("没有权限置顶圈内帖子。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    post = Post.query.filter_by(id=post_id, circle_id=circle.id, status="published").first()
+    if post is None:
+        flash("只能置顶当前圈子内正常显示的帖子。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    if circle.pinned_post_id == post.id:
+        circle.pinned_post_id = None
+        message = "已取消置顶帖子。"
+    else:
+        circle.pinned_post_id = post.id
+        message = "帖子已置顶。"
+    db.session.commit()
+    flash(message, "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor=f"post-{post.id}"))
+
+
+@circle_bp.route("/circle/<int:circle_id>/member/<int:user_id>/role", methods=["POST"])
+def update_circle_member_role(circle_id, user_id):
+    user = _current_user()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _is_circle_owner(user, circle):
+        flash("只有圈主可以设置圈子管理员。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    member = CircleMember.query.filter_by(
+        circle_id=circle.id,
+        user_id=user_id,
+        status="active",
+    ).first()
+    if member is None:
+        flash("只能管理当前圈内成员。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+    if member.user_id == circle.owner_id:
+        flash("圈主身份不能通过管理员设置修改。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    role = request.form.get("role", "").strip()
+    if role not in {"moderator", "member"}:
+        flash("不支持的圈内角色。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    member.role = role
+    db.session.commit()
+    flash("圈子管理员设置已更新。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
+@circle_bp.route("/circle/<int:circle_id>/transfer-owner", methods=["POST"])
+def transfer_circle_owner(circle_id):
+    user = _current_user()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _is_circle_owner(user, circle):
+        flash("只有圈主可以转移圈主身份。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    target_user_id = request.form.get("user_id", type=int)
+    target = CircleMember.query.filter_by(
+        circle_id=circle.id,
+        user_id=target_user_id,
+        status="active",
+    ).first()
+    if target is None or target.user_id == circle.owner_id:
+        flash("请选择其他圈内成员接任圈主。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    previous_owner = CircleMember.query.filter_by(
+        circle_id=circle.id,
+        user_id=circle.owner_id,
+        status="active",
+    ).first()
+    if previous_owner is not None:
+        previous_owner.role = "member"
+    target.role = "owner"
+    circle.owner_id = target.user_id
+    db.session.commit()
+    flash("圈主身份已转移。", "success")
     return redirect(url_for("circle.circle_detail", circle_id=circle.id))
 
 
@@ -733,6 +889,8 @@ def delete_post(post_id):
         flash("没有权限删除该内容。", "error")
         return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor=f"post-{post.id}"))
 
+    if circle.pinned_post_id == post.id:
+        circle.pinned_post_id = None
     post.status = "deleted"
     db.session.commit()
     flash("帖子已删除。", "success")
