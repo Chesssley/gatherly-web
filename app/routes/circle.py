@@ -547,6 +547,35 @@ def join_circle(circle_id):
     return redirect(url_for("circle.circle_detail", circle_id=circle.id))
 
 
+@circle_bp.route("/circle/<int:circle_id>/leave", methods=["POST"])
+def leave_circle(circle_id):
+    user = _current_user()
+    if user is None:
+        flash("请先登录后再退出同好圈。", "error")
+        return redirect(url_for("auth.login", next=url_for("circle.circle_detail", circle_id=circle_id)))
+
+    circle = Circle.query.get(circle_id)
+    if circle is None:
+        flash("同好圈不存在或已被移除。", "error")
+        return redirect(url_for("circle.circles"))
+
+    member = CircleMember.query.filter_by(
+        circle_id=circle.id,
+        user_id=user.id,
+        status="active",
+    ).first()
+    if member is None:
+        flash("您尚未加入该同好圈。", "info")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    member.status = "inactive"
+    member.updated_at = datetime.utcnow()
+    _refresh_member_count(circle)
+    db.session.commit()
+    flash("已退出同好圈。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
 @circle_bp.route("/circle/<int:circle_id>/post", methods=["GET", "POST"])
 def create_post(circle_id):
     user = _current_user()

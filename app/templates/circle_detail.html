@@ -108,8 +108,11 @@
             {% if current_user %}
                 {% if is_member %}
                 <a class="button" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">发布帖子</a>
+                <form method="POST" action="{{ url_for('circle.leave_circle', circle_id=circle.id) }}" class="circle-inline-form" onsubmit="return confirm('确定退出这个同好圈吗？');">
+                    <button class="button button-danger" type="submit">退出圈子</button>
+                </form>
                 {% else %}
-                <form method="POST" action="{{ url_for('circle.join_circle', circle_id=circle.id) }}" style="display: inline;">
+                <form method="POST" action="{{ url_for('circle.join_circle', circle_id=circle.id) }}" class="circle-inline-form">
                     <button class="button" type="submit">加入圈子</button>
                 </form>
                 <p class="circle-description">加入后可以发帖；未加入时仍可评论、点赞、收藏和转发。</p>

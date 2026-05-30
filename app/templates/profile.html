@@ -55,6 +55,7 @@
       {% if is_owner %}
       <div class="registration-action">
         <a class="button" href="{{ url_for('profile.edit_profile') }}">编辑个人资料</a>
+        <a class="button button-secondary" href="{{ url_for('auth.account_settings') }}">账号设置</a>
       </div>
       {% endif %}
     </div>
@@ -88,7 +89,7 @@
       {% if circle_memberships %}
         <div class="card-grid">
           {% for item in circle_memberships %}
-          <a class="activity-card" href="{{ url_for('circle.circles') }}">
+          <a class="activity-card" href="{{ url_for('circle.circle_detail', circle_id=item.id) }}">
             <div class="card-body">
               <h3 class="card-title">{{ item.name }}</h3>
               <div class="card-meta">
@@ -102,6 +103,119 @@
         </div>
       {% else %}
         <p class="rating-empty">暂无加入的同好圈。</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if is_owner %}
+    <div class="rating-section profile-content-section">
+      <div class="rating-header"><h3>我的同好圈内容</h3></div>
+      <div class="profile-content-subsection">
+      <h4>我的帖子</h4>
+      {% if profile_posts %}
+      <div class="admin-table-wrap">
+        <table class="admin-table profile-content-table">
+          <thead>
+            <tr>
+              <th>标题</th>
+              <th>所属同好圈</th>
+              <th>发布时间</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for post in profile_posts %}
+            <tr>
+              <td>{{ post.title }}</td>
+              <td>{{ post.circle.name if post.circle else '-' }}</td>
+              <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') if post.created_at else '-' }}</td>
+              <td><span class="admin-status status-{{ post.status }}">{{ post.status }}</span></td>
+              <td>
+                <div class="admin-action-group">
+                  {% if post.circle %}
+                  <a class="button button-small button-secondary" href="{{ url_for('circle.circle_detail', circle_id=post.circle_id, _anchor='post-' ~ post.id) }}">查看</a>
+                  {% endif %}
+                  {% if post.status != 'deleted' %}
+                  <form method="post" action="{{ url_for('profile.delete_post', post_id=post.id) }}" onsubmit="return confirm('确定删除这篇帖子吗？');">
+                    <button class="button button-small button-danger" type="submit">删除</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="rating-empty">暂未发布帖子。</p>
+      {% endif %}
+      </div>
+
+      <div class="profile-content-subsection">
+      <h4>我的评论</h4>
+      {% if profile_comments %}
+      <div class="admin-table-wrap">
+        <table class="admin-table profile-content-table">
+          <thead>
+            <tr>
+              <th>评论摘要</th>
+              <th>所属帖子 / 同好圈</th>
+              <th>发布时间</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for comment in profile_comments %}
+            <tr>
+              <td class="profile-comment-summary">{{ comment.content|trim|truncate(48, True) or '图片评论' }}</td>
+              <td>
+                {% if comment.post %}
+                {{ comment.post.title }} / {{ comment.post.circle.name if comment.post.circle else '-' }}
+                {% else %}
+                -
+                {% endif %}
+              </td>
+              <td>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') if comment.created_at else '-' }}</td>
+              <td><span class="admin-status status-{{ comment.status }}">{{ comment.status }}</span></td>
+              <td>
+                <div class="admin-action-group">
+                  {% if comment.post and comment.post.circle %}
+                  <a class="button button-small button-secondary" href="{{ url_for('circle.circle_detail', circle_id=comment.post.circle_id, _anchor='comment-' ~ comment.id) }}">查看</a>
+                  {% endif %}
+                  {% if comment.status != 'deleted' %}
+                  <form method="post" action="{{ url_for('profile.delete_comment', comment_id=comment.id) }}" onsubmit="return confirm('确定删除这条评论吗？');">
+                    <button class="button button-small button-danger" type="submit">删除</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="rating-empty">暂未发布评论。</p>
+      {% endif %}
+      </div>
+
+      {% if permissions.interactions %}
+      <div class="profile-content-subsection">
+        <h4>同好圈互动记录</h4>
+        {% if circle_interactions %}
+          {% for item in circle_interactions %}
+            <div class="detail-info-row">
+              <span class="detail-info-label">{{ item.action }}</span>
+              <span class="detail-info-value">{{ item.title }} · {{ item.time.strftime('%Y-%m-%d %H:%M') if item.time else '-' }}</span>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="rating-empty">暂无同好圈互动记录。</p>
+        {% endif %}
+      </div>
       {% endif %}
     </div>
     {% endif %}
@@ -121,6 +235,7 @@
       {% endif %}
     </div>
 
+    {% if not is_owner %}
     <div class="rating-section">
       <div class="rating-header"><h3>同好圈互动记录</h3></div>
       {% if circle_interactions %}
@@ -134,6 +249,7 @@
         <p class="rating-empty">暂无同好圈互动记录。</p>
       {% endif %}
     </div>
+    {% endif %}
     {% endif %}
     {% endif %}
   </div>

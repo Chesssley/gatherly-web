@@ -10,6 +10,7 @@ from app.models import (
     ActivityReview,
     Circle,
     CircleMember,
+    Comment,
     Interaction,
     Post,
     ProfileVisibility,
@@ -132,7 +133,7 @@ def _registration_items(user):
 
 def _circle_items(user):
     rows = _safe_all(
-        CircleMember.query.filter_by(user_id=user.id)
+        CircleMember.query.filter_by(user_id=user.id, status="active")
         .order_by(CircleMember.joined_at.desc())
     )
     return [
@@ -185,14 +186,6 @@ def _circle_interactions(user):
             .order_by(Interaction.created_at.desc())
         )
     ]
-    posts = [
-        {
-            "title": post.circle.name if post.circle else _circle_label(post.circle_id),
-            "action": f"发布帖子：{post.title}",
-            "time": post.created_at,
-        }
-        for post in _safe_all(Post.query.filter_by(user_id=user.id).order_by(Post.created_at.desc()))
-    ]
     user_reviews = [
         {
             "title": review.activity.title if review.activity else _activity_label(review.activity_id),
@@ -204,7 +197,24 @@ def _circle_interactions(user):
             .order_by(UserReview.created_at.desc())
         )
     ]
-    return sorted(circle_actions + posts + user_reviews, key=lambda item: item["time"], reverse=True)
+    return sorted(circle_actions + user_reviews, key=lambda item: item["time"], reverse=True)
+
+
+def _profile_posts(user):
+    return _safe_all(
+        Post.query.filter_by(user_id=user.id)
+        .order_by(Post.created_at.desc())
+    )
+
+
+def _profile_comments(user):
+    return _safe_all(
+        Comment.query.filter(
+            Comment.author_id == user.id,
+            Comment.post_id.isnot(None),
+        )
+        .order_by(Comment.created_at.desc())
+    )
 
 
 @profile_bp.route("/")
@@ -214,6 +224,7 @@ def my_profile():
 
 
 @profile_bp.route("/<int:user_id>")
+@login_required
 def view_profile(user_id):
     user = User.query.get_or_404(user_id)
     display_name = get_user_display_name(user)
@@ -246,7 +257,53 @@ def view_profile(user_id):
         circle_memberships=_circle_items(user) if permissions["circles"] else [],
         activity_interactions=_activity_interactions(user) if permissions["interactions"] else [],
         circle_interactions=_circle_interactions(user) if permissions["interactions"] else [],
+        profile_posts=_profile_posts(user) if is_owner else [],
+        profile_comments=_profile_comments(user) if is_owner else [],
     )
+
+
+@profile_bp.route("/post/<int:post_id>/delete", methods=["POST"])
+@login_required
+def delete_post(post_id):
+    post = Post.query.get(post_id)
+    if post is None:
+        flash("帖子不存在或已被移除。", "error")
+        return redirect(url_for("profile.my_profile"))
+
+    if post.user_id != session["user_id"]:
+        flash("您只能删除自己发布的帖子。", "error")
+        return redirect(url_for("profile.my_profile"))
+
+    if post.status == "deleted":
+        flash("该帖子已经删除。", "info")
+        return redirect(url_for("profile.my_profile"))
+
+    post.status = "deleted"
+    db.session.commit()
+    flash("帖子已删除。", "success")
+    return redirect(url_for("profile.my_profile"))
+
+
+@profile_bp.route("/comment/<int:comment_id>/delete", methods=["POST"])
+@login_required
+def delete_comment(comment_id):
+    comment = Comment.query.get(comment_id)
+    if comment is None:
+        flash("评论不存在或已被移除。", "error")
+        return redirect(url_for("profile.my_profile"))
+
+    if comment.author_id != session["user_id"]:
+        flash("您只能删除自己发布的评论。", "error")
+        return redirect(url_for("profile.my_profile"))
+
+    if comment.status == "deleted":
+        flash("该评论已经删除。", "info")
+        return redirect(url_for("profile.my_profile"))
+
+    comment.status = "deleted"
+    db.session.commit()
+    flash("评论已删除。", "success")
+    return redirect(url_for("profile.my_profile"))
 
 
 @profile_bp.route("/edit", methods=["GET", "POST"])
