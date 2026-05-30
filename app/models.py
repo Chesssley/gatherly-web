@@ -122,9 +122,16 @@ class Circle(db.Model):
     description = db.Column(db.Text)
     owner_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     is_system = db.Column(db.Boolean, default=False, nullable=False)
+    initial_member_count = db.Column(db.Integer, default=0, nullable=False)
     member_count = db.Column(db.Integer, default=0, nullable=False)
     status = db.Column(db.String(20), default="active", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
 
     posts = db.relationship("Post", back_populates="circle")
     members = db.relationship("CircleMember", back_populates="circle")
