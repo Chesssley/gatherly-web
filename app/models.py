@@ -464,8 +464,9 @@ class Review(db.Model):
     user = db.relationship("User", back_populates="reviews")
 
 
-# Temporary data kept only so the existing page routes can run before database
-# query logic is implemented in later tasks.
+# Temporary presentation data kept until the activity list is fully database-driven.
+# Each entry has a matching Activity row created by init_db.py so interactions use
+# real, distinct activity IDs.
 activities = [
     {
         "id": 1,
@@ -476,7 +477,79 @@ activities = [
         "capacity": "待补充",
         "description": "待补充活动简介",
         "detail": "待补充活动详情",
-    }
+    },
+    {
+        "id": 2,
+        "title": "周末城市摄影散步",
+        "category": "影像摄影",
+        "time": "周六 15:00 - 17:30",
+        "time_filter": "weekend",
+        "location": "徐汇滨江 · 龙美术馆集合",
+        "organizer": "城市取景器",
+        "rating": "4.9",
+        "attendees": 18,
+        "demo": True,
+    },
+    {
+        "id": 3,
+        "title": "手冲咖啡风味入门体验",
+        "category": "咖啡茶饮",
+        "time": "周日 10:30 - 12:00",
+        "time_filter": "weekend",
+        "location": "静安区 · 咖啡实验室",
+        "organizer": "一杯之间",
+        "rating": "4.8",
+        "attendees": 12,
+        "demo": True,
+    },
+    {
+        "id": 4,
+        "title": "黄昏江畔轻跑小组",
+        "category": "运动户外",
+        "time": "今天 19:00 - 20:30",
+        "time_filter": "today",
+        "location": "浦东滨江 · 望江驿",
+        "organizer": "周末轻运动",
+        "rating": "4.7",
+        "attendees": 24,
+        "demo": True,
+    },
+    {
+        "id": 5,
+        "title": "独立电影放映与交流夜",
+        "category": "观影戏剧",
+        "time": "周五 19:30 - 22:00",
+        "time_filter": "week",
+        "location": "长宁区 · 小剧场",
+        "organizer": "城市光影社",
+        "rating": "4.9",
+        "attendees": 31,
+        "demo": True,
+    },
+    {
+        "id": 6,
+        "title": "零基础陶艺手捏工作坊",
+        "category": "手作艺术",
+        "time": "周六 13:30 - 16:00",
+        "time_filter": "weekend",
+        "location": "愚园路 · 手作空间",
+        "organizer": "慢慢做工作室",
+        "rating": "4.8",
+        "attendees": 9,
+        "demo": True,
+    },
+    {
+        "id": 7,
+        "title": "新手友好桌游社交局",
+        "category": "游戏桌游",
+        "time": "周三 19:00 - 22:00",
+        "time_filter": "week",
+        "location": "人民广场 · 桌游馆",
+        "organizer": "Gatherly 桌游组",
+        "rating": "4.6",
+        "attendees": 16,
+        "demo": True,
+    },
 ]
 
 circles = [
