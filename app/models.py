@@ -123,6 +123,8 @@ class Circle(db.Model):
     announcement = db.Column(db.Text)
     owner_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     pinned_post_id = db.Column(db.Integer, db.ForeignKey("post.id"))
+    is_pinned = db.Column(db.Boolean, default=False, nullable=False)
+    pinned_at = db.Column(db.DateTime)
     is_system = db.Column(db.Boolean, default=False, nullable=False)
     initial_member_count = db.Column(db.Integer, default=0, nullable=False)
     member_count = db.Column(db.Integer, default=0, nullable=False)

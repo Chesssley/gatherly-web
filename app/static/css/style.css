@@ -1262,6 +1262,11 @@ img {
   color: #8a5a1f;
 }
 
+.circle-admin-pinned-tag {
+  background: #f8e8e4;
+  color: #8b4638;
+}
+
 .circle-meta {
   display: flex;
   flex-wrap: wrap;
