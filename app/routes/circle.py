@@ -78,11 +78,39 @@ def _ensure_circle_columns():
         statements.append("ALTER TABLE circle ADD COLUMN is_system BOOLEAN NOT NULL DEFAULT 0")
     if "member_count" not in existing_columns:
         statements.append("ALTER TABLE circle ADD COLUMN member_count INTEGER NOT NULL DEFAULT 0")
+    if "initial_member_count" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN initial_member_count INTEGER NOT NULL DEFAULT 0")
+    if "updated_at" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN updated_at DATETIME")
 
     for statement in statements:
         db.session.execute(text(statement))
+    if rows and "initial_member_count" not in existing_columns:
+        db.session.execute(
+            text(
+                """
+                UPDATE circle
+                SET initial_member_count = MAX(
+                    member_count - (
+                        SELECT COUNT(*)
+                        FROM circle_member
+                        WHERE circle_member.circle_id = circle.id
+                          AND circle_member.status = 'active'
+                    ),
+                    0
+                )
+                """
+            )
+        )
+    if rows and "updated_at" not in existing_columns:
+        db.session.execute(text("UPDATE circle SET updated_at = created_at WHERE updated_at IS NULL"))
     if statements:
         db.session.commit()
+
+
+@circle_bp.before_app_request
+def ensure_circle_schema():
+    _ensure_circle_columns()
 
 
 def _ensure_circle_image_tables():
@@ -166,7 +194,11 @@ def _sync_system_circles():
                 circle.name = name
 
             circle.description = _official_description(tag)
-            circle.member_count = max(circle.member_count or 0, _official_member_count(index))
+            circle.initial_member_count = max(
+                circle.initial_member_count or 0,
+                _official_member_count(index),
+            )
+            _refresh_member_count(circle)
         db.session.commit()
     except OperationalError:
         db.session.rollback()
@@ -244,21 +276,11 @@ def _can_view_circle(user, circle):
 
 
 def _refresh_member_count(circle):
-    circle.member_count = CircleMember.query.filter_by(
+    active_member_count = CircleMember.query.filter_by(
         circle_id=circle.id,
         status="active",
     ).count()
-    if circle.is_system:
-        index = next(
-            (
-                idx
-                for idx, tag in enumerate(OFFICIAL_INTEREST_TAGS, start=1)
-                if circle.name in {_official_circle_name(tag), _legacy_official_circle_name(tag)}
-            ),
-            None,
-        )
-        if index:
-            circle.member_count = max(circle.member_count, _official_member_count(index))
+    circle.member_count = max(circle.initial_member_count or 0, 0) + active_member_count
 
 
 def _circle_post_count(circle):
@@ -409,7 +431,12 @@ def circles():
     _sync_system_circles()
     circle_rows = (
         Circle.query.filter_by(status="active")
-        .order_by(Circle.member_count.desc(), Circle.created_at.asc())
+        .order_by(
+            Circle.is_system.desc(),
+            Circle.member_count.desc(),
+            func.coalesce(Circle.updated_at, Circle.created_at).desc(),
+            Circle.created_at.desc(),
+        )
         .all()
     )
     decorated = [_decorate_circle(circle) for circle in circle_rows]
@@ -452,6 +479,7 @@ def create_circle():
             description=description,
             owner_id=user.id,
             is_system=is_system,
+            initial_member_count=0,
             member_count=1,
         )
         db.session.add(circle)
@@ -529,6 +557,7 @@ def circle_detail(circle_id):
 def join_circle(circle_id):
     user = _current_user()
     if user is None:
+        flash("请先登录后再加入同好圈。", "error")
         return redirect(url_for("auth.login", next=url_for("circle.circle_detail", circle_id=circle_id)))
 
     circle = Circle.query.get_or_404(circle_id)
@@ -538,11 +567,19 @@ def join_circle(circle_id):
     member = CircleMember.query.filter_by(circle_id=circle.id, user_id=user.id).first()
     if member is None:
         db.session.add(CircleMember(circle_id=circle.id, user_id=user.id, role="member"))
-    else:
+    elif member.status != "active":
         member.status = "active"
         member.updated_at = datetime.utcnow()
+    else:
+        flash("您已经加入该同好圈。", "info")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
     _refresh_member_count(circle)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("您已经加入该同好圈。", "info")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
     flash("已加入同好圈。", "success")
     return redirect(url_for("circle.circle_detail", circle_id=circle.id))
 
