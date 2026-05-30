@@ -471,6 +471,15 @@ img {
   gap: 8px;
 }
 
+.tag-group .tag {
+  margin-right: 0;
+}
+
+.profile-bio {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .meta-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
