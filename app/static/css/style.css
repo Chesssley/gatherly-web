@@ -2506,3 +2506,85 @@ textarea.form-input {
     gap: 4px;
   }
 }
+
+/* ── 商家认证申请页 (US-10-01) ── */
+
+.verify-form {
+  margin-top: 32px;
+}
+
+.verify-form-group {
+  margin-bottom: 24px;
+}
+
+.verify-checkbox-group {
+  padding: 16px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.verify-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.verify-checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.verify-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.verify-required {
+  color: #d9534f;
+}
+
+.verify-input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 15px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: border-color 0.2s;
+}
+
+.verify-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.verify-textarea {
+  min-height: 100px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.verify-file-input {
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.verify-license-separator {
+  margin: 12px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-muted);
+}

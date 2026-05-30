@@ -98,6 +98,57 @@ def account_settings():
     return render_template("account_settings.html", user=user)
 
 
+@auth_bp.route("/merchant-verify", methods=["GET", "POST"])
+def merchant_verify():
+    """商家认证申请页（US-10-01）"""
+    user = _get_session_user()
+    if user is None:
+        return redirect(url_for("auth.login", next=request.url))
+
+    if user.status == "deleted":
+        session.clear()
+        flash("该账号已注销", "error")
+        return redirect(url_for("activity.index"))
+
+    if request.method == "POST":
+        is_merchant = request.form.get("is_merchant") == "on"
+        merchant_name = request.form.get("merchant_name", "").strip()
+        merchant_description = request.form.get("merchant_description", "").strip()
+        merchant_license = request.form.get("merchant_license", "").strip()
+
+        errors = []
+        if not is_merchant:
+            errors.append('请勾选「我是商家」')
+        if not merchant_name:
+            errors.append("请填写商家名称")
+        if not merchant_description:
+            errors.append("请填写认证说明")
+        if not merchant_license:
+            errors.append("请上传营业执照或填写执照文件路径")
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            return render_template("merchant_verify.html")
+
+        user.is_merchant = True
+        user.merchant_name = merchant_name
+        user.merchant_description = merchant_description
+        user.merchant_license = merchant_license
+        user.merchant_status = "pending"
+
+        try:
+            db.session.commit()
+            flash("认证申请已提交，等待管理员审核", "success")
+        except Exception:
+            db.session.rollback()
+            flash("提交失败，请稍后重试", "error")
+
+        return redirect(url_for("auth.merchant_verify"))
+
+    return render_template("merchant_verify.html")
+
+
 @auth_bp.route("/account/delete", methods=["POST"])
 def delete_account():
     user = _get_session_user()

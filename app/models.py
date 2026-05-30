@@ -20,6 +20,11 @@ class User(db.Model):
     status = db.Column(db.String(20), default="active", nullable=False)
     banned_at = db.Column(db.DateTime, nullable=True)
     deleted_at = db.Column(db.DateTime, nullable=True)
+    is_merchant = db.Column(db.Boolean, default=False, nullable=False)
+    merchant_name = db.Column(db.String(120), nullable=True)
+    merchant_description = db.Column(db.Text, nullable=True)
+    merchant_license = db.Column(db.String(255), nullable=True)
+    merchant_status = db.Column(db.String(20), default='none', nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     activities = db.relationship("Activity", back_populates="organizer")
@@ -65,6 +70,22 @@ def ensure_user_account_schema():
     existing_columns = {row[1] for row in rows}
     if rows and "deleted_at" not in existing_columns:
         db.session.execute(text('ALTER TABLE "user" ADD COLUMN deleted_at DATETIME'))
+        db.session.commit()
+
+    # US-10-01 商家认证字段迁移
+    merchant_columns = {
+        "is_merchant": "BOOLEAN NOT NULL DEFAULT 0",
+        "merchant_name": "VARCHAR(120)",
+        "merchant_description": "TEXT",
+        "merchant_license": "VARCHAR(255)",
+        "merchant_status": "VARCHAR(20) NOT NULL DEFAULT 'none'",
+    }
+    if rows:
+        for col, col_def in merchant_columns.items():
+            if col not in existing_columns:
+                db.session.execute(
+                    text(f'ALTER TABLE "user" ADD COLUMN {col} {col_def}')
+                )
         db.session.commit()
 
 

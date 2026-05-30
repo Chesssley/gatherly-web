@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}商家认证申请 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="container narrow-page">
+        <h1 class="page-title">商家认证申请</h1>
+        <p class="page-subtitle">认证通过后，您的活动将获得"官方认证"标识，提升活动可信度</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-msg {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form class="verify-form" method="post" novalidate>
+            <div class="verify-form-group verify-checkbox-group">
+                <label class="verify-checkbox-label">
+                    <input type="checkbox" name="is_merchant" id="is_merchant" onchange="toggleMerchantFields()">
+                    <span>我是商家，申请商家认证</span>
+                </label>
+            </div>
+
+            <div id="merchant_fields" style="display: none;">
+                <div class="verify-form-group">
+                    <label class="verify-label" for="merchant_name">商家名称 <span class="verify-required">*</span></label>
+                    <input type="text" id="merchant_name" name="merchant_name"
+                           class="verify-input" placeholder="请输入商家名称"
+                           maxlength="120">
+                </div>
+
+                <div class="verify-form-group">
+                    <label class="verify-label" for="merchant_description">认证说明 <span class="verify-required">*</span></label>
+                    <textarea id="merchant_description" name="merchant_description"
+                              class="verify-input verify-textarea" rows="4"
+                              placeholder="请简要说明您的商家经营范围与认证意图"></textarea>
+                </div>
+
+                <div class="verify-form-group">
+                    <label class="verify-label" for="merchant_license">营业执照 <span class="verify-required">*</span></label>
+                    <input type="file" id="merchant_license_file"
+                           class="verify-input verify-file-input"
+                           accept="image/*,.pdf">
+                    <div class="verify-license-separator">或</div>
+                    <input type="text" id="merchant_license" name="merchant_license"
+                           class="verify-input"
+                           placeholder="输入执照文件路径（模拟）">
+                </div>
+
+                <div class="verify-form-group">
+                    <button type="submit" class="btn btn-register">提交认证申请</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script>
+function toggleMerchantFields() {
+    var checkbox = document.getElementById('is_merchant');
+    var fields = document.getElementById('merchant_fields');
+    fields.style.display = checkbox.checked ? 'block' : 'none';
+}
+</script>
+{% endblock %}

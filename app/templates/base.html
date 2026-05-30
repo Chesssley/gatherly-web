@@ -16,6 +16,7 @@
         <li><a href="{{ url_for('circle.circles') }}">同好圈</a></li>
         {% if session.get('user_id') %}
           <li><a href="{{ url_for('profile.my_profile') }}">个人主页</a></li>
+          <li><a href="{{ url_for('auth.merchant_verify') }}">商家认证</a></li>
           {% if current_user and current_user.role == 'admin' %}
             <li><a href="{{ url_for('admin.admin_dashboard') }}">后台管理</a></li>
           {% endif %}
