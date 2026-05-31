@@ -16,15 +16,71 @@
       <p>集中查看你参与、创建和收藏的活动安排。</p>
     </div>
 
-    <nav class="my-events-tabs" aria-label="我的活动分类">
-      {% for tab_key, tab_label in tab_labels.items() %}
-      <a class="my-events-tab {% if active_tab == tab_key %}is-active{% endif %}"
-         href="{{ url_for('activity.my_events', tab=tab_key) }}"
-         {% if active_tab == tab_key %}aria-current="page"{% endif %}>
-        {{ tab_label }}
-      </a>
-      {% endfor %}
-    </nav>
+    <section class="my-events-filter-panel" aria-label="我的活动筛选">
+      <div class="my-events-filter-toolbar">
+        <span class="my-events-filter-toolbar-title">筛选活动</span>
+        <form class="my-events-search-form {% if search_query %}is-open{% endif %}"
+              action="{{ url_for('activity.my_events') }}"
+              method="get"
+              role="search"
+              data-my-events-search>
+          <input name="tab" type="hidden" value="{{ active_tab }}">
+          <input name="status" type="hidden" value="{{ active_status }}">
+          <button class="my-events-search-toggle"
+                  type="button"
+                  aria-label="按活动名称搜索"
+                  aria-expanded="{{ 'true' if search_query else 'false' }}"
+                  aria-controls="my-events-search-input"
+                  data-my-events-search-toggle>
+            <span aria-hidden="true">&#128269;</span>
+          </button>
+          <div class="my-events-search-field" {% if not search_query %}hidden{% endif %} data-my-events-search-field>
+            <label class="sr-only" for="my-events-search-input">搜索活动名称</label>
+            <input id="my-events-search-input"
+                   name="q"
+                   type="search"
+                   value="{{ search_query }}"
+                   placeholder="按活动名称搜索"
+                   autocomplete="off"
+                   data-my-events-search-input>
+          </div>
+          {% if search_query %}
+          <a class="my-events-search-clear"
+             href="{{ url_for('activity.my_events', tab=active_tab, status=active_status) }}">
+            清除
+          </a>
+          {% endif %}
+        </form>
+      </div>
+      <div class="my-events-filter-row">
+        <span class="my-events-filter-label">活动来源</span>
+        <nav class="my-events-tabs" aria-label="活动来源">
+          {% for tab_key, tab_label in tab_labels.items() %}
+          <a class="my-events-tab {% if active_tab == tab_key %}is-active{% endif %}"
+             href="{{ url_for('activity.my_events', tab=tab_key, status=active_status, q=search_query or None) }}"
+             {% if active_tab == tab_key %}aria-current="page"{% endif %}>
+            {{ tab_label }}
+          </a>
+          {% endfor %}
+        </nav>
+      </div>
+      <div class="my-events-filter-row">
+        <span class="my-events-filter-label">活动时间</span>
+        <nav class="my-events-tabs" aria-label="活动时间">
+          {% for status_key, status_label in status_labels.items() %}
+          <a class="my-events-tab {% if active_status == status_key %}is-active{% endif %}"
+             href="{{ url_for('activity.my_events', tab=active_tab, status=status_key, q=search_query or None) }}"
+             {% if active_status == status_key %}aria-current="page"{% endif %}>
+            {{ status_label }}
+          </a>
+          {% endfor %}
+        </nav>
+      </div>
+      <p class="my-events-filter-summary">
+        当前筛选：<strong>{{ tab_labels[active_tab] }}</strong><span aria-hidden="true"> · </span><strong>{{ status_labels[active_status] }}</strong>
+        {% if search_query %}<span aria-hidden="true"> · </span>名称包含“<strong>{{ search_query }}</strong>”{% endif %}
+      </p>
+    </section>
 
     {% if activities %}
     <div class="my-events-grid">
@@ -57,18 +113,39 @@
     {% else %}
     <div class="my-events-empty-state">
       <div class="my-events-empty-icon" aria-hidden="true">&#128269;</div>
-      <h2>这里暂时还没有活动</h2>
+      {% if search_query %}
+      <h2>没有找到匹配“{{ search_query }}”的活动</h2>
+      <p>可以尝试更换关键词，或清除搜索条件后查看当前分类中的活动。</p>
+      {% else %}
+      <h2>{{ tab_labels[active_tab] }}中暂无{{ status_labels[active_status] if active_status != "all" else "" }}活动</h2>
       <p>
         {% if active_tab == "created" %}
-        你还没有创建活动，可以先看看大家最近在组织什么。
+          {% if active_status == "upcoming" %}
+          你创建的活动中暂时没有即将开始的安排。
+          {% elif active_status == "ended" %}
+          你创建的活动中暂时没有已结束的记录。
+          {% else %}
+          你还没有创建活动，可以先看看大家最近在组织什么。
+          {% endif %}
         {% elif active_tab == "saved" %}
-        你还没有收藏活动，遇到感兴趣的活动可以随时保存。
-        {% elif active_tab == "history" %}
-        你参与或创建的活动结束后，会集中展示在这里。
+          {% if active_status == "upcoming" %}
+          你收藏的活动中暂时没有即将开始的安排，可以去发现更多活动。
+          {% elif active_status == "ended" %}
+          你收藏的活动中暂时没有已结束的记录。
+          {% else %}
+          你还没有收藏活动，遇到感兴趣的活动可以随时保存。
+          {% endif %}
         {% else %}
-        你还没有报名活动，去发现适合你的下一场线下相遇。
+          {% if active_status == "upcoming" %}
+          你报名的活动中暂时没有即将开始的安排。
+          {% elif active_status == "ended" %}
+          你报名的活动中暂时没有已结束的记录。
+          {% else %}
+          你还没有报名活动，去发现适合你的下一场线下相遇。
+          {% endif %}
         {% endif %}
       </p>
+      {% endif %}
       <a class="button" href="{{ url_for('activity.index') }}#discover-events">发现活动</a>
     </div>
     {% endif %}
