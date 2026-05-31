@@ -12,6 +12,7 @@ from app.models import (
     db,
     Activity,
     ActivityFavorite,
+    Circle,
     Comment,
     Registration,
     TrustScoreLog,
@@ -63,22 +64,53 @@ USER_REVIEW_FIELDS = (
     "safety_score",
 )
 
-OFFICIAL_INTEREST_TAGS = [
-    "影像摄影",
-    "运动户外",
-    "咖啡茶饮",
-    "阅读出版",
-    "手作艺术",
-    "音乐演出",
-    "观影戏剧",
-    "城市探索",
-    "游戏桌游",
-    "科技数码",
-    "美食烘焙",
-    "公益志愿",
+OFFICIAL_INTEREST_CATEGORIES = [
+    {"icon": "📷", "tag": "影像摄影"},
+    {"icon": "🏃", "tag": "运动户外"},
+    {"icon": "☕", "tag": "咖啡茶饮"},
+    {"icon": "📚", "tag": "阅读出版"},
+    {"icon": "🎨", "tag": "手作艺术"},
+    {"icon": "🎵", "tag": "音乐演出"},
+    {"icon": "🎬", "tag": "观影戏剧"},
+    {"icon": "🏙️", "tag": "城市探索"},
+    {"icon": "🎲", "tag": "游戏桌游"},
+    {"icon": "💻", "tag": "科技数码"},
+    {"icon": "🍳", "tag": "美食烘焙"},
+    {"icon": "🤝", "tag": "公益志愿"},
 ]
+OFFICIAL_INTEREST_TAGS = [category["tag"] for category in OFFICIAL_INTEREST_CATEGORIES]
 
 DEFAULT_ACTIVITY_TAG = "城市探索"
+
+
+def _available_activity_circles():
+    return (
+        Circle.query.filter_by(status="active")
+        .order_by(Circle.is_system.desc(), Circle.is_pinned.desc(), Circle.name.asc())
+        .all()
+    )
+
+
+def _validated_circle_id(raw_circle_id):
+    if not raw_circle_id:
+        return None
+    try:
+        circle_id = int(raw_circle_id)
+    except (TypeError, ValueError):
+        return None
+    circle = Circle.query.filter_by(id=circle_id, status="active").first()
+    return circle.id if circle else None
+
+
+def _selected_activity_tags():
+    primary_tag = request.form.get("primary_tag", "").strip()
+    selected_tags = []
+    if primary_tag in OFFICIAL_INTEREST_TAGS:
+        selected_tags.append(primary_tag)
+    for tag in request.form.getlist("tags"):
+        if tag in OFFICIAL_INTEREST_TAGS and tag not in selected_tags:
+            selected_tags.append(tag)
+    return selected_tags
 
 def _parse_rating_score(field_name):
     raw_value = request.form.get(field_name)
@@ -385,6 +417,8 @@ def _activity_to_summary(activity, registration_count=0, favorite_count=0, atten
         "time_filter": _activity_time_filter(activity.start_time),
         "category": category,
         "tags": tags or [category],
+        "circle_id": activity.circle_id,
+        "circle_name": activity.circle.name if activity.circle else "",
         "image_url": activity.image,
         "organizer": (
             "Gatherly官方"
@@ -428,11 +462,23 @@ def _sort_same_city_first(activities, user_city):
 
 @activity_bp.route("/")
 def index():
-    selected_tag = request.args.get("tag", "").strip()
+    selected_category = (
+        request.args.get("category", "").strip()
+        or request.args.get("tag", "").strip()
+    )
+    selected_time = request.args.get("time", "any").strip() or "any"
+    if selected_category not in OFFICIAL_INTEREST_TAGS:
+        selected_category = ""
+    if selected_time not in {"any", "today", "tomorrow", "week", "weekend", "month"}:
+        selected_time = "any"
     interest_tags = OFFICIAL_INTEREST_TAGS
     categories = interest_tags
     visible_tag_count = len(interest_tags)
-    db_activities = Activity.query.all()
+    featured_db_activities = Activity.query.all()
+    query = Activity.query
+    if selected_category:
+        query = query.filter(Activity.tags.ilike(f"%{selected_category}%"))
+    db_activities = query.all()
     reg_counts = dict(
         db.session.query(Registration.activity_id, func.count(Registration.id))
         .filter(Registration.status != "cancelled")
@@ -443,6 +489,28 @@ def index():
         db.session.query(ActivityFavorite.activity_id, func.count(ActivityFavorite.id))
         .group_by(ActivityFavorite.activity_id)
         .all()
+    )
+    featured_reg_counts = reg_counts
+    featured_favorite_counts = favorite_counts
+    featured_attendee_previews = _get_activity_attendee_previews(
+        [activity.id for activity in featured_db_activities]
+    )
+    featured_normalized_activities = [
+        _activity_to_summary(
+            activity,
+            featured_reg_counts.get(activity.id, 0),
+            featured_favorite_counts.get(activity.id, 0),
+            featured_attendee_previews.get(activity.id, []),
+        )
+        for activity in featured_db_activities
+    ]
+    featured_normalized_activities.sort(
+        key=lambda activity: (
+            -activity["heat_score"],
+            -activity["current_people"],
+            activity["time"],
+            activity["id"],
+        )
     )
     attendee_previews = _get_activity_attendee_previews([activity.id for activity in db_activities])
     normalized_activities = [
@@ -476,25 +544,29 @@ def index():
         activity["is_hot"] = activity["id"] in hot_activity_ids
     featured_activities = [
         activity
-        for activity in normalized_activities
+        for activity in featured_normalized_activities
         if activity["is_featured"] and activity["is_upcoming"] and activity["status"] == "open"
     ]
 
-    if selected_tag and selected_tag in interest_tags:
+    filtered_activities = [
+        activity for activity in normalized_activities if activity["status"] == "open"
+    ]
+    if selected_time != "any":
         filtered_activities = [
             activity
-            for activity in normalized_activities
-            if activity["category"] == selected_tag and activity["status"] == "open"
+            for activity in filtered_activities
+            if (
+                activity["time_filter"] == selected_time
+                or (
+                    selected_time == "week"
+                    and activity["time_filter"] in {"today", "tomorrow", "week", "weekend"}
+                )
+            )
         ]
-    else:
-        filtered_activities = [
-            activity for activity in normalized_activities if activity["status"] == "open"
-        ]
-        selected_tag = ""
 
     expand_tags_by_default = (
-        bool(selected_tag)
-        and interest_tags.index(selected_tag) >= visible_tag_count
+        bool(selected_category)
+        and interest_tags.index(selected_category) >= visible_tag_count
     )
 
     favorite_activity_ids = set()
@@ -514,8 +586,11 @@ def index():
         featured_activities=featured_activities,
         categories=categories,
         expand_tags_by_default=expand_tags_by_default,
+        interest_categories=OFFICIAL_INTEREST_CATEGORIES,
         interest_tags=interest_tags,
-        selected_tag=selected_tag,
+        selected_tag=selected_category,
+        selected_category=selected_category,
+        selected_time=selected_time,
         visible_tag_count=visible_tag_count,
         favorite_activity_ids=favorite_activity_ids,
     )
@@ -729,6 +804,9 @@ def activity_detail(activity_id):
         is_cancel_action=is_cancel_action,
         can_cancel_registration=can_cancel_registration,
         cancel_reason_labels=CANCEL_REASON_LABELS,
+        activity_circles=_available_activity_circles(),
+        interest_categories=OFFICIAL_INTEREST_CATEGORIES,
+        interest_tags=OFFICIAL_INTEREST_TAGS,
         activity_phase=activity_phase,
         attendees=attendees[:ACTIVITY_ATTENDEE_DISPLAY_LIMIT],
         attendee_overflow_count=max(0, len(attendees) - ACTIVITY_ATTENDEE_DISPLAY_LIMIT),
@@ -847,7 +925,9 @@ def create_activity():
     if request.method == "GET":
         return render_template(
             "activity_create.html",
+            interest_categories=OFFICIAL_INTEREST_CATEGORIES,
             interest_tags=OFFICIAL_INTEREST_TAGS,
+            circles=_available_activity_circles(),
             can_publish_verified_activity=can_publish_verified_activity,
         )
 
@@ -862,10 +942,8 @@ def create_activity():
         character.isalnum() or character in "_-/+" for character in timezone
     ):
         timezone = DEFAULT_ACTIVITY_TIMEZONE
-    tags = [
-        tag for tag in request.form.getlist("tags")
-        if tag in OFFICIAL_INTEREST_TAGS
-    ]
+    tags = _selected_activity_tags()
+    circle_id = _validated_circle_id(request.form.get("circle_id"))
     errors = []
     wants_official = current_user.role == "admin" or request.form.get("is_official") == "1"
     wants_featured = request.form.get("is_featured") == "1"
@@ -936,7 +1014,9 @@ def create_activity():
             flash(error, "error")
         return render_template(
             "activity_create.html",
+            interest_categories=OFFICIAL_INTEREST_CATEGORIES,
             interest_tags=OFFICIAL_INTEREST_TAGS,
+            circles=_available_activity_circles(),
             can_publish_verified_activity=can_publish_verified_activity,
         ), 400
 
@@ -957,6 +1037,7 @@ def create_activity():
             image=f"/static/{saved_paths[0]}",
             fee=fee,
             tags=",".join(tags),
+            circle_id=circle_id,
             preparation=preparation,
             organizer_id=current_user.id,
             is_official=wants_official,
@@ -983,12 +1064,35 @@ def create_activity():
         flash("活动发布失败，请稍后重试。", "error")
         return render_template(
             "activity_create.html",
+            interest_categories=OFFICIAL_INTEREST_CATEGORIES,
             interest_tags=OFFICIAL_INTEREST_TAGS,
+            circles=_available_activity_circles(),
             can_publish_verified_activity=can_publish_verified_activity,
         ), 500
 
     flash("活动发布成功。", "success")
     return redirect(url_for("activity.activity_detail", activity_id=activity.id))
+
+
+@activity_bp.route("/activity/<int:activity_id>/settings", methods=["POST"])
+@login_required
+def update_activity_settings(activity_id):
+    db_activity = Activity.query.get_or_404(activity_id)
+    current_user = User.query.get(session["user_id"])
+    if not _can_manage_activity(current_user, db_activity):
+        abort(403)
+
+    tags = _selected_activity_tags()
+    if not tags:
+        flash("请选择一个兴趣探索分类。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    db_activity.tags = ",".join(tags)
+    db_activity.circle_id = _validated_circle_id(request.form.get("circle_id"))
+    db.session.commit()
+    flash("活动关联信息已更新。", "success")
+    return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
 
 @activity_bp.route("/activity/<int:activity_id>/register", methods=["POST"])
 def register_activity(activity_id):

@@ -43,7 +43,7 @@
 {% set is_full = max_participants is not none and registration_count >= max_participants %}
 {% set remaining_places = max_participants - registration_count if max_participants is not none else none %}
 {% set organizer_name = activity.organizer|default('Gatherly官方', true) %}
-{% set circle_name = activity.circle_name|default(activity.circle|default(activity.category|default('城市兴趣同好圈', true), true), true) %}
+{% set circle_name = activity.circle_name|default('', true) %}
 {% set activity_fee = activity.fee|default(0, true) %}
 {% set attendee_count = activity.attendee_count|default(registration_count, true) %}
 {% set comment_count = activity.comment_count|default(0, true) %}
@@ -83,13 +83,15 @@
                         {% if activity.is_featured %}<span class="activity-badge is-featured">优质活动</span>{% endif %}
                     </div>
 
+                    {% if activity.circle_id and circle_name %}
                     <div class="meetup-detail-circle-card">
                         <span class="meetup-detail-circle-mark" aria-hidden="true">G</span>
                         <div>
                             <span>所属同好圈</span>
-                            <strong>{{ circle_name }}</strong>
+                            <strong><a href="{{ url_for('circle.circle_detail', circle_id=activity.circle_id) }}">{{ circle_name }}</a></strong>
                         </div>
                     </div>
+                    {% endif %}
                 </header>
 
                 <section class="meetup-detail-content meetup-detail-section">
@@ -277,6 +279,33 @@
                 {% if can_manage_activity %}
                 <section class="meetup-detail-management-card">
                     <h2>活动管理</h2>
+                    <form class="meetup-detail-management-form"
+                          method="post"
+                          action="{{ url_for('activity.update_activity_settings', activity_id=activity.id) }}">
+                        <label for="activity-circle-id">关联同好圈</label>
+                        <select id="activity-circle-id" name="circle_id">
+                            <option value="">不关联同好圈</option>
+                            {% for circle in activity_circles %}
+                            <option value="{{ circle.id }}" {% if activity.circle_id == circle.id %}selected{% endif %}>
+                                {{ circle.name }}{% if circle.tag %} · {{ circle.tag }}{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+
+                        <label for="activity-primary-tag">兴趣探索分类</label>
+                        <select id="activity-primary-tag" name="primary_tag" required>
+                            {% for category in interest_categories %}
+                            <option value="{{ category.tag }}" {% if activity.category == category.tag %}selected{% endif %}>{{ category.icon }} {{ category.tag }}</option>
+                            {% endfor %}
+                        </select>
+                        {% for tag in activity.tags %}
+                            {% if tag != activity.category %}
+                            <input type="hidden" name="tags" value="{{ tag }}">
+                            {% endif %}
+                        {% endfor %}
+
+                        <button class="button button-small" type="submit">保存关联信息</button>
+                    </form>
                     {% if event_cancelled %}
                         <p>活动已取消{% if activity.cancel_reason %}：{{ activity.cancel_reason }}{% endif %}</p>
                     {% elif event_ended %}

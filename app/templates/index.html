@@ -129,12 +129,12 @@
         </div>
 
         <div class="discover-toolbar" aria-label="活动时间筛选">
-            <a class="filter-pill is-active" href="{{ url_for('activity.index') }}#discover-events" data-time-filter="any">全部时间</a>
-            <a class="filter-pill" href="{{ url_for('activity.index', time='today') }}#discover-events" data-time-filter="today">今天</a>
-            <a class="filter-pill" href="{{ url_for('activity.index', time='tomorrow') }}#discover-events" data-time-filter="tomorrow">明天</a>
-            <a class="filter-pill" href="{{ url_for('activity.index', time='week') }}#discover-events" data-time-filter="week">本周</a>
-            <a class="filter-pill" href="{{ url_for('activity.index', time='weekend') }}#discover-events" data-time-filter="weekend">本周末</a>
-            <a class="filter-pill" href="{{ url_for('activity.index', time='month') }}#discover-events" data-time-filter="month">本月</a>
+            <a class="filter-pill {% if selected_time == 'any' %}is-active{% endif %}" href="{{ url_for('activity.index', category=selected_category) if selected_category else url_for('activity.index') }}#discover-events" data-time-filter="any">全部时间</a>
+            <a class="filter-pill {% if selected_time == 'today' %}is-active{% endif %}" href="{{ url_for('activity.index', category=selected_category, time='today') if selected_category else url_for('activity.index', time='today') }}#discover-events" data-time-filter="today">今天</a>
+            <a class="filter-pill {% if selected_time == 'tomorrow' %}is-active{% endif %}" href="{{ url_for('activity.index', category=selected_category, time='tomorrow') if selected_category else url_for('activity.index', time='tomorrow') }}#discover-events" data-time-filter="tomorrow">明天</a>
+            <a class="filter-pill {% if selected_time == 'week' %}is-active{% endif %}" href="{{ url_for('activity.index', category=selected_category, time='week') if selected_category else url_for('activity.index', time='week') }}#discover-events" data-time-filter="week">本周</a>
+            <a class="filter-pill {% if selected_time == 'weekend' %}is-active{% endif %}" href="{{ url_for('activity.index', category=selected_category, time='weekend') if selected_category else url_for('activity.index', time='weekend') }}#discover-events" data-time-filter="weekend">本周末</a>
+            <a class="filter-pill {% if selected_time == 'month' %}is-active{% endif %}" href="{{ url_for('activity.index', category=selected_category, time='month') if selected_category else url_for('activity.index', time='month') }}#discover-events" data-time-filter="month">本月</a>
         </div>
 
         <section class="interest-section" aria-labelledby="interest-title">
@@ -142,39 +142,24 @@
                 <h3 class="interest-title" id="interest-title">按兴趣探索</h3>
                 <p class="interest-subtitle">点击分类即可筛选活动。</p>
             </div>
-            {% set meetup_categories = [
-                ("✨", "全部活动", "all", ""),
-                ("👥", "来自同好圈", "circles", ""),
-                ("🎉", "社交活动", "social", "咖啡茶饮,游戏桌游"),
-                ("🎨", "兴趣爱好", "hobbies", "影像摄影,阅读出版,手作艺术,音乐演出,观影戏剧,美食烘焙"),
-                ("⚽", "运动户外", "sports", "运动户外"),
-                ("🌲", "旅行探索", "travel", "城市探索"),
-                ("💼", "职业商业", "career", ""),
-                ("💻", "科技数码", "technology", "科技数码"),
-                ("🏙", "城市生活", "city-life", "城市探索,咖啡茶饮,美食烘焙"),
-                ("🎮", "游戏娱乐", "games", "游戏桌游,观影戏剧"),
-                ("🎵", "音乐舞蹈", "music", "音乐演出"),
-                ("💗", "支持成长", "support", ""),
-                ("🌿", "健康生活", "wellness", "运动户外"),
-                ("🖼", "艺术文化", "arts", "影像摄影,手作艺术,音乐演出,观影戏剧"),
-                ("🔬", "科学教育", "education", "科技数码,阅读出版"),
-                ("🐱", "宠物动物", "pets", ""),
-                ("📖", "阅读写作", "reading", "阅读出版"),
-                ("👨‍👩‍👧", "家庭亲子", "family", ""),
-                ("🤝", "公益志愿", "volunteering", "公益志愿")
-            ] %}
             <div class="interest-tags icon-category-nav" role="navigation" aria-label="活动分类">
-                {% for icon, label, value, filter_tags in meetup_categories %}
-                <a class="interest-chip icon-category {% if value == 'all' %}is-active{% endif %}"
-                   href="{{ url_for('activity.index', category=value) if value != 'all' else url_for('activity.index') }}#discover-events"
-                   data-category="{{ value }}" data-filter-tags="{{ filter_tags }}">
-                    <span class="icon-category-symbol" aria-hidden="true">{{ icon }}</span>
-                    <span class="icon-category-label">{{ label }}</span>
+                <a class="interest-chip icon-category {% if not selected_category %}is-active{% endif %}"
+                   href="{{ url_for('activity.index', time=selected_time) if selected_time != 'any' else url_for('activity.index') }}#discover-events"
+                   data-category="all" data-filter-tags="">
+                    <span class="icon-category-symbol" aria-hidden="true">✨</span>
+                    <span class="icon-category-label">全部活动</span>
+                </a>
+                {% for category in interest_categories %}
+                <a class="interest-chip icon-category {% if selected_category == category.tag %}is-active{% endif %}"
+                   href="{{ url_for('activity.index', category=category.tag, time=selected_time) if selected_time != 'any' else url_for('activity.index', category=category.tag) }}#discover-events"
+                   data-category="{{ category.tag }}" data-filter-tags="{{ category.tag }}">
+                    <span class="icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
+                    <span class="icon-category-label">{{ category.tag }}</span>
                 </a>
                 {% endfor %}
             </div>
             <div class="filter-status">
-                <span>当前正在浏览：全部活动</span>
+                <span>当前正在浏览：{{ selected_category or '全部活动' }}{% if selected_time != 'any' %} · {{ {'today':'今天','tomorrow':'明天','week':'本周','weekend':'本周末','month':'本月'}.get(selected_time, '全部时间') }}{% endif %}</span>
             </div>
         </section>
 

@@ -62,13 +62,39 @@
                     <input type="number" id="fee" name="fee" class="form-input" min="0" step="0.01" value="{{ request.form.get('fee', '0') }}" required>
                 </div>
 
+                <div class="form-group">
+                    <label for="circle_id" class="form-label">关联同好圈</label>
+                    <select id="circle_id" name="circle_id" class="form-input">
+                        <option value="">不关联同好圈</option>
+                        {% for circle in circles %}
+                        <option value="{{ circle.id }}" {% if request.form.get('circle_id')|int == circle.id %}selected{% endif %}>
+                            {{ circle.name }}{% if circle.tag %} · {{ circle.tag }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="form-hint">可选。选择后，活动会出现在对应同好圈详情页。</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="primary_tag" class="form-label">兴趣探索分类 <span class="form-required">*</span></label>
+                    <select id="primary_tag" name="primary_tag" class="form-input" required>
+                        <option value="">请选择活动主分类</option>
+                        {% set selected_primary_tag = request.form.get('primary_tag') or (request.form.getlist('tags')[0] if request.form.getlist('tags') else '') %}
+                        {% for category in interest_categories %}
+                        <option value="{{ category.tag }}" {% if selected_primary_tag == category.tag %}selected{% endif %}>{{ category.icon }} {{ category.tag }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="form-hint">用于发现页筛选和活动卡片展示。</p>
+                </div>
+
                 <fieldset class="form-group">
-                    <legend class="form-label">兴趣标签 <span class="form-required">*</span></legend>
+                    <legend class="form-label">补充兴趣标签</legend>
+                    <p class="form-hint">可选。可以补充更多相关兴趣，让用户更容易理解活动内容。</p>
                     <div class="tags-grid">
-                        {% for tag in interest_tags %}
-                        <label class="tag-checkbox">
-                            <input type="checkbox" name="tags" value="{{ tag }}" {% if tag in request.form.getlist('tags') %}checked{% endif %}>
-                            <span>{{ tag }}</span>
+                        {% for category in interest_categories %}
+                        <label class="tag-checkbox activity-interest-tag">
+                            <input type="checkbox" name="tags" value="{{ category.tag }}" {% if category.tag in request.form.getlist('tags') and category.tag != selected_primary_tag %}checked{% endif %}>
+                            <span><span class="activity-interest-icon" aria-hidden="true">{{ category.icon }}</span>{{ category.tag }}</span>
                         </label>
                         {% endfor %}
                     </div>
