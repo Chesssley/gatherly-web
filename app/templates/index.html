@@ -48,7 +48,23 @@
         </div>
         <div class="card-social">
             <span><strong>{{ activity.rating|default("4.8") }}</strong> <span class="rating-star" aria-hidden="true">&#9733;</span> 评分</span>
-            <span>{{ activity.current_people|default(activity.attendees|default(0)) }} 人已报名</span>
+            <div class="card-attendee-summary">
+                {% if activity.attendee_previews %}
+                <div class="card-attendee-avatars" aria-label="已报名用户">
+                    {% for attendee in activity.attendee_previews %}
+                        {% if attendee.avatar %}
+                        <img class="card-attendee-avatar" src="{{ attendee.avatar }}" alt="{{ attendee.display_name }}" title="{{ attendee.display_name }}">
+                        {% else %}
+                        <span class="card-attendee-avatar card-attendee-placeholder" title="{{ attendee.display_name }}" aria-label="{{ attendee.display_name }}">{{ attendee.initial }}</span>
+                        {% endif %}
+                    {% endfor %}
+                    {% if activity.attendee_remaining_count %}
+                    <span class="card-attendee-avatar card-attendee-more" aria-label="另有 {{ activity.attendee_remaining_count }} 人已报名">+{{ activity.attendee_remaining_count }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                <span>{{ activity.current_people|default(activity.attendees|default(0)) }} 人已报名</span>
+            </div>
         </div>
         <div class="card-activity-badges">
             {% if activity.is_featured %}<span class="activity-badge is-featured">精选活动</span>{% endif %}

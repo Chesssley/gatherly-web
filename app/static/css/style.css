@@ -4073,6 +4073,41 @@ textarea.form-input {
   font-size: 12px;
 }
 
+.card-attendee-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.card-attendee-avatars {
+  display: flex;
+  align-items: center;
+  padding-left: 5px;
+}
+
+.card-attendee-avatar {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  margin-left: -5px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #d7ede6;
+  color: var(--color-primary-dark);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  object-fit: cover;
+}
+
+.card-attendee-more {
+  background: #e8f0ed;
+  font-size: 9px;
+}
+
 .card-activity-badges {
   display: flex;
   min-height: 25px;

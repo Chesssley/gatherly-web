@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 
 from flask import Blueprint, abort, jsonify, render_template, request, session, redirect, url_for, flash
 from functools import wraps
@@ -15,6 +16,7 @@ from app.models import (
     TrustScoreLog,
     User,
     UserReview,
+    get_user_display_name,
 )
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
@@ -36,6 +38,7 @@ RATING_ELIGIBLE_STATUSES = {"attended", "completed"}
 TRUST_SCORE_THRESHOLD = 60
 ACTIVITY_IMAGE_MAX_BYTES = 800 * 1024
 ACTIVITY_IMAGE_UPLOAD_SUBDIR = os.path.join("images", "activities")
+ACTIVITY_CARD_AVATAR_LIMIT = 4
 
 USER_REVIEW_FIELDS = (
     "punctuality_score",
@@ -191,10 +194,39 @@ def _activity_heat_score(activity, registration_count=0, favorite_count=0):
     return score
 
 
-def _activity_to_summary(activity, registration_count=0, favorite_count=0):
+def _get_activity_attendee_previews(activity_ids):
+    previews_by_activity = defaultdict(list)
+    if not activity_ids:
+        return previews_by_activity
+
+    rows = (
+        db.session.query(Registration.activity_id, User)
+        .join(User, User.id == Registration.user_id)
+        .filter(Registration.activity_id.in_(activity_ids))
+        .order_by(Registration.activity_id.asc(), Registration.register_time.asc())
+        .all()
+    )
+    for activity_id, user in rows:
+        previews = previews_by_activity[activity_id]
+        if len(previews) >= ACTIVITY_CARD_AVATAR_LIMIT:
+            continue
+        display_name = get_user_display_name(user).strip() or user.username
+        previews.append(
+            {
+                "avatar": user.avatar,
+                "display_name": display_name,
+                "initial": display_name[:1].upper(),
+            }
+        )
+    return previews_by_activity
+
+
+def _activity_to_summary(activity, registration_count=0, favorite_count=0, attendee_previews=None):
     tags = _split_tags(activity.tags)
     category = tags[0] if tags else DEFAULT_ACTIVITY_TAG
     heat_score = _activity_heat_score(activity, registration_count, favorite_count)
+    current_people = (activity.initial_participants or 0) + registration_count
+    attendee_previews = attendee_previews or []
     return {
         "id": activity.id,
         "title": activity.title,
@@ -214,7 +246,9 @@ def _activity_to_summary(activity, registration_count=0, favorite_count=0):
             if activity.organizer
             else "Gatherly 活动发起人"
         ),
-        "current_people": (activity.initial_participants or 0) + registration_count,
+        "current_people": current_people,
+        "attendee_previews": attendee_previews,
+        "attendee_remaining_count": max(0, current_people - len(attendee_previews)),
         "favorite_count": favorite_count,
         "heat_score": heat_score,
         "is_featured": activity.is_featured,
@@ -243,11 +277,13 @@ def index():
         .group_by(ActivityFavorite.activity_id)
         .all()
     )
+    attendee_previews = _get_activity_attendee_previews([activity.id for activity in db_activities])
     normalized_activities = [
         _activity_to_summary(
             activity,
             reg_counts.get(activity.id, 0),
             favorite_counts.get(activity.id, 0),
+            attendee_previews.get(activity.id, []),
         )
         for activity in db_activities
     ]
