@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from types import SimpleNamespace
 
@@ -18,6 +18,11 @@ COMMENT_IMAGE_MAX_BYTES = 500 * 1024
 COMMENT_IMAGE_MAX_COUNT = 1
 POST_UPLOAD_SUBDIR = os.path.join("uploads", "posts")
 COMMENT_UPLOAD_SUBDIR = os.path.join("uploads", "comments")
+HOT_CIRCLE_MEMBER_THRESHOLD = 200
+HOT_CIRCLE_SCORE_THRESHOLD = 260
+HOT_CIRCLE_POST_WEIGHT = 3
+HOT_CIRCLE_RECENT_POST_WEIGHT = 5
+HOT_CIRCLE_RECENT_DAYS = 30
 OFFICIAL_CIRCLE_SUFFIX = "同好圈"
 
 _CIRCLE_DESCRIPTIONS = {
@@ -295,9 +300,28 @@ def _circle_post_count(circle):
     return Post.query.filter_by(circle_id=circle.id, status="published").count()
 
 
+def _circle_recent_post_count(circle):
+    recent_since = datetime.utcnow() - timedelta(days=HOT_CIRCLE_RECENT_DAYS)
+    return Post.query.filter(
+        Post.circle_id == circle.id,
+        Post.status == "published",
+        Post.created_at >= recent_since,
+    ).count()
+
+
 def _decorate_circle(circle):
     circle.active_level = "官方圈子" if circle.is_system else "自定义圈子"
     circle.post_count = _circle_post_count(circle)
+    circle.recent_post_count = _circle_recent_post_count(circle)
+    circle.heat_score = (
+        circle.member_count
+        + circle.post_count * HOT_CIRCLE_POST_WEIGHT
+        + circle.recent_post_count * HOT_CIRCLE_RECENT_POST_WEIGHT
+    )
+    circle.is_hot = (
+        circle.member_count >= HOT_CIRCLE_MEMBER_THRESHOLD
+        or circle.heat_score >= HOT_CIRCLE_SCORE_THRESHOLD
+    )
     circle.can_post = _is_member(circle.id)
     return circle
 
@@ -437,19 +461,20 @@ def _build_comment_threads(comments, current_user, circle, include_hidden=False)
 @circle_bp.route("/circles")
 def circles():
     _sync_system_circles()
-    circle_rows = (
-        Circle.query.filter_by(status="active")
-        .order_by(
-            Circle.is_pinned.desc(),
-            Circle.pinned_at.desc(),
-            Circle.is_system.desc(),
-            Circle.member_count.desc(),
-            func.coalesce(Circle.updated_at, Circle.created_at).desc(),
-            Circle.created_at.desc(),
-        )
-        .all()
-    )
+    circle_rows = Circle.query.filter_by(status="active").all()
     decorated = [_decorate_circle(circle) for circle in circle_rows]
+    decorated.sort(
+        key=lambda circle: (
+            circle.is_pinned,
+            circle.pinned_at or datetime.min,
+            circle.heat_score,
+            circle.member_count,
+            circle.post_count,
+            circle.updated_at or circle.created_at,
+            circle.created_at,
+        ),
+        reverse=True,
+    )
     return render_template("circle.html", circles=decorated)
 
 

@@ -60,7 +60,8 @@
                     <div class="card-tags">
                         <span class="tag">{{ circle.tag or "同好圈" }}</span>
                         <span class="tag circle-active-tag">{{ circle.active_level }}</span>
-                        {% if circle.is_pinned %}<span class="tag circle-admin-pinned-tag">管理员置顶</span>{% endif %}
+                        {% if circle.is_pinned %}<span class="tag circle-featured-tag">精选圈子</span>{% endif %}
+                        {% if circle.is_hot %}<span class="tag circle-hot-tag">热门圈子</span>{% endif %}
                     </div>
                     <h3 class="card-title">
                         <a href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">{{ circle.name }}</a>
