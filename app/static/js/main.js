@@ -301,6 +301,50 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-card-url]").forEach(card => {
+    const openCard = event => {
+      if (event.target.closest("button, a, input, select, textarea")) {
+        return;
+      }
+      window.location.href = card.dataset.cardUrl;
+    };
+
+    card.addEventListener("click", openCard);
+    card.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openCard(event);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-featured-carousel]").forEach(carousel => {
+    const strip = carousel.querySelector("[data-featured-strip]");
+    const previousButton = carousel.querySelector("[data-featured-previous]");
+    const nextButton = carousel.querySelector("[data-featured-next]");
+    if (!strip || !previousButton || !nextButton) {
+      return;
+    }
+
+    const updateCarouselButtons = () => {
+      const maxScrollLeft = Math.max(0, strip.scrollWidth - strip.clientWidth);
+      previousButton.disabled = strip.scrollLeft <= 1;
+      nextButton.disabled = strip.scrollLeft >= maxScrollLeft - 1;
+    };
+
+    const scrollFeaturedCards = direction => {
+      const firstCard = strip.querySelector(".featured-card");
+      const scrollDistance = firstCard ? firstCard.offsetWidth + 16 : strip.clientWidth;
+      strip.scrollBy({ left: direction * scrollDistance, behavior: "smooth" });
+    };
+
+    previousButton.addEventListener("click", () => scrollFeaturedCards(-1));
+    nextButton.addEventListener("click", () => scrollFeaturedCards(1));
+    strip.addEventListener("scroll", updateCarouselButtons, { passive: true });
+    window.addEventListener("resize", updateCarouselButtons);
+    updateCarouselButtons();
+  });
+
   const homeTabs = document.querySelectorAll("[data-home-tab]");
   const homeTabPanels = document.querySelectorAll("[data-home-tab-panel]");
   homeTabs.forEach(tab => {

@@ -4,7 +4,7 @@
 
 {% block content %}
 {% macro activity_card(activity, detail_url, favorite_activity_id, demo=false) %}
-<article class="activity-card discover-card" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
+<article class="activity-card discover-card" tabindex="0" role="link" data-card-url="{{ detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
     <div class="card-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
         <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
              alt="{{ activity.title }}"
@@ -29,7 +29,6 @@
                 <span aria-hidden="true">&#8599;</span>
             </button>
         </div>
-        {% if demo %}<span class="demo-badge">精选</span>{% endif %}
     </div>
     <div class="card-body">
         <div class="card-tags">
@@ -51,9 +50,9 @@
             <span><strong>{{ activity.rating|default("4.8") }}</strong> <span class="rating-star" aria-hidden="true">&#9733;</span> 评分</span>
             <span>{{ activity.current_people|default(activity.attendees|default(0)) }} 人已报名</span>
         </div>
-        <div class="card-footer-actions">
-            <button class="copy-link-button" type="button" data-activity-share data-share-url="{{ detail_url }}">复制链接</button>
-            <a class="detail-button" href="{{ detail_url }}">查看详情</a>
+        <div class="card-activity-badges">
+            {% if activity.is_featured %}<span class="activity-badge is-featured">精选活动</span>{% endif %}
+            {% if activity.is_hot %}<span class="activity-badge is-hot">热门活动</span>{% endif %}
         </div>
     </div>
 </article>
@@ -79,23 +78,25 @@
             </div>
             <a class="section-link" href="#discover-events">浏览全部活动 <span aria-hidden="true">&#8594;</span></a>
         </div>
-        <div class="featured-strip">
-            <article class="featured-card featured-card-main">
-                <div>
-                    <span class="featured-label">本周精选</span>
-                    <h3>周末城市摄影散步</h3>
-                    <p>周六 15:00 · 徐汇滨江</p>
-                    <a href="#discover-events">查看活动</a>
-                </div>
-            </article>
-            <article class="featured-card featured-card-secondary">
-                <div>
-                    <span class="featured-label">热门报名</span>
-                    <h3>手冲咖啡入门体验</h3>
-                    <p>周日 10:30 · 静安咖啡实验室</p>
-                    <a href="#discover-events">查看活动</a>
-                </div>
-            </article>
+        <div class="featured-carousel" data-featured-carousel>
+            <button class="featured-carousel-button is-previous" type="button" aria-label="查看上一组推荐活动" data-featured-previous>&#8592;</button>
+            <div class="featured-strip" data-featured-strip>
+                {% for activity in featured_activities %}
+                <a class="featured-card" href="{{ activity.detail_url }}">
+                    <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
+                         alt="{{ activity.title }}"
+                         onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                    <div class="featured-card-overlay">
+                        <span class="featured-label">精选活动</span>
+                        <h3>{{ activity.title }}</h3>
+                        <p>{{ activity.time }} · {{ activity.location }}</p>
+                    </div>
+                </a>
+                {% else %}
+                <div class="featured-empty-state">管理员精选活动后，会在这里展示近期推荐。</div>
+                {% endfor %}
+            </div>
+            <button class="featured-carousel-button is-next" type="button" aria-label="查看下一组推荐活动" data-featured-next>&#8594;</button>
         </div>
     </div>
 </section>

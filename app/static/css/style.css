@@ -3603,42 +3603,54 @@ textarea.form-input {
 }
 
 .featured-strip {
-  display: grid;
-  grid-template-columns: 1.35fr 1fr;
+  display: flex;
   gap: 16px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+}
+
+.featured-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.featured-carousel {
+  position: relative;
 }
 
 .featured-card {
   position: relative;
   display: flex;
+  flex: 0 0 min(520px, calc(50% - 8px));
   min-height: 212px;
   align-items: end;
   overflow: hidden;
-  padding: 24px;
   border-radius: 22px;
-  background: linear-gradient(125deg, #215d53, #478f82);
+  background: #215d53;
   color: #ffffff;
   box-shadow: 0 12px 26px rgba(34, 34, 34, 0.12);
+  scroll-snap-align: start;
 }
 
 .featured-card::after {
   position: absolute;
-  right: -28px;
-  bottom: -54px;
-  width: 190px;
-  height: 190px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.13);
+  inset: 0;
+  background: linear-gradient(180deg, rgba(22, 31, 29, 0.04), rgba(22, 31, 29, 0.82));
   content: "";
 }
 
-.featured-card-secondary {
-  background: linear-gradient(125deg, #a55f3e, #d68a5f);
+.featured-card img {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.featured-card > div {
+.featured-card-overlay {
   position: relative;
   z-index: 1;
+  padding: 22px;
 }
 
 .featured-label,
@@ -3664,6 +3676,50 @@ textarea.form-input {
 .featured-card a {
   font-size: 14px;
   font-weight: 800;
+}
+
+.featured-carousel-button {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 50%;
+  background: rgba(34, 34, 34, 0.82);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 21px;
+  transform: translateY(-50%);
+}
+
+.featured-carousel-button:hover {
+  background: #222222;
+}
+
+.featured-carousel-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.featured-carousel-button.is-previous {
+  left: -18px;
+}
+
+.featured-carousel-button.is-next {
+  right: -18px;
+}
+
+.featured-empty-state {
+  flex: 1 0 100%;
+  padding: 24px;
+  border: 1px dashed var(--color-border);
+  border-radius: 18px;
+  color: var(--color-muted);
+  background: #fbfaf7;
 }
 
 .my-activities-panel {
@@ -3903,6 +3959,7 @@ textarea.form-input {
   background: #ffffff;
   box-shadow: 0 6px 16px rgba(34, 34, 34, 0.07);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
 }
 
 .discover-card:hover {
@@ -4014,6 +4071,33 @@ textarea.form-input {
   padding-top: 10px;
   color: var(--color-muted);
   font-size: 12px;
+}
+
+.card-activity-badges {
+  display: flex;
+  min-height: 25px;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.activity-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.activity-badge.is-featured {
+  background: #e8f0ed;
+  color: var(--color-primary-dark);
+}
+
+.activity-badge.is-hot {
+  background: #fff0e6;
+  color: #a6532e;
 }
 
 .rating-star {
@@ -4170,7 +4254,6 @@ textarea.form-input {
     padding: 24px 0;
   }
 
-  .featured-strip,
   .activity-discovery-grid,
   .popular-circle-grid,
   .trust-grid {
@@ -4178,8 +4261,20 @@ textarea.form-input {
   }
 
   .featured-card {
+    flex-basis: 86%;
     min-height: 176px;
+  }
+
+  .featured-card-overlay {
     padding: 20px;
+  }
+
+  .featured-carousel-button.is-previous {
+    left: -8px;
+  }
+
+  .featured-carousel-button.is-next {
+    right: -8px;
   }
 
   .my-activity-item-main {

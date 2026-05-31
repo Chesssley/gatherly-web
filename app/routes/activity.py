@@ -179,9 +179,22 @@ def _activity_time_filter(start_time):
     return "any"
 
 
-def _activity_to_summary(activity, registration_count=0):
+def _activity_heat_score(activity, registration_count=0, favorite_count=0):
+    current_people = (activity.initial_participants or 0) + registration_count
+    score = current_people * 3 + favorite_count * 2
+    if activity.start_time:
+        days_until_start = (activity.start_time.date() - datetime.now().date()).days
+        if 0 <= days_until_start <= 7:
+            score += 6
+        elif days_until_start <= 14 and days_until_start >= 0:
+            score += 3
+    return score
+
+
+def _activity_to_summary(activity, registration_count=0, favorite_count=0):
     tags = _split_tags(activity.tags)
     category = tags[0] if tags else DEFAULT_ACTIVITY_TAG
+    heat_score = _activity_heat_score(activity, registration_count, favorite_count)
     return {
         "id": activity.id,
         "title": activity.title,
@@ -195,14 +208,21 @@ def _activity_to_summary(activity, registration_count=0):
         "tags": tags or [category],
         "image_url": activity.image,
         "organizer": (
-            activity.organizer.nickname or activity.organizer.username
+            "Gatherly官方活动"
+            if activity.organizer and activity.organizer.role == "admin"
+            else activity.organizer.nickname or activity.organizer.username
             if activity.organizer
             else "Gatherly 活动发起人"
         ),
         "current_people": (activity.initial_participants or 0) + registration_count,
+        "favorite_count": favorite_count,
+        "heat_score": heat_score,
+        "is_featured": activity.is_featured,
+        "is_upcoming": not activity.start_time or activity.start_time >= datetime.now(),
         "fee": activity.fee,
         "status": activity.status,
         "demo": activity.id <= 7,
+        "detail_url": url_for("activity.activity_detail", activity_id=activity.id),
     }
 
 
@@ -212,15 +232,44 @@ def index():
     interest_tags = OFFICIAL_INTEREST_TAGS
     categories = interest_tags
     visible_tag_count = len(interest_tags)
-    db_activities = Activity.query.order_by(Activity.start_time.asc(), Activity.id.asc()).all()
+    db_activities = Activity.query.all()
     reg_counts = dict(
         db.session.query(Registration.activity_id, func.count(Registration.id))
         .group_by(Registration.activity_id)
         .all()
     )
+    favorite_counts = dict(
+        db.session.query(ActivityFavorite.activity_id, func.count(ActivityFavorite.id))
+        .group_by(ActivityFavorite.activity_id)
+        .all()
+    )
     normalized_activities = [
-        _activity_to_summary(activity, reg_counts.get(activity.id, 0))
+        _activity_to_summary(
+            activity,
+            reg_counts.get(activity.id, 0),
+            favorite_counts.get(activity.id, 0),
+        )
         for activity in db_activities
+    ]
+    normalized_activities.sort(
+        key=lambda activity: (
+            -activity["heat_score"],
+            -activity["current_people"],
+            activity["time"],
+            activity["id"],
+        )
+    )
+    hot_activity_ids = {
+        activity["id"]
+        for activity in normalized_activities[:3]
+        if activity["heat_score"] > 0
+    }
+    for activity in normalized_activities:
+        activity["is_hot"] = activity["id"] in hot_activity_ids
+    featured_activities = [
+        activity
+        for activity in normalized_activities
+        if activity["is_featured"] and activity["is_upcoming"] and activity["status"] == "open"
     ]
 
     if selected_tag and selected_tag in interest_tags:
@@ -256,12 +305,20 @@ def index():
 
         favorite_activity_ids = {favorite.activity_id for favorite in favorite_rows}
         registered_activities = [
-            _activity_to_summary(activity_lookup[row.activity_id], reg_counts.get(row.activity_id, 0))
+            _activity_to_summary(
+                activity_lookup[row.activity_id],
+                reg_counts.get(row.activity_id, 0),
+                favorite_counts.get(row.activity_id, 0),
+            )
             for row in registration_rows
             if row.activity_id in activity_lookup
         ]
         favorite_activities = [
-            _activity_to_summary(activity_lookup[row.activity_id], reg_counts.get(row.activity_id, 0))
+            _activity_to_summary(
+                activity_lookup[row.activity_id],
+                reg_counts.get(row.activity_id, 0),
+                favorite_counts.get(row.activity_id, 0),
+            )
             for row in favorite_rows
             if row.activity_id in activity_lookup
         ]
@@ -269,6 +326,7 @@ def index():
     return render_template(
         "index.html",
         activities=filtered_activities,
+        featured_activities=featured_activities,
         categories=categories,
         expand_tags_by_default=expand_tags_by_default,
         interest_tags=interest_tags,

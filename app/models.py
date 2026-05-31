@@ -101,6 +101,7 @@ class Activity(db.Model):
     fee = db.Column(db.Float, default=0, nullable=False)
     tags = db.Column(db.Text)
     status = db.Column(db.String(20), default="open", nullable=False)
+    is_featured = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     organizer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     preparation = db.Column(db.Text)  # 活动准备事项
@@ -135,6 +136,10 @@ def ensure_activity_schema():
         )
     if rows and "tags" not in existing_columns:
         statements.append("ALTER TABLE activity ADD COLUMN tags TEXT")
+    if rows and "is_featured" not in existing_columns:
+        statements.append(
+            "ALTER TABLE activity ADD COLUMN is_featured BOOLEAN NOT NULL DEFAULT 0"
+        )
 
     for statement in statements:
         db.session.execute(text(statement))
