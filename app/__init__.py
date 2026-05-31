@@ -1,7 +1,28 @@
 from flask import Flask, flash, redirect, request, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 
-from app.models import db, ensure_activity_schema, ensure_user_account_schema
+from app.models import (
+    db,
+    ensure_activity_schema,
+    ensure_user_account_schema,
+    Activity,
+    ActivityFavorite,
+    ActivityReview,
+    Circle,
+    CircleMember,
+    Comment,
+    CommentImage,
+    Interaction,
+    Post,
+    PostImage,
+    ProfileVisibility,
+    Registration,
+    Review,
+    TrustScoreLog,
+    User,
+    UserReview,
+    AdminLog,
+)
 
 
 def create_app():
@@ -13,6 +34,7 @@ def create_app():
 
     db.init_app(app)
     with app.app_context():
+        db.create_all()
         ensure_user_account_schema()
         ensure_activity_schema()
 

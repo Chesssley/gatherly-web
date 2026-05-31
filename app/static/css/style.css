@@ -4773,3 +4773,91 @@ textarea.form-input {
     letter-spacing: 0;
   }
 }
+
+/* ============================================
+   官方认证活动勾选 (US-10-03)
+   ============================================ */
+
+.official-section {
+  padding: 16px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fbfaf7;
+}
+
+.official-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--color-text);
+}
+
+.official-checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.official-checkbox-label input[type="checkbox"]:disabled {
+  accent-color: #c9c3ba;
+  cursor: not-allowed;
+}
+
+.official-checkbox-text {
+  flex: 1;
+}
+
+.official-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.official-badge--verified {
+  background: #e6f3ef;
+  color: var(--color-primary-dark);
+}
+
+.official-badge--unverified {
+  background: #fdf0ed;
+  color: #8b4638;
+}
+
+.official-hint {
+  margin-top: 10px;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.official-hint a {
+  color: var(--color-primary-dark);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.official-hint a:hover {
+  color: var(--color-primary);
+}
+
+@media (max-width: 720px) {
+  .official-section {
+    padding: 14px;
+  }
+
+  .official-checkbox-label {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

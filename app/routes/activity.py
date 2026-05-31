@@ -526,7 +526,16 @@ def create_activity():
         return redirect(url_for("activity.index"))
 
     if request.method == "GET":
-        return render_template("activity_create.html", interest_tags=OFFICIAL_INTEREST_TAGS)
+        is_verified_merchant = (
+            current_user
+            and current_user.is_merchant
+            and current_user.merchant_status == "approved"
+        )
+        return render_template(
+            "activity_create.html",
+            interest_tags=OFFICIAL_INTEREST_TAGS,
+            is_verified_merchant=is_verified_merchant,
+        )
 
     title = request.form.get("title", "").strip()
     description = request.form.get("description", "").strip()
@@ -579,6 +588,12 @@ def create_activity():
     if not preparation:
         errors.append("请填写准备事项。")
 
+    # US-10-03: 官方认证活动仅限已认证商家发布
+    is_official = request.form.get("is_official") == "on"
+    if is_official:
+        if not current_user or not current_user.is_merchant or current_user.merchant_status != "approved":
+            errors.append("请先完成商家认证，才能发布官方认证活动。")
+
     validated_images = []
     try:
         validated_images = validate_image_files(
@@ -613,6 +628,7 @@ def create_activity():
             tags=",".join(tags),
             preparation=preparation,
             organizer_id=current_user.id,
+            is_official=is_official,
         )
         db.session.add(activity)
         db.session.commit()

@@ -18,6 +18,8 @@ class User(db.Model):
     interests = db.Column(db.Text)
     role = db.Column(db.String(20), default="user", nullable=False)
     trust_score = db.Column(db.Integer, default=100, nullable=False)
+    is_merchant = db.Column(db.Boolean, default=False, nullable=False)
+    merchant_status = db.Column(db.String(20), default="none", nullable=False)
     status = db.Column(db.String(20), default="active", nullable=False)
     banned_at = db.Column(db.DateTime, nullable=True)
     deleted_at = db.Column(db.DateTime, nullable=True)
@@ -74,6 +76,10 @@ def ensure_user_account_schema():
         statements.append('ALTER TABLE "user" ADD COLUMN deleted_at DATETIME')
     if rows and "bio" not in existing_columns:
         statements.append('ALTER TABLE "user" ADD COLUMN bio TEXT')
+    if rows and "is_merchant" not in existing_columns:
+        statements.append('ALTER TABLE "user" ADD COLUMN is_merchant BOOLEAN NOT NULL DEFAULT 0')
+    if rows and "merchant_status" not in existing_columns:
+        statements.append('ALTER TABLE "user" ADD COLUMN merchant_status VARCHAR(20) NOT NULL DEFAULT \'none\'')
 
     for statement in statements:
         db.session.execute(text(statement))
@@ -104,6 +110,7 @@ class Activity(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     organizer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     preparation = db.Column(db.Text)  # 活动准备事项
+    is_official = db.Column(db.Boolean, default=False, nullable=False)  # US-10-03 官方认证活动标记
 
     organizer = db.relationship("User", back_populates="activities")
     registrations = db.relationship("Registration", back_populates="activity")
@@ -135,6 +142,12 @@ def ensure_activity_schema():
         )
     if rows and "tags" not in existing_columns:
         statements.append("ALTER TABLE activity ADD COLUMN tags TEXT")
+    if rows and "is_official" not in existing_columns:
+        statements.append(
+            "ALTER TABLE activity ADD COLUMN is_official BOOLEAN NOT NULL DEFAULT 0"
+        )
+    if rows and "preparation" not in existing_columns:
+        statements.append("ALTER TABLE activity ADD COLUMN preparation TEXT")
 
     for statement in statements:
         db.session.execute(text(statement))
