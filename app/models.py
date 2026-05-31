@@ -288,7 +288,7 @@ class EmailVerificationCode(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     email = db.Column(db.String(120), nullable=False, index=True)
-    code = db.Column(db.String(20), nullable=False)
+    code = db.Column(db.String(128), nullable=False)
     purpose = db.Column(db.String(30), default="register", nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
     used_at = db.Column(db.DateTime)

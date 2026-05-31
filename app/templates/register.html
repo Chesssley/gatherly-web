@@ -36,6 +36,12 @@
                 {% endfor %}
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <label for="email_code" class="form-label">邮箱验证码</label>
+                <input type="text" id="email_code" name="email_code" class="form-input" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="6 位数字验证码">
+                <button class="button button-secondary" type="submit" formaction="{{ url_for('auth.send_register_code') }}" formmethod="post" formnovalidate style="width: 100%; margin-top: 8px;">发送验证码</button>
+            </div>
+
             <!-- 密码 -->
             <div style="margin-bottom: 16px;">
                 {{ form.password.label(class="form-label") }}

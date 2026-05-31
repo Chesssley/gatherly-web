@@ -20,6 +20,7 @@ from app.models import (
     create_notification,
     db,
 )
+from app.utils.email_verification import verify_email_code
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -883,6 +884,7 @@ def admin_account():
         current_password = request.form.get("current_password", "")
         new_password = request.form.get("new_password", "")
         confirm_password = request.form.get("confirm_password", "")
+        email_changed = email.lower() != (user.email or "").lower()
 
         if not nickname:
             flash("昵称不能为空。", "error")
@@ -902,10 +904,26 @@ def admin_account():
             flash("新密码和确认新密码不一致，无法保存。", "error")
         elif new_password and len(new_password) < 6:
             flash("新密码至少需要 6 个字符。", "error")
+        elif email_changed and not verify_email_code(
+            email,
+            "change_email",
+            request.form.get("email_verification_code", ""),
+            user=user,
+        ):
+            flash("新邮箱验证码错误或已过期，请重新获取。", "error")
+        elif new_password and not verify_email_code(
+            user.email,
+            "change_password",
+            request.form.get("password_verification_code", ""),
+            user=user,
+        ):
+            flash("改密验证码错误或已过期，请重新获取。", "error")
         else:
             user.nickname = nickname
             user.username = username
             user.email = email
+            if email_changed:
+                user.email_verified_at = datetime.utcnow()
             if new_password:
                 user.password = generate_password_hash(new_password)
 
