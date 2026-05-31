@@ -99,6 +99,10 @@
     <div class="container">
         <div class="page-title">
             <p class="eyebrow">{{ circle.tag or "Circle" }}</p>
+            <div class="card-tags circle-detail-tags">
+                {% if circle.is_pinned %}<span class="tag circle-featured-tag">精选圈子</span>{% endif %}
+                {% if circle.is_hot %}<span class="tag circle-hot-tag">热门圈子</span>{% endif %}
+            </div>
             <h1>{{ circle.name }}</h1>
             <p>{{ circle.description }}</p>
             <div class="card-meta circle-meta">
