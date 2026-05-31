@@ -11,8 +11,36 @@
       <h1>编辑个人资料</h1>
     </div>
 
-    <form class="form-card" method="post">
+    <form class="form-card" id="profile-form" method="post" enctype="multipart/form-data">
       <input type="hidden" name="form_type" value="profile">
+      <input id="avatar-file" name="avatar_file" type="file" hidden>
+      <div class="form-group avatar-editor" data-avatar-editor>
+        <label class="form-label" for="avatar-source">头像</label>
+        <div class="avatar-editor-layout">
+          <div class="avatar-current" data-avatar-current>
+            {% if user.avatar %}
+              <img src="{{ user.avatar }}" alt="当前头像">
+            {% else %}
+              <span>{{ (user.nickname or user.username)[:1] }}</span>
+            {% endif %}
+          </div>
+          <div>
+            <input id="avatar-source" type="file" accept="image/jpeg,image/png,image/webp">
+            <p class="form-hint">选择不超过 3MB 的图片。图片只在浏览器中裁剪，服务器只接收压缩后的头像。</p>
+          </div>
+        </div>
+        <div class="avatar-crop-panel" data-avatar-crop-panel hidden>
+          <canvas class="avatar-crop-canvas" data-avatar-canvas width="320" height="320"></canvas>
+          <label class="avatar-zoom-label" for="avatar-zoom">缩放图片</label>
+          <input id="avatar-zoom" data-avatar-zoom type="range" min="1" max="3" step="0.01" value="1">
+          <p class="form-hint">拖动画布中的图片调整位置，使用滑杆缩放。</p>
+        </div>
+        <label class="avatar-remove-option">
+          <input type="checkbox" name="remove_avatar" value="1" data-avatar-remove>
+          <span>恢复默认头像</span>
+        </label>
+        <p class="form-error" data-avatar-error hidden></p>
+      </div>
       <div class="form-group">
         <label class="form-label" for="nickname">昵称</label>
         <input class="form-input" id="nickname" name="nickname" value="{{ user.nickname or '' }}" maxlength="80">
@@ -22,12 +50,13 @@
         <input class="form-input" id="email" name="email" type="email" value="{{ user.email }}" required maxlength="120">
       </div>
       <div class="form-group">
-        <label class="form-label" for="avatar">头像 URL</label>
-        <input class="form-input" id="avatar" name="avatar" value="{{ user.avatar or '' }}" maxlength="255">
+        <label class="form-label" for="bio">个人简介</label>
+        <textarea class="form-input" id="bio" name="bio" rows="5" maxlength="300" placeholder="简单介绍一下自己、常参加的活动或希望认识的伙伴。">{{ user.bio or '' }}</textarea>
+        <p class="form-hint">最多 300 个字符。</p>
       </div>
       <div class="form-group">
         <label class="form-label" for="interests">兴趣标签</label>
-        <input class="form-input" id="interests" name="interests" value="{{ user.interests or '' }}" placeholder="摄影, 露营, 桌游">
+        <input class="form-input" id="interests" name="interests" value="{{ user.interests or '' }}" maxlength="500" placeholder="摄影, 露营, 桌游">
         <p class="form-hint">多个标签用逗号分隔。</p>
       </div>
       <div class="form-group">
@@ -79,4 +108,5 @@
     </form>
   </div>
 </section>
+<script src="{{ url_for('static', filename='js/avatar-crop.js') }}"></script>
 {% endblock %}

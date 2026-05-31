@@ -1,6 +1,7 @@
-from flask import Flask
+from flask import Flask, flash, redirect, request, url_for
+from werkzeug.exceptions import RequestEntityTooLarge
 
-from app.models import db
+from app.models import db, ensure_activity_schema, ensure_user_account_schema
 
 
 def create_app():
@@ -8,8 +9,12 @@ def create_app():
     app.config["SECRET_KEY"] = "dev-secret-key"
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///gatherly.db"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
     db.init_app(app)
+    with app.app_context():
+        ensure_user_account_schema()
+        ensure_activity_schema()
 
     from app.routes.activity import activity_bp
     from app.routes.admin import admin_bp
@@ -22,5 +27,10 @@ def create_app():
     app.register_blueprint(circle_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(admin_bp)
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_request_entity_too_large(error):
+        flash("上传内容过大，请压缩图片或减少图片数量后重试。", "error")
+        return redirect(request.referrer or url_for("activity.index"))
 
     return app

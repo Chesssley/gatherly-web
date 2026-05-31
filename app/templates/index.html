@@ -3,107 +3,299 @@
 {% block title %}首页 - Gatherly{% endblock %}
 
 {% block content %}
-<section class="hero">
-    <div class="hero-content container">
-        <p class="eyebrow">线下小众兴趣活动聚合与同好匹配</p>
-        <h1>找到同频的人，一起把兴趣带到现场。</h1>
-
-        <!-- 搜索栏：US-01-01 首页体验增强 -->
-        <div class="search-bar">
-            <input type="text" placeholder="搜索活动、兴趣或城市..." class="search-input">
-            <button class="button">搜索</button>
+{% macro activity_card(activity, detail_url, favorite_activity_id, demo=false) %}
+<article class="activity-card discover-card" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
+    <div class="card-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
+        <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
+             alt="{{ activity.title }}"
+             onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+        {% if not activity.image_url %}<span class="activity-image-placeholder" aria-hidden="true">&#10024;</span>{% endif %}
+        <div class="card-image-actions">
+            <button class="card-icon-button favorite-button {% if favorite_activity_id in favorite_activity_ids %}is-active{% endif %}"
+                    type="button"
+                    aria-label="收藏 {{ activity.title }}"
+                    aria-pressed="{{ 'true' if favorite_activity_id in favorite_activity_ids else 'false' }}"
+                    data-activity-favorite
+                    data-activity-id="{{ favorite_activity_id }}"
+                    data-activity-title="{{ activity.title }}"
+                    data-activity-time="{{ activity.time }}"
+                    data-activity-location="{{ activity.location }}"
+                    data-activity-detail-url="{{ detail_url }}"
+                    data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=favorite_activity_id) }}"
+                    data-login-url="{{ url_for('auth.login', next=detail_url) }}">
+                <span aria-hidden="true">{% if favorite_activity_id in favorite_activity_ids %}&#9829;{% else %}&#9825;{% endif %}</span>
+            </button>
+            <button class="card-icon-button" type="button" aria-label="复制 {{ activity.title }} 的链接" data-activity-share data-share-url="{{ detail_url }}">
+                <span aria-hidden="true">&#8599;</span>
+            </button>
         </div>
+        {% if demo %}<span class="demo-badge">精选</span>{% endif %}
+    </div>
+    <div class="card-body">
+        <div class="card-tags">
+            {% if activity.tags %}
+                {% for tag in activity.tags %}
+                <span class="tag">{{ tag }}</span>
+                {% endfor %}
+            {% elif activity.category %}
+                <span class="tag">{{ activity.category }}</span>
+            {% endif %}
+        </div>
+        <h3 class="card-title">{{ activity.title }}</h3>
+        <div class="card-meta">
+            <p class="meta-time"><span aria-hidden="true">&#128197;</span> {{ activity.time }}</p>
+            <p class="meta-location"><span aria-hidden="true">&#128205;</span> {{ activity.location }}</p>
+            <p class="card-host"><span aria-hidden="true">&#9673;</span> 主办方：{{ activity.organizer|default("Gatherly 活动发起人") }}</p>
+        </div>
+        <div class="card-social">
+            <span><strong>{{ activity.rating|default("4.8") }}</strong> <span class="rating-star" aria-hidden="true">&#9733;</span> 评分</span>
+            <span>{{ activity.current_people|default(activity.attendees|default(0)) }} 人已报名</span>
+        </div>
+        <div class="card-footer-actions">
+            <button class="copy-link-button" type="button" data-activity-share data-share-url="{{ detail_url }}">复制链接</button>
+            <a class="detail-button" href="{{ detail_url }}">查看详情</a>
+        </div>
+    </div>
+</article>
+{% endmacro %}
 
-        <div class="hero-actions">
-            <a class="button" href="{{ url_for('activity.create_activity') }}">发布活动</a>
-            <a class="button button-secondary" href="{{ url_for('circle.circles') }}">浏览同好圈</a>
+<section class="home-intro">
+    <div class="container home-intro-inner">
+        <div>
+            <p class="eyebrow">Gatherly Activities</p>
+            <h1>发现附近值得参加的活动</h1>
+            <p>从兴趣出发，认识同频的人。近期精选活动已为你整理好。</p>
         </div>
     </div>
 </section>
 
-<section class="section">
+<section class="home-section recommended-section">
     <div class="container">
-        <div class="section-heading">
-            <p class="eyebrow">Featured Activities</p>
-            <h2>近期推荐活动</h2>
+        <div class="home-section-heading">
+            <div>
+                <p class="eyebrow">Recommended</p>
+                <h2>近期推荐活动</h2>
+                <p>先看看近期最值得加入的线下体验。</p>
+            </div>
+            <a class="section-link" href="#discover-events">浏览全部活动 <span aria-hidden="true">&#8594;</span></a>
+        </div>
+        <div class="featured-strip">
+            <article class="featured-card featured-card-main">
+                <div>
+                    <span class="featured-label">本周精选</span>
+                    <h3>周末城市摄影散步</h3>
+                    <p>周六 15:00 · 徐汇滨江</p>
+                    <a href="#discover-events">查看活动</a>
+                </div>
+            </article>
+            <article class="featured-card featured-card-secondary">
+                <div>
+                    <span class="featured-label">热门报名</span>
+                    <h3>手冲咖啡入门体验</h3>
+                    <p>周日 10:30 · 静安咖啡实验室</p>
+                    <a href="#discover-events">查看活动</a>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+
+<section class="home-section my-activities-section">
+    <div class="container">
+        <div class="home-section-heading compact-heading">
+            <div>
+                <p class="eyebrow">My Activities</p>
+                <h2>我的活动</h2>
+            </div>
+        </div>
+        <div class="my-activities-panel">
+            <div class="home-tabs" role="tablist" aria-label="我的活动">
+                <button class="home-tab is-active" type="button" role="tab" aria-selected="true" data-home-tab="registered">已报名</button>
+                <button class="home-tab" type="button" role="tab" aria-selected="false" data-home-tab="favorited">已收藏</button>
+            </div>
+            <div class="home-tab-panel" data-home-tab-panel="registered">
+                {% if session.get("user_id") %}
+                    {% if registered_activities %}
+                    <div class="my-activity-list">
+                        {% for activity in registered_activities %}
+                        <a class="my-activity-item" href="{{ activity.detail_url }}">
+                            <div class="my-activity-item-main">
+                                <span class="tag">{{ activity.category }}</span>
+                                <strong>{{ activity.title }}</strong>
+                            </div>
+                            <span>{{ activity.time }} / {{ activity.location }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="my-activity-empty-state">
+                        <h3>你还没有报名活动</h3>
+                        <p>找到感兴趣的活动，和同频的人一起出发。</p>
+                        <a class="button button-secondary" href="#discover-events">寻找活动</a>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <div class="my-activity-login-guide">
+                        <h3>登录后查看你的活动</h3>
+                        <p>登录后可查看已报名活动，并持续追踪你的线下安排。</p>
+                        <a class="button" href="{{ url_for('auth.login', next=url_for('activity.index')) }}">立即登录</a>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="home-tab-panel" data-home-tab-panel="favorited" hidden>
+                {% if session.get("user_id") %}
+                    {% if favorite_activities %}
+                    <div class="my-activity-list favorite-activity-list" data-favorite-activity-list>
+                        {% for activity in favorite_activities %}
+                        <a class="my-activity-item favorite-activity-item" href="{{ activity.detail_url }}" data-favorite-activity-item="{{ activity.id }}">
+                            <div class="my-activity-item-main">
+                                <span class="tag">{{ activity.category }}</span>
+                                <strong>{{ activity.title }}</strong>
+                            </div>
+                            <span>{{ activity.time }} / {{ activity.location }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    <div class="my-activity-empty-state" data-favorite-empty-state hidden>
+                        <h3>你还没有收藏活动</h3>
+                        <p>看到感兴趣的活动，可以点击卡片右上角收藏。</p>
+                        <a class="button button-secondary" href="#discover-events">去发现活动</a>
+                    </div>
+                    {% else %}
+                    <div class="my-activity-list favorite-activity-list" data-favorite-activity-list hidden></div>
+                    <div class="my-activity-empty-state" data-favorite-empty-state>
+                        <h3>你还没有收藏活动</h3>
+                        <p>看到感兴趣的活动，可以点击卡片右上角收藏。</p>
+                        <a class="button button-secondary" href="#discover-events">去发现活动</a>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <div class="my-activity-login-guide">
+                        <h3>登录后查看你的收藏</h3>
+                        <p>看到感兴趣的活动后可以随时收藏，首页会集中展示在这里。</p>
+                        <a class="button" href="{{ url_for('auth.login', next=url_for('activity.index')) }}">立即登录</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="home-section discover-section" id="discover-events">
+    <div class="container">
+        <div class="home-section-heading">
+            <div>
+                <p class="eyebrow">Discover Activities</p>
+                <h2>发现更多活动</h2>
+                <p>按时间和兴趣快速找到适合你的下一场活动。</p>
+            </div>
         </div>
 
-        <section class="interest-section {% if expand_tags_by_default %}is-expanded{% endif %}" aria-labelledby="interest-title">
+        <div class="discover-toolbar" aria-label="活动时间筛选">
+            <a class="filter-pill is-active" href="{{ url_for('activity.index') }}#discover-events" data-time-filter="any">全部时间</a>
+            <a class="filter-pill" href="{{ url_for('activity.index', time='today') }}#discover-events" data-time-filter="today">今天</a>
+            <a class="filter-pill" href="{{ url_for('activity.index', time='tomorrow') }}#discover-events" data-time-filter="tomorrow">明天</a>
+            <a class="filter-pill" href="{{ url_for('activity.index', time='week') }}#discover-events" data-time-filter="week">本周</a>
+            <a class="filter-pill" href="{{ url_for('activity.index', time='weekend') }}#discover-events" data-time-filter="weekend">本周末</a>
+            <a class="filter-pill" href="{{ url_for('activity.index', time='month') }}#discover-events" data-time-filter="month">本月</a>
+        </div>
+
+        <section class="interest-section" aria-labelledby="interest-title">
             <div class="interest-header">
-                <p class="eyebrow">Interest Tags</p>
-                <h2 class="interest-title" id="interest-title">发现兴趣</h2>
-                <p class="interest-subtitle">从小众兴趣开始，找到附近适合你的线下活动。</p>
+                <h3 class="interest-title" id="interest-title">按兴趣探索</h3>
+                <p class="interest-subtitle">点击分类即可筛选活动。</p>
             </div>
-
-            <div class="interest-tags">
-                <a class="interest-chip {% if not selected_tag %}is-active{% endif %}" href="{{ url_for('activity.index') }}" data-tag="all">全部活动</a>
-                {% if interest_tags %}
-                {% for tag in interest_tags %}
-                <a class="interest-chip {% if loop.index > visible_tag_count %}is-extra-tag{% endif %} {% if selected_tag == tag %}is-active{% endif %}" href="{{ url_for('activity.index', tag=tag) }}" data-tag="{{ tag }}">{{ tag }}</a>
+            {% set meetup_categories = [
+                ("✨", "全部活动", "all", ""),
+                ("👥", "来自同好圈", "circles", ""),
+                ("🎉", "社交活动", "social", "咖啡茶饮,游戏桌游"),
+                ("🎨", "兴趣爱好", "hobbies", "影像摄影,阅读出版,手作艺术,音乐演出,观影戏剧,美食烘焙"),
+                ("⚽", "运动户外", "sports", "运动户外"),
+                ("🌲", "旅行探索", "travel", "城市探索"),
+                ("💼", "职业商业", "career", ""),
+                ("💻", "科技数码", "technology", "科技数码"),
+                ("🏙", "城市生活", "city-life", "城市探索,咖啡茶饮,美食烘焙"),
+                ("🎮", "游戏娱乐", "games", "游戏桌游,观影戏剧"),
+                ("🎵", "音乐舞蹈", "music", "音乐演出"),
+                ("💗", "支持成长", "support", ""),
+                ("🌿", "健康生活", "wellness", "运动户外"),
+                ("🖼", "艺术文化", "arts", "影像摄影,手作艺术,音乐演出,观影戏剧"),
+                ("🔬", "科学教育", "education", "科技数码,阅读出版"),
+                ("🐱", "宠物动物", "pets", ""),
+                ("📖", "阅读写作", "reading", "阅读出版"),
+                ("👨‍👩‍👧", "家庭亲子", "family", ""),
+                ("🤝", "公益志愿", "volunteering", "公益志愿")
+            ] %}
+            <div class="interest-tags icon-category-nav" role="navigation" aria-label="活动分类">
+                {% for icon, label, value, filter_tags in meetup_categories %}
+                <a class="interest-chip icon-category {% if value == 'all' %}is-active{% endif %}"
+                   href="{{ url_for('activity.index', category=value) if value != 'all' else url_for('activity.index') }}#discover-events"
+                   data-category="{{ value }}" data-filter-tags="{{ filter_tags }}">
+                    <span class="icon-category-symbol" aria-hidden="true">{{ icon }}</span>
+                    <span class="icon-category-label">{{ label }}</span>
+                </a>
                 {% endfor %}
-                {% else %}
-                <span class="interest-subtitle">暂无兴趣标签</span>
-                {% endif %}
             </div>
-
-            {% if interest_tags|length > visible_tag_count %}
-            <button type="button"
-                    class="interest-toggle"
-                    data-tag-toggle
-                    aria-expanded="{{ 'true' if expand_tags_by_default else 'false' }}">
-                {{ '收起标签' if expand_tags_by_default else '展开更多兴趣' }}
-            </button>
-            {% endif %}
-
             <div class="filter-status">
-                {% if selected_tag %}
-                <span>当前正在浏览：{{ selected_tag }}</span>
-                <a href="#" class="clear-filter-link">查看全部活动 / 清除筛选</a>
-                {% else %}
                 <span>当前正在浏览：全部活动</span>
-                {% endif %}
             </div>
         </section>
 
-        {% if activities %}
-        <div class="card-grid">
-            {% for activity in activities %}
-            <a href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}" class="activity-card" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}">
-                <!-- 活动封面图 -->
-                <div class="card-image">
-                    <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
-                         alt="{{ activity.title }}"
-                         onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
-                </div>
-                <div class="card-body">
-                    <!-- 兴趣标签 -->
-                    <div class="card-tags">
-                        {% if activity.tags %}
-                            {% for tag in activity.tags %}
-                            <span class="tag">{{ tag }}</span>
-                            {% endfor %}
-                        {% elif activity.category %}
-                            <span class="tag">{{ activity.category }}</span>
-                        {% endif %}
-                    </div>
+        <div class="card-grid activity-discovery-grid">
+            {% if activities %}
+                {% for activity in activities %}
+                    {{ activity_card(activity, url_for('activity.activity_detail', activity_id=activity.id), activity.id, activity.demo|default(false)) }}
+                {% endfor %}
+            {% endif %}
+        </div>
+        <p class="no-match-tip" hidden>暂无匹配的活动，试试其他分类或时间。</p>
+    </div>
+</section>
 
-                    <h3 class="card-title">{{ activity.title }}</h3>
-
-                    <div class="card-meta">
-                        <p class="meta-time">{{ activity.time }}</p>
-                        <p class="meta-location">{{ activity.location }}</p>
-                        <p class="meta-people">{{ activity.current_people }}/{{ activity.max_people }}人</p>
-                    </div>
-                </div>
-            </a>
+<section class="home-section circles-section">
+    <div class="container">
+        <div class="home-section-heading">
+            <div>
+                <p class="eyebrow">Popular Circles</p>
+                <h2>热门同好圈</h2>
+                <p>加入长期交流的兴趣社区，从一次活动认识更多同好。</p>
+            </div>
+            <a class="section-link" href="{{ url_for('circle.circles') }}">查看全部圈子 <span aria-hidden="true">&#8594;</span></a>
+        </div>
+        <div class="popular-circle-grid">
+            {% set home_circles = [
+                {"icon": "&#128247;", "name": "城市摄影散步圈", "tag": "影像摄影", "members": "328", "description": "每周一起探索城市取景点。"},
+                {"icon": "&#9749;", "name": "咖啡与慢生活", "tag": "咖啡茶饮", "members": "246", "description": "分享豆子、器具和线下体验。"},
+                {"icon": "&#127939;", "name": "周末轻运动", "tag": "运动户外", "members": "419", "description": "新手友好的跑步和户外活动。"}
+            ] %}
+            {% for circle in home_circles %}
+            <article class="popular-circle-card">
+                <span class="circle-card-icon" aria-hidden="true">{{ circle.icon|safe }}</span>
+                <span class="tag">{{ circle.tag }}</span>
+                <h3>{{ circle.name }}</h3>
+                <p>{{ circle.description }}</p>
+                <div><strong>{{ circle.members }}</strong> 位成员</div>
+                <a class="section-link" href="{{ url_for('circle.circles') }}">进入圈子 <span aria-hidden="true">&#8594;</span></a>
+            </article>
             {% endfor %}
         </div>
-        {% else %}
-        <div class="empty-state">
-            <p>暂无活动，快去发布第一个活动吧！</p>
-            <a class="button" href="{{ url_for('activity.create_activity') }}">发布活动</a>
+    </div>
+</section>
+
+<section class="home-section trust-section">
+    <div class="container">
+        <div class="home-section-heading">
+            <div>
+                <p class="eyebrow">Trust & Safety</p>
+                <h2>平台信任机制与活动规则</h2>
+                <p>让每一次线下相遇更透明、更安心。</p>
+            </div>
         </div>
-        {% endif %}
+        <div class="trust-grid">
+            <article class="trust-card"><span aria-hidden="true">&#128737;</span><h3>真实参与反馈</h3><p>活动结束后，由实际参与者提交评分与反馈，帮助你判断活动质量。</p></article>
+            <article class="trust-card"><span aria-hidden="true">&#10003;</span><h3>明确报名规则</h3><p>报名人数、活动时间和地点清晰展示，请按约到场并尊重主办方安排。</p></article>
+            <article class="trust-card"><span aria-hidden="true">&#129309;</span><h3>友善社区约定</h3><p>保持尊重、注意安全。如遇不适当行为，请及时联系平台处理。</p></article>
+        </div>
     </div>
 </section>
 {% endblock %}

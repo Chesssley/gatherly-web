@@ -14,6 +14,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     avatar = db.Column(db.String(255))
+    bio = db.Column(db.Text)
     interests = db.Column(db.Text)
     role = db.Column(db.String(20), default="user", nullable=False)
     trust_score = db.Column(db.Integer, default=100, nullable=False)
@@ -24,6 +25,11 @@ class User(db.Model):
 
     activities = db.relationship("Activity", back_populates="organizer")
     registrations = db.relationship("Registration", back_populates="user")
+    activity_favorites = db.relationship(
+        "ActivityFavorite",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
     posts = db.relationship("Post", back_populates="user")
     reviews = db.relationship("Review", back_populates="user")
     activity_reviews = db.relationship("ActivityReview", back_populates="reviewer")
@@ -63,8 +69,15 @@ def ensure_user_account_schema():
 
     rows = db.session.execute(text('PRAGMA table_info("user")')).fetchall()
     existing_columns = {row[1] for row in rows}
+    statements = []
     if rows and "deleted_at" not in existing_columns:
-        db.session.execute(text('ALTER TABLE "user" ADD COLUMN deleted_at DATETIME'))
+        statements.append('ALTER TABLE "user" ADD COLUMN deleted_at DATETIME')
+    if rows and "bio" not in existing_columns:
+        statements.append('ALTER TABLE "user" ADD COLUMN bio TEXT')
+
+    for statement in statements:
+        db.session.execute(text(statement))
+    if statements:
         db.session.commit()
 
 
@@ -78,11 +91,15 @@ class Activity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text)
+    detail = db.Column(db.Text)
+    city = db.Column(db.String(80))
     location = db.Column(db.String(255))
     start_time = db.Column(db.DateTime)
     max_participants = db.Column(db.Integer)
+    initial_participants = db.Column(db.Integer, default=0, nullable=False)
     image = db.Column(db.String(255))
     fee = db.Column(db.Float, default=0, nullable=False)
+    tags = db.Column(db.Text)
     status = db.Column(db.String(20), default="open", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     organizer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
@@ -90,10 +107,39 @@ class Activity(db.Model):
 
     organizer = db.relationship("User", back_populates="activities")
     registrations = db.relationship("Registration", back_populates="activity")
+    favorites = db.relationship(
+        "ActivityFavorite",
+        back_populates="activity",
+        cascade="all, delete-orphan",
+    )
     reviews = db.relationship("Review", back_populates="activity")
     activity_reviews = db.relationship("ActivityReview", back_populates="activity")
     user_reviews = db.relationship("UserReview", back_populates="activity")
     comments = db.relationship("Comment", back_populates="activity")
+
+
+def ensure_activity_schema():
+    if db.engine.dialect.name != "sqlite":
+        return
+
+    rows = db.session.execute(text("PRAGMA table_info(activity)")).fetchall()
+    existing_columns = {row[1] for row in rows}
+    statements = []
+    if rows and "detail" not in existing_columns:
+        statements.append("ALTER TABLE activity ADD COLUMN detail TEXT")
+    if rows and "city" not in existing_columns:
+        statements.append("ALTER TABLE activity ADD COLUMN city VARCHAR(80)")
+    if rows and "initial_participants" not in existing_columns:
+        statements.append(
+            "ALTER TABLE activity ADD COLUMN initial_participants INTEGER NOT NULL DEFAULT 0"
+        )
+    if rows and "tags" not in existing_columns:
+        statements.append("ALTER TABLE activity ADD COLUMN tags TEXT")
+
+    for statement in statements:
+        db.session.execute(text(statement))
+    if statements:
+        db.session.commit()
 
 
 class Registration(db.Model):
@@ -107,20 +153,50 @@ class Registration(db.Model):
     activity = db.relationship("Activity", back_populates="registrations")
 
 
+class ActivityFavorite(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id",
+            "activity_id",
+            name="uq_activity_favorite_user_activity",
+        ),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship("User", back_populates="activity_favorites")
+    activity = db.relationship("Activity", back_populates="favorites")
+
+
 class Circle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     tag = db.Column(db.String(50))
     description = db.Column(db.Text)
+    announcement = db.Column(db.Text)
     owner_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    pinned_post_id = db.Column(db.Integer, db.ForeignKey("post.id"))
+    is_pinned = db.Column(db.Boolean, default=False, nullable=False)
+    pinned_at = db.Column(db.DateTime)
     is_system = db.Column(db.Boolean, default=False, nullable=False)
+    initial_member_count = db.Column(db.Integer, default=0, nullable=False)
     member_count = db.Column(db.Integer, default=0, nullable=False)
     status = db.Column(db.String(20), default="active", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
 
-    posts = db.relationship("Post", back_populates="circle")
+    posts = db.relationship("Post", back_populates="circle", foreign_keys="Post.circle_id")
     members = db.relationship("CircleMember", back_populates="circle")
     owner = db.relationship("User", foreign_keys=[owner_id])
+    pinned_post = db.relationship("Post", foreign_keys=[pinned_post_id], post_update=True)
 
 
 class Post(db.Model):
@@ -134,7 +210,7 @@ class Post(db.Model):
     circle_id = db.Column(db.Integer, db.ForeignKey("circle.id"), nullable=False)
 
     user = db.relationship("User", back_populates="posts")
-    circle = db.relationship("Circle", back_populates="posts")
+    circle = db.relationship("Circle", back_populates="posts", foreign_keys=[circle_id])
     comments = db.relationship("Comment", back_populates="post")
     images = db.relationship(
         "PostImage",
@@ -415,21 +491,6 @@ class Review(db.Model):
     activity = db.relationship("Activity", back_populates="reviews")
     user = db.relationship("User", back_populates="reviews")
 
-
-# Temporary data kept only so the existing page routes can run before database
-# query logic is implemented in later tasks.
-activities = [
-    {
-        "id": 1,
-        "title": "示例活动标题",
-        "category": "示例标签",
-        "time": "待补充",
-        "location": "待补充",
-        "capacity": "待补充",
-        "description": "待补充活动简介",
-        "detail": "待补充活动详情",
-    }
-]
 
 circles = [
     {
