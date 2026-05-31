@@ -451,6 +451,35 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  const myEventsSearch = document.querySelector("[data-my-events-search]");
+  const myEventsSearchToggle = myEventsSearch?.querySelector("[data-my-events-search-toggle]");
+  const myEventsSearchField = myEventsSearch?.querySelector("[data-my-events-search-field]");
+  const myEventsSearchInput = myEventsSearch?.querySelector("[data-my-events-search-input]");
+
+  const toggleMyEventsSearch = (shouldOpen) => {
+    if (!myEventsSearch || !myEventsSearchToggle || !myEventsSearchField) {
+      return;
+    }
+
+    myEventsSearch.classList.toggle("is-open", shouldOpen);
+    myEventsSearchToggle.setAttribute("aria-expanded", String(shouldOpen));
+    myEventsSearchField.hidden = !shouldOpen;
+    if (shouldOpen) {
+      myEventsSearchInput?.focus();
+    }
+  };
+
+  if (myEventsSearchToggle && myEventsSearchField) {
+    myEventsSearchToggle.addEventListener("click", () => {
+      const shouldOpen = !myEventsSearch.classList.contains("is-open");
+      if (!shouldOpen && myEventsSearchInput?.value.trim()) {
+        myEventsSearchInput.focus();
+        return;
+      }
+      toggleMyEventsSearch(shouldOpen);
+    });
+  }
+
   const togglePanel = (button, panel, shouldOpen) => {
     if (!button || !panel) {
       return;
@@ -512,6 +541,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("keydown", event => {
     if (event.key === "Escape") {
       closeNavigationPanels();
+      if (!myEventsSearchInput?.value.trim()) {
+        toggleMyEventsSearch(false);
+      }
     }
   });
 });

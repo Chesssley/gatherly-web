@@ -380,13 +380,23 @@ def my_events():
     user_id = session["user_id"]
     active_tab = request.args.get("tab", "joined")
     tab_labels = {
-        "joined": "我报名的活动",
         "created": "我创建的活动",
-        "saved": "已收藏",
-        "history": "历史活动 / 已结束",
+        "joined": "我报名的活动",
+        "saved": "我收藏的活动",
     }
     if active_tab not in tab_labels:
         active_tab = "joined"
+
+    active_status = request.args.get("status", "all")
+    status_labels = {
+        "all": "全部",
+        "upcoming": "即将开始",
+        "ended": "已结束",
+    }
+    if active_status not in status_labels:
+        active_status = "all"
+
+    search_query = request.args.get("q", "").strip()
 
     if active_tab == "created":
         query = Activity.query.filter(Activity.organizer_id == user_id)
@@ -398,27 +408,6 @@ def my_events():
             )
             .filter(ActivityFavorite.user_id == user_id)
         )
-    elif active_tab == "history":
-        query = (
-            Activity.query.outerjoin(
-                Registration,
-                and_(
-                    Registration.activity_id == Activity.id,
-                    Registration.user_id == user_id,
-                ),
-            )
-            .filter(
-                or_(
-                    Activity.organizer_id == user_id,
-                    Registration.user_id == user_id,
-                ),
-                or_(
-                    Activity.status == "closed",
-                    Activity.start_time < datetime.utcnow(),
-                ),
-            )
-            .distinct()
-        )
     else:
         query = (
             Activity.query.join(
@@ -429,7 +418,27 @@ def my_events():
             .distinct()
         )
 
-    db_activities = query.order_by(Activity.start_time.desc(), Activity.id.desc()).all()
+    now = datetime.utcnow()
+    ended_filter = or_(
+        Activity.status == "closed",
+        and_(Activity.start_time.isnot(None), Activity.start_time < now),
+    )
+    if active_status == "upcoming":
+        query = query.filter(
+            Activity.status != "closed",
+            or_(Activity.start_time.is_(None), Activity.start_time >= now),
+        )
+        ordering = (Activity.start_time.asc(), Activity.id.desc())
+    elif active_status == "ended":
+        query = query.filter(ended_filter)
+        ordering = (Activity.start_time.desc(), Activity.id.desc())
+    else:
+        ordering = (Activity.start_time.desc(), Activity.id.desc())
+
+    if search_query:
+        query = query.filter(Activity.title.ilike(f"%{search_query}%"))
+
+    db_activities = query.order_by(*ordering).all()
     activity_ids = [activity.id for activity in db_activities]
     reg_counts = {}
     if activity_ids:
@@ -447,8 +456,11 @@ def my_events():
     return render_template(
         "my_events.html",
         active_tab=active_tab,
+        active_status=active_status,
+        search_query=search_query,
         activities=activities,
         tab_labels=tab_labels,
+        status_labels=status_labels,
     )
 
 
