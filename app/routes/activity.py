@@ -12,6 +12,7 @@ from app.models import (
     db,
     Activity,
     ActivityFavorite,
+    ActivityReview,
     Circle,
     Comment,
     ProfileVisibility,
@@ -397,12 +398,20 @@ def _get_activity_comments(activity_id):
     )
 
 
-def _activity_to_summary(activity, registration_count=0, favorite_count=0, attendee_previews=None):
+def _activity_to_summary(
+    activity,
+    registration_count=0,
+    favorite_count=0,
+    attendee_previews=None,
+    rating_stats=None,
+):
     tags = _split_tags(activity.tags)
     category = tags[0] if tags else DEFAULT_ACTIVITY_TAG
     heat_score = _activity_heat_score(activity, registration_count, favorite_count)
     current_people = (activity.initial_participants or 0) + registration_count
     attendee_previews = attendee_previews or []
+    rating_stats = rating_stats or {}
+    rating_average = rating_stats.get("rating_average")
     organizer_is_verified = is_verified_merchant(activity.organizer)
     is_gatherly_official = bool(
         activity.is_official or (activity.organizer and activity.organizer.role == "admin")
@@ -436,6 +445,8 @@ def _activity_to_summary(activity, registration_count=0, favorite_count=0, atten
         "attendee_previews": attendee_previews,
         "attendee_remaining_count": max(0, current_people - len(attendee_previews)),
         "favorite_count": favorite_count,
+        "rating_average": round(float(rating_average), 1) if rating_average is not None else None,
+        "rating_count": rating_stats.get("rating_count", 0),
         "heat_score": heat_score,
         "is_featured": activity.is_featured,
         "is_official": is_gatherly_official,
@@ -705,7 +716,7 @@ def index():
     interest_tags = OFFICIAL_INTEREST_TAGS
     categories = interest_tags
     visible_tag_count = len(interest_tags)
-    featured_db_activities = Activity.query.all()
+    featured_db_activities = Activity.query.filter(Activity.status == "open").all()
     query = Activity.query
     if selected_category:
         query = query.filter(Activity.tags.ilike(f"%{selected_category}%"))
@@ -721,6 +732,22 @@ def index():
         .group_by(ActivityFavorite.activity_id)
         .all()
     )
+    activity_ratings = {
+        activity_id: {
+            "rating_average": rating_average,
+            "rating_count": rating_count,
+        }
+        for activity_id, rating_average, rating_count in (
+            db.session.query(
+                ActivityReview.activity_id,
+                func.avg(ActivityReview.average_score),
+                func.count(ActivityReview.id),
+            )
+            .filter(ActivityReview.status == "published")
+            .group_by(ActivityReview.activity_id)
+            .all()
+        )
+    }
     featured_reg_counts = reg_counts
     featured_favorite_counts = favorite_counts
     featured_attendee_previews = _get_activity_attendee_previews(
@@ -732,6 +759,7 @@ def index():
             featured_reg_counts.get(activity.id, 0),
             featured_favorite_counts.get(activity.id, 0),
             featured_attendee_previews.get(activity.id, []),
+            activity_ratings.get(activity.id),
         )
         for activity in featured_db_activities
     ]
@@ -750,6 +778,7 @@ def index():
             reg_counts.get(activity.id, 0),
             favorite_counts.get(activity.id, 0),
             attendee_previews.get(activity.id, []),
+            activity_ratings.get(activity.id),
         )
         for activity in db_activities
     ]
@@ -776,8 +805,19 @@ def index():
     featured_activities = [
         activity
         for activity in featured_normalized_activities
-        if activity["is_featured"] and activity["is_upcoming"] and activity["status"] == "open"
+        if activity["status"] == "open" and activity["phase"] in {"upcoming", "ongoing"}
     ]
+    featured_activities.sort(
+        key=lambda activity: (
+            0 if activity["is_featured"] else 1,
+            0 if activity["is_official"] or activity["organizer_is_verified"] else 1,
+            activity["time"],
+            -activity["current_people"],
+            -activity["favorite_count"],
+            activity["id"],
+        )
+    )
+    featured_activities = featured_activities[:12]
 
     filtered_activities = [
         activity for activity in normalized_activities if activity["status"] == "open"
@@ -801,6 +841,7 @@ def index():
     )
 
     favorite_activity_ids = set()
+    registered_activity_ids = set()
     if "user_id" in session:
         user_id = session["user_id"]
         favorite_rows = (
@@ -808,8 +849,16 @@ def index():
             .order_by(ActivityFavorite.created_at.desc())
             .all()
         )
+        registered_rows = (
+            Registration.query.filter(
+                Registration.user_id == user_id,
+                Registration.status != "cancelled",
+            )
+            .all()
+        )
 
         favorite_activity_ids = {favorite.activity_id for favorite in favorite_rows}
+        registered_activity_ids = {registration.activity_id for registration in registered_rows}
 
     return render_template(
         "index.html",
@@ -824,6 +873,7 @@ def index():
         selected_time=selected_time,
         visible_tag_count=visible_tag_count,
         favorite_activity_ids=favorite_activity_ids,
+        registered_activity_ids=registered_activity_ids,
     )
 
 

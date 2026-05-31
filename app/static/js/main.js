@@ -449,7 +449,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   document.querySelectorAll("[data-activity-favorite]").forEach(button => {
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", async event => {
+      event.preventDefault();
+      event.stopPropagation();
       if (!button.dataset.favoriteUrl) {
         return;
       }
@@ -499,31 +501,56 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  document.querySelectorAll("[data-featured-carousel]").forEach(carousel => {
-    const strip = carousel.querySelector("[data-featured-strip]");
-    const previousButton = carousel.querySelector("[data-featured-previous]");
-    const nextButton = carousel.querySelector("[data-featured-next]");
-    if (!strip || !previousButton || !nextButton) {
-      return;
-    }
+  const initHorizontalCardScroller = ({
+    carouselSelector,
+    trackSelector,
+    previousSelector,
+    nextSelector,
+    cardSelector,
+  }) => {
+    document.querySelectorAll(carouselSelector).forEach(carousel => {
+      const strip = carousel.querySelector(trackSelector);
+      const previousButton = carousel.querySelector(previousSelector);
+      const nextButton = carousel.querySelector(nextSelector);
+      if (!strip || !previousButton || !nextButton) {
+        return;
+      }
 
-    const updateCarouselButtons = () => {
-      const maxScrollLeft = Math.max(0, strip.scrollWidth - strip.clientWidth);
-      previousButton.disabled = strip.scrollLeft <= 1;
-      nextButton.disabled = strip.scrollLeft >= maxScrollLeft - 1;
-    };
+      const updateCarouselButtons = () => {
+        const maxScrollLeft = Math.max(0, strip.scrollWidth - strip.clientWidth);
+        previousButton.disabled = strip.scrollLeft <= 1;
+        nextButton.disabled = strip.scrollLeft >= maxScrollLeft - 1;
+      };
 
-    const scrollFeaturedCards = direction => {
-      const firstCard = strip.querySelector(".featured-card");
-      const scrollDistance = firstCard ? firstCard.offsetWidth + 16 : strip.clientWidth;
-      strip.scrollBy({ left: direction * scrollDistance, behavior: "smooth" });
-    };
+      const scrollFeaturedCards = direction => {
+        const firstCard = strip.querySelector(cardSelector);
+        const gap = Number.parseFloat(window.getComputedStyle(strip).columnGap || "0") || 0;
+        const scrollDistance = firstCard ? firstCard.offsetWidth + gap : strip.clientWidth;
+        strip.scrollBy({ left: direction * scrollDistance, behavior: "smooth" });
+      };
 
-    previousButton.addEventListener("click", () => scrollFeaturedCards(-1));
-    nextButton.addEventListener("click", () => scrollFeaturedCards(1));
-    strip.addEventListener("scroll", updateCarouselButtons, { passive: true });
-    window.addEventListener("resize", updateCarouselButtons);
-    updateCarouselButtons();
+      previousButton.addEventListener("click", () => scrollFeaturedCards(-1));
+      nextButton.addEventListener("click", () => scrollFeaturedCards(1));
+      strip.addEventListener("scroll", updateCarouselButtons, { passive: true });
+      window.addEventListener("resize", updateCarouselButtons);
+      updateCarouselButtons();
+    });
+  };
+
+  initHorizontalCardScroller({
+    carouselSelector: "[data-recommended-carousel]",
+    trackSelector: "[data-recommended-track]",
+    previousSelector: "[data-recommended-previous]",
+    nextSelector: "[data-recommended-next]",
+    cardSelector: ".recommended-card",
+  });
+
+  initHorizontalCardScroller({
+    carouselSelector: "[data-featured-carousel]",
+    trackSelector: "[data-featured-strip]",
+    previousSelector: "[data-featured-previous]",
+    nextSelector: "[data-featured-next]",
+    cardSelector: ".featured-card",
   });
 
   document.querySelectorAll("[data-login-required]").forEach(button => {
