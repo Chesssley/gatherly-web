@@ -72,6 +72,10 @@
               </a>
             </div>
           </section>
+
+          {% set merchant_verification_id_prefix = 'profile-' %}
+          {% set merchant_verification_return_to = 'profile' %}
+          {% include "_merchant_verification.html" %}
           {% endif %}
         </div>
       </div>

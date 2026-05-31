@@ -63,6 +63,10 @@
 
                     <h1 class="meetup-detail-title">{{ activity.title }}</h1>
                     <p class="meetup-detail-host">主办方 <strong>{{ organizer_name }}</strong></p>
+                    <div class="card-activity-badges">
+                        {% if activity.organizer_is_verified %}<span class="activity-badge is-official">官方认证</span>{% endif %}
+                        {% if activity.is_featured %}<span class="activity-badge is-featured">优质活动</span>{% endif %}
+                    </div>
 
                     <div class="meetup-detail-circle-card">
                         <span class="meetup-detail-circle-mark" aria-hidden="true">G</span>

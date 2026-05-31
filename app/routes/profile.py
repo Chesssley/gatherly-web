@@ -16,6 +16,7 @@ from app.models import (
     CircleMember,
     Comment,
     Interaction,
+    MerchantVerification,
     Post,
     ProfileVisibility,
     Registration,
@@ -273,6 +274,13 @@ def _profile_context(user, visibility, is_owner=True):
         "display_name": get_user_display_name(user),
         "is_owner": is_owner,
         "visibility": visibility,
+        "latest_merchant_verification": (
+            MerchantVerification.query.filter_by(user_id=user.id)
+            .order_by(MerchantVerification.created_at.desc())
+            .first()
+            if is_owner
+            else None
+        ),
         "permissions": {
             "interests": is_owner or bool(visibility.show_interests),
             "activities": is_owner,

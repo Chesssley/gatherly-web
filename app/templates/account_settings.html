@@ -8,29 +8,8 @@
     <a class="back-link" href="{{ url_for('profile.my_profile') }}">返回个人主页</a>
     <h1>账号设置</h1>
 
-    <div class="form-card">
-      <h2>商家认证</h2>
-      <p>提交认证后，管理员会在独立通知中心收到审核提醒。</p>
-      {% if latest_merchant_verification %}
-        <p>最近申请：{{ latest_merchant_verification.business_name }}，状态：<strong>{{ latest_merchant_verification.status }}</strong></p>
-        {% if latest_merchant_verification.reject_reason %}<p>未通过原因：{{ latest_merchant_verification.reject_reason }}</p>{% endif %}
-      {% endif %}
-      {% if not latest_merchant_verification or latest_merchant_verification.status != 'pending' %}
-      <form method="post" action="{{ url_for('auth.apply_merchant_verification') }}">
-        <div class="form-group">
-          <label class="form-label" for="business_name">商家名称</label>
-          <input class="form-input" id="business_name" name="business_name" maxlength="120" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="license_number">营业执照编号（选填）</label>
-          <input class="form-input" id="license_number" name="license_number" maxlength="120">
-        </div>
-        <div class="form-actions">
-          <button class="button" type="submit">提交认证申请</button>
-        </div>
-      </form>
-      {% endif %}
-    </div>
+    {% set merchant_verification_id_prefix = 'settings-' %}
+    {% include "_merchant_verification.html" %}
 
     <div class="form-card danger-zone">
       <h2>注销账号</h2>

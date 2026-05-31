@@ -282,9 +282,17 @@ def admin_users():
     if filters["type"]:
         query = query.filter(User.role == filters["type"])
     users = _apply_sort(query, User.created_at, User.id).all()
+    verified_merchant_user_ids = {
+        row[0]
+        for row in db.session.query(MerchantVerification.user_id)
+        .filter(MerchantVerification.status == "approved")
+        .distinct()
+        .all()
+    }
     return render_template(
         "admin_users.html",
         users=users,
+        verified_merchant_user_ids=verified_merchant_user_ids,
         filters=filters,
         status_options=sorted(USER_STATUSES | {"deleted"}),
         type_options=["user", "admin"],
@@ -398,6 +406,99 @@ def demote_admin(user_id):
     db.session.commit()
     flash("已撤销管理员权限", "success")
     return redirect(url_for("admin.admin_users"))
+
+
+def _update_user_merchant_status(user_id, grant):
+    user = User.query.get_or_404(user_id)
+    admin = get_current_user()
+    approved_verifications = MerchantVerification.query.filter_by(
+        user_id=user.id,
+        status="approved",
+    ).all()
+
+    if grant:
+        if user.status != "active":
+            flash("只有正常状态的用户可以授予商家资质。", "error")
+            return redirect(url_for("admin.admin_users"))
+        if approved_verifications:
+            flash("该用户已经拥有商家资质。", "info")
+            return redirect(url_for("admin.admin_users"))
+
+        verification = MerchantVerification(
+            user_id=user.id,
+            business_name=user.nickname or user.username,
+            reason="管理员在用户管理中手动授予商家资质。",
+            status="approved",
+            reviewer_id=admin.id,
+            reviewed_at=datetime.utcnow(),
+        )
+        db.session.add(verification)
+        db.session.flush()
+        create_notification(
+            user.id,
+            "merchant_verification_result",
+            "商家资质已授予",
+            "管理员已为您授予商家资质。您现在可以发布官方认证或优质活动。",
+            "merchant_verification",
+            verification.id,
+        )
+        log_admin_action(
+            admin.id,
+            "grant_merchant_qualification",
+            "用户",
+            user.id,
+            "merchant_qualification: false -> true",
+        )
+        message = "已授予商家资质"
+    else:
+        if not approved_verifications:
+            flash("该用户当前没有商家资质。", "info")
+            return redirect(url_for("admin.admin_users"))
+
+        for verification in approved_verifications:
+            verification.status = "revoked"
+            verification.reviewer_id = admin.id
+            verification.reviewed_at = datetime.utcnow()
+        create_notification(
+            user.id,
+            "merchant_verification_result",
+            "商家资质已取消",
+            "管理员已取消您的商家资质。您创建的活动将不再显示官方认证标识。",
+            "user",
+            user.id,
+        )
+        log_admin_action(
+            admin.id,
+            "revoke_merchant_qualification",
+            "用户",
+            user.id,
+            "merchant_qualification: true -> false",
+        )
+        message = "已取消商家资质"
+
+    db.session.commit()
+    flash(message, "success")
+    return redirect(url_for("admin.admin_users"))
+
+
+@admin_bp.route("/admin/users/<int:user_id>/action", methods=["POST"])
+@admin_required
+def apply_user_action(user_id):
+    action = request.form.get("action", "").strip()
+    handlers = {
+        "promote_admin": promote_admin,
+        "demote_admin": demote_admin,
+        "ban": ban_user,
+        "unban": unban_user,
+    }
+    if action == "grant_merchant":
+        return _update_user_merchant_status(user_id, True)
+    if action == "revoke_merchant":
+        return _update_user_merchant_status(user_id, False)
+    if action not in handlers:
+        flash("请选择有效的用户操作。", "error")
+        return redirect(url_for("admin.admin_users"))
+    return handlers[action](user_id)
 
 
 @admin_bp.route("/admin/activities")
@@ -857,7 +958,8 @@ def review_merchant_verification(verification_id):
         "review_merchant_verification",
         "merchant_verification",
         verification.id,
-        f"status: pending -> {decision}",
+        f"status: pending -> {decision}"
+        + (f"; reject_reason: {reject_reason}" if reject_reason else ""),
     )
     db.session.commit()
     flash("商家认证审核结果已保存。", "success")

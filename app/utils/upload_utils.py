@@ -37,12 +37,12 @@ def validate_image_files(files, max_count, max_bytes):
         if extension not in ALLOWED_IMAGE_EXTENSIONS:
             raise ValueError("图片格式不支持，请上传 jpg、jpeg、png 或 webp 图片。")
 
-        content = file.stream.read(max_bytes + 1)
+        content = file.stream.read(max_bytes)
         file.stream.seek(0)
         if not content:
             raise ValueError("图片文件不能为空。")
-        if len(content) > max_bytes:
-            raise ValueError(f"单张图片不能超过 {max_bytes // 1024}KB。")
+        if len(content) >= max_bytes:
+            raise ValueError(f"单张图片必须小于 {max_bytes // 1024}KB。")
         if not _content_matches_extension(content, extension):
             raise ValueError("图片文件内容与格式不匹配，请重新选择图片。")
 
