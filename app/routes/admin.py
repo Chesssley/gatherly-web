@@ -24,7 +24,8 @@ from app.models import (
 admin_bp = Blueprint("admin", __name__)
 
 USER_STATUSES = {"active", "banned"}
-ACTIVITY_STATUSES = {"open", "hidden", "closed"}
+ACTIVITY_STATUSES = {"open", "hidden", "closed", "cancelled"}
+ADMIN_ACTIVITY_CANCEL_REASON = "管理员后台取消活动"
 CIRCLE_STATUSES = {"active", "hidden"}
 CONTENT_STATUSES = {"published", "hidden"}
 SORT_OPTIONS = {"newest", "oldest"}
@@ -124,7 +125,7 @@ def _notify_admin_result(target, previous_status, new_status):
         related_type = "activity"
         recipient_ids.add(target.organizer_id)
         label = f"活动“{target.title}”"
-        if new_status == "closed":
+        if new_status in {"closed", "cancelled"}:
             recipient_ids.update(
                 row[0]
                 for row in db.session.query(Registration.user_id)
@@ -197,6 +198,16 @@ def _update_status(model, target_id, allowed_statuses, target_type, list_endpoin
         return redirect(url_for(list_endpoint))
 
     target.status = new_status
+    if isinstance(target, Activity):
+        if new_status == "cancelled":
+            target.cancel_reason = (
+                request.form.get("cancel_reason", "").strip()
+                or ADMIN_ACTIVITY_CANCEL_REASON
+            )
+            target.cancelled_at = datetime.utcnow()
+        elif previous_status == "cancelled":
+            target.cancel_reason = None
+            target.cancelled_at = None
     _notify_admin_result(target, previous_status, new_status)
     log_admin_action(
         get_current_user().id,
