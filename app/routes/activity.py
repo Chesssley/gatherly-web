@@ -479,20 +479,8 @@ def index():
     )
 
     favorite_activity_ids = set()
-    favorite_activities = []
-    registered_activities = []
     if "user_id" in session:
         user_id = session["user_id"]
-        activity_lookup = {activity.id: activity for activity in db_activities}
-
-        registration_rows = (
-            Registration.query.filter(
-                Registration.user_id == user_id,
-                Registration.status != "cancelled",
-            )
-            .order_by(Registration.register_time.desc())
-            .all()
-        )
         favorite_rows = (
             ActivityFavorite.query.filter_by(user_id=user_id)
             .order_by(ActivityFavorite.created_at.desc())
@@ -500,24 +488,6 @@ def index():
         )
 
         favorite_activity_ids = {favorite.activity_id for favorite in favorite_rows}
-        registered_activities = [
-            _activity_to_summary(
-                activity_lookup[row.activity_id],
-                reg_counts.get(row.activity_id, 0),
-                favorite_counts.get(row.activity_id, 0),
-            )
-            for row in registration_rows
-            if row.activity_id in activity_lookup
-        ]
-        favorite_activities = [
-            _activity_to_summary(
-                activity_lookup[row.activity_id],
-                reg_counts.get(row.activity_id, 0),
-                favorite_counts.get(row.activity_id, 0),
-            )
-            for row in favorite_rows
-            if row.activity_id in activity_lookup
-        ]
 
     return render_template(
         "index.html",
@@ -528,9 +498,7 @@ def index():
         interest_tags=interest_tags,
         selected_tag=selected_tag,
         visible_tag_count=visible_tag_count,
-        registered_activities=registered_activities,
         favorite_activity_ids=favorite_activity_ids,
-        favorite_activities=favorite_activities,
     )
 
 
