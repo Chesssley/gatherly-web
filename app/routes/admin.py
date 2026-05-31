@@ -377,6 +377,23 @@ def update_activity_status(activity_id):
     )
 
 
+@admin_bp.route("/admin/activities/<int:activity_id>/featured", methods=["POST"])
+@admin_required
+def toggle_activity_featured(activity_id):
+    activity = Activity.query.get_or_404(activity_id)
+    activity.is_featured = not activity.is_featured
+    log_admin_action(
+        get_current_user().id,
+        "toggle_featured",
+        "活动",
+        activity.id,
+        f"is_featured: {not activity.is_featured} -> {activity.is_featured}",
+    )
+    db.session.commit()
+    flash("活动精选状态已更新。", "success")
+    return redirect(url_for("admin.admin_activities"))
+
+
 @admin_bp.route("/admin/circles")
 @admin_required
 def admin_circles():
