@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section profile-page">
+  <div class="container">
+    <div class="profile-layout">
+      {% include "_profile_sidebar.html" %}
+
+      <div class="profile-main">
+        {% if is_owner %}
+          {% set active_profile_tab = relationship %}
+          {% include "_profile_tabs.html" %}
+        {% endif %}
+
+        <section class="profile-section-content" aria-labelledby="follow-list-title">
+          <div class="profile-section-title">
+            <div>
+              <p class="eyebrow">People</p>
+              <h1 id="follow-list-title">{{ heading }}</h1>
+            </div>
+            <a class="button button-small button-secondary" href="{{ url_for('profile.user_search') }}">搜索用户</a>
+          </div>
+
+          <form class="people-search-form compact" method="get" role="search">
+            <label class="sr-only" for="follow-search-q">在{{ heading }}中搜索</label>
+            <input id="follow-search-q" name="q" type="search" value="{{ query }}" placeholder="在{{ heading }}中搜索用户">
+            <button class="button button-small" type="submit">搜索</button>
+          </form>
+
+          <div class="user-card-list">
+            {% for row in rows %}
+              {% set card_user = row.follower if relationship == 'followers' else row.followed %}
+              {% include "_user_card.html" %}
+            {% else %}
+              <p class="rating-empty">暂无匹配用户。</p>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

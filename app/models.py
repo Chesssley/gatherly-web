@@ -68,6 +68,18 @@ class User(db.Model):
         back_populates="user",
     )
     notifications = db.relationship("Notification", back_populates="recipient")
+    following = db.relationship(
+        "UserFollow",
+        foreign_keys="UserFollow.follower_id",
+        back_populates="follower",
+        cascade="all, delete-orphan",
+    )
+    followers = db.relationship(
+        "UserFollow",
+        foreign_keys="UserFollow.followed_id",
+        back_populates="followed",
+        cascade="all, delete-orphan",
+    )
     sent_messages = db.relationship(
         "DirectMessage",
         foreign_keys="DirectMessage.sender_id",
@@ -369,8 +381,11 @@ class DirectMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sender_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     recipient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    content = db.Column(db.Text, nullable=False)
-    read_at = db.Column(db.DateTime)
+    content = db.Column(db.Text)
+    message_type = db.Column(db.String(20), default="text", nullable=False)
+    image_path = db.Column(db.String(255))
+    read_at = db.Column(db.DateTime, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     sender = db.relationship(
@@ -383,6 +398,102 @@ class DirectMessage(db.Model):
         foreign_keys=[recipient_id],
         back_populates="received_messages",
     )
+
+
+DIRECT_MESSAGE_RETENTION_DAYS = 180
+
+
+class UserFollow(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint("follower_id", "followed_id", name="uq_user_follow_pair"),
+        db.CheckConstraint("follower_id != followed_id", name="ck_user_follow_not_self"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    follower_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    followed_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    follower = db.relationship(
+        "User",
+        foreign_keys=[follower_id],
+        back_populates="following",
+    )
+    followed = db.relationship(
+        "User",
+        foreign_keys=[followed_id],
+        back_populates="followers",
+    )
+
+
+def users_are_mutual_followers(user_a_id, user_b_id):
+    if user_a_id == user_b_id:
+        return True
+    return (
+        UserFollow.query.filter_by(follower_id=user_a_id, followed_id=user_b_id).first()
+        is not None
+        and UserFollow.query.filter_by(follower_id=user_b_id, followed_id=user_a_id).first()
+        is not None
+    )
+
+
+def cleanup_expired_direct_messages(now=None):
+    return DirectMessage.query.filter(
+        DirectMessage.expires_at <= (now or datetime.utcnow())
+    ).delete(synchronize_session=False)
+
+
+def ensure_direct_message_schema():
+    DirectMessage.__table__.create(db.engine, checkfirst=True)
+    UserFollow.__table__.create(db.engine, checkfirst=True)
+    if db.engine.dialect.name != "sqlite":
+        return
+
+    rows = db.session.execute(text("PRAGMA table_info(direct_message)")).fetchall()
+    existing_columns = {row[1] for row in rows}
+    if rows and "message_type" not in existing_columns:
+        db.session.execute(
+            text(
+                "ALTER TABLE direct_message ADD COLUMN message_type "
+                "VARCHAR(20) NOT NULL DEFAULT 'text'"
+            )
+        )
+    if rows and "image_path" not in existing_columns:
+        db.session.execute(text("ALTER TABLE direct_message ADD COLUMN image_path VARCHAR(255)"))
+    if rows and "expires_at" not in existing_columns:
+        db.session.execute(text("ALTER TABLE direct_message ADD COLUMN expires_at DATETIME"))
+        db.session.execute(
+            text(
+                "UPDATE direct_message SET expires_at = "
+                "datetime(COALESCE(created_at, CURRENT_TIMESTAMP), '+180 days') "
+                "WHERE expires_at IS NULL"
+            )
+        )
+    db.session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_direct_message_sender_id "
+            "ON direct_message (sender_id)"
+        )
+    )
+    db.session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_direct_message_recipient_id "
+            "ON direct_message (recipient_id)"
+        )
+    )
+    db.session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_direct_message_read_at "
+            "ON direct_message (read_at)"
+        )
+    )
+    db.session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_direct_message_expires_at "
+            "ON direct_message (expires_at)"
+        )
+    )
+    db.session.commit()
 
 
 class MerchantVerification(db.Model):
@@ -448,11 +559,9 @@ def ensure_task_foundation_schema():
     ensure_user_account_schema()
     ensure_activity_schema()
     ensure_registration_schema()
-    for model in (
-        EmailVerificationCode,
-        DirectMessage,
-    ):
+    for model in (EmailVerificationCode,):
         model.__table__.create(db.engine, checkfirst=True)
+    ensure_direct_message_schema()
     ensure_merchant_verification_schema()
     ensure_notification_schema()
 

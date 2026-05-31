@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_list_filters.html" import list_filters %}
+
+{% block title %}{{ page_title }} - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section profile-page">
+  <div class="container">
+    <div class="profile-layout">
+      {% include "_profile_sidebar.html" %}
+
+      <div class="profile-main">
+        {% if is_owner %}
+          {% set active_profile_tab = 'circles' %}
+          {% include "_profile_tabs.html" %}
+        {% endif %}
+
+        <section class="profile-section-content" aria-labelledby="profile-user-circles-title">
+          <div class="profile-section-title">
+            <div>
+              <p class="eyebrow">Member</p>
+              <h1 id="profile-user-circles-title">已加入同好圈</h1>
+            </div>
+          </div>
+
+          {{ list_filters('profile.user_circles', filters, ['active'], ['member', 'owner'], 'circle', reset_url, '', true) }}
+
+          <div class="profile-member-grid">
+            {% for item in items %}
+            <a class="profile-member-card" href="{{ url_for('circle.circle_detail', circle_id=item.id) }}">
+              <span class="profile-member-thumb" aria-hidden="true">{{ item.name[:1]|upper }}</span>
+              <span>
+                <strong>{{ item.name }}</strong>
+                <small>{{ item.role }} · {{ item.time.strftime('%Y-%m-%d') if item.time else '-' }}</small>
+              </span>
+            </a>
+            {% else %}
+            <p class="rating-empty">当前暂无同好圈。</p>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

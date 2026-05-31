@@ -123,7 +123,8 @@
                     </div>
                     <div class="meetup-detail-attendee-grid">
                         {% for attendee in attendees %}
-                        <a class="meetup-detail-attendee-card" href="{{ url_for('profile.view_profile', user_id=attendee.user.id) }}">
+                        <article class="meetup-detail-attendee-card">
+                          <a class="meetup-detail-attendee-main" href="{{ url_for('profile.view_profile', user_id=attendee.user.id) }}">
                             {% if attendee.user.avatar %}
                             <img class="meetup-detail-attendee-avatar" src="{{ attendee.user.avatar }}" alt="{{ attendee.display_name }}">
                             {% else %}
@@ -131,7 +132,11 @@
                             {% endif %}
                             <strong>{{ attendee.display_name }}</strong>
                             <span class="meetup-detail-attendee-role {% if attendee.is_organizer %}is-organizer{% endif %}">{{ attendee.role_label }}</span>
-                        </a>
+                          </a>
+                          {% if session.get('user_id') and attendee.user.id != session.get('user_id') %}
+                          <a class="button button-small button-secondary" href="{{ url_for('messages.conversation', user_id=attendee.user.id) }}">私信</a>
+                          {% endif %}
+                        </article>
                         {% endfor %}
                         {% if attendee_overflow_count %}
                         <div class="meetup-detail-attendee-card meetup-detail-attendee-more">

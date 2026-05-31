@@ -21,6 +21,7 @@ def create_app(test_config=None):
     from app.routes.admin import admin_bp
     from app.routes.auth import auth_bp
     from app.routes.circle import circle_bp
+    from app.routes.messages import messages_bp
     from app.routes.notifications import notifications_bp
     from app.routes.profile import profile_bp
 
@@ -28,6 +29,7 @@ def create_app(test_config=None):
     app.register_blueprint(auth_bp)
     app.register_blueprint(circle_bp)
     app.register_blueprint(profile_bp)
+    app.register_blueprint(messages_bp)
     app.register_blueprint(notifications_bp)
     app.register_blueprint(admin_bp)
 

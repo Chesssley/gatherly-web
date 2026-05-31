@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}私信 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section message-page">
+  <div class="container">
+    <div class="message-shell">
+      <aside class="message-sidebar" aria-label="私信列表">
+        <div class="message-sidebar-heading">
+          <div>
+            <p class="eyebrow">Messages</p>
+            <h1>私信</h1>
+          </div>
+          <a class="message-compose-button" href="{{ url_for('profile.user_search') }}" aria-label="搜索用户发起私信">+</a>
+        </div>
+        <p class="message-retention-note">私信会定期清理，请保存重要信息。</p>
+
+        <div class="conversation-list">
+          {% for item in conversations %}
+          {% set last = item.last_message %}
+          <a class="conversation-item {% if active_user and active_user.id == item.user.id %}is-active{% endif %}" href="{{ url_for('messages.conversation', user_id=item.user.id) }}">
+            <span class="conversation-avatar">
+              {% if item.user.avatar %}
+                <img src="{{ item.user.avatar }}" alt="{{ item.display_name }}">
+              {% else %}
+                <span aria-hidden="true">{{ item.display_name[:1]|upper }}</span>
+              {% endif %}
+            </span>
+            <span class="conversation-copy">
+              <strong>{{ item.display_name }}</strong>
+              <span>
+                {% if last.message_type == 'image' %}图片消息{% else %}{{ last.content|default('', true)|truncate(32, True) }}{% endif %}
+              </span>
+            </span>
+            <span class="conversation-meta">
+              <small>{{ last.created_at.strftime('%m-%d') if last.created_at else '' }}</small>
+              {% if item.unread_count %}<b>{{ item.unread_count }}</b>{% endif %}
+            </span>
+          </a>
+          {% else %}
+          <p class="conversation-empty">暂无私信联系人。</p>
+          {% endfor %}
+        </div>
+      </aside>
+
+      <section class="message-detail" aria-label="私信详情">
+        {% if active_user %}
+        <header class="message-detail-header">
+          <a class="message-detail-user" href="{{ url_for('profile.view_profile', user_id=active_user.id) }}">
+            <span class="conversation-avatar">
+              {% if active_user.avatar %}
+                <img src="{{ active_user.avatar }}" alt="{{ active_display_name }}">
+              {% else %}
+                <span aria-hidden="true">{{ active_display_name[:1]|upper }}</span>
+              {% endif %}
+            </span>
+            <span>
+              <strong>{{ active_display_name }}</strong>
+              <small>{% if is_mutual_follow %}已互相关注{% else %}未互相关注，仅可发送一条私信{% endif %}</small>
+            </span>
+          </a>
+        </header>
+
+        <div class="message-thread">
+          {% for message in messages %}
+          <article class="message-bubble {% if message.sender_id == session.get('user_id') %}is-mine{% endif %}">
+            <div class="message-bubble-inner">
+              {% if message.image_path %}
+              <a href="{{ url_for('static', filename=message.image_path) }}" target="_blank" rel="noopener">
+                <img src="{{ url_for('static', filename=message.image_path) }}" alt="私信图片">
+              </a>
+              {% endif %}
+              {% if message.content %}<p>{{ message.content }}</p>{% endif %}
+            </div>
+            <time>{{ message.created_at.strftime('%Y-%m-%d %H:%M') if message.created_at else '' }}</time>
+          </article>
+          {% else %}
+          <div class="message-empty-state">
+            <div class="message-empty-illustration" aria-hidden="true">✉</div>
+            <h2>这里还没有消息</h2>
+            <p>发送第一条私信，开始两人的聊天。</p>
+          </div>
+          {% endfor %}
+        </div>
+
+        <form class="message-form" method="post" enctype="multipart/form-data">
+          {% if not can_send_message %}
+          <p class="message-limit-note">未互相关注前只能发送一条私信，请互相关注后继续聊天。</p>
+          {% endif %}
+          <label class="sr-only" for="message-content">输入私信</label>
+          <textarea id="message-content" name="content" rows="2" maxlength="{{ text_max_length }}" placeholder="输入私信内容" {% if not can_send_message %}disabled{% endif %}></textarea>
+          <div class="message-form-actions">
+            <label class="message-image-picker">
+              <input type="file" name="image" accept="image/jpeg,image/png,image/webp" data-image-upload data-file-count-target="message-image-count" data-max-count="1" data-max-bytes="{{ image_max_kb * 1024 }}" {% if not can_send_message %}disabled{% endif %}>
+              <span>图片</span>
+            </label>
+            <span id="message-image-count" class="message-file-count">未选择图片</span>
+            <button class="button" type="submit" {% if not can_send_message %}disabled{% endif %}>发送</button>
+          </div>
+          <p class="message-retention-note">图片大小需小于 {{ image_max_kb }}KB。私信会定期清理，请保存重要信息。</p>
+        </form>
+        {% else %}
+        <div class="message-empty-state">
+          <div class="message-empty-illustration" aria-hidden="true">✉</div>
+          <h2>选择一个联系人</h2>
+          <p>从左侧私信列表打开会话，或搜索用户发起私信。</p>
+        </div>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+</section>
+{% endblock %}

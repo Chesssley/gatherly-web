@@ -20,6 +20,7 @@ from app.models import (
     ProfileVisibility,
     Registration,
     User,
+    UserFollow,
     UserReview,
     db,
     get_user_display_name,
@@ -271,10 +272,18 @@ def _profile_context(user, visibility, is_owner=True):
         Registration.user_id == user.id,
         Registration.status != "cancelled",
     ).count()
+    follower_count = UserFollow.query.filter_by(followed_id=user.id).count()
+    following_count = UserFollow.query.filter_by(follower_id=user.id).count()
+    viewer_id = session.get("user_id")
     return {
         "user": user,
         "display_name": get_user_display_name(user),
         "is_owner": is_owner,
+        "is_following": bool(
+            viewer_id
+            and viewer_id != user.id
+            and UserFollow.query.filter_by(follower_id=viewer_id, followed_id=user.id).first()
+        ),
         "visibility": visibility,
         "latest_merchant_verification": (
             MerchantVerification.query.filter_by(user_id=user.id)
@@ -286,7 +295,7 @@ def _profile_context(user, visibility, is_owner=True):
         "permissions": {
             "interests": is_owner or bool(visibility.show_interests),
             "activities": is_owner,
-            "circles": is_owner,
+            "circles": is_owner or visibility.circle_scope == PUBLIC_SCOPE,
             "interactions": is_owner,
             "trust_score": _scope_is_visible(visibility.trust_score_scope, is_owner),
         },
@@ -295,8 +304,49 @@ def _profile_context(user, visibility, is_owner=True):
             "circles": circle_count if is_owner or visibility.circle_scope == PUBLIC_SCOPE else None,
             "interests": len(_split_interests(user.interests)) if is_owner or visibility.show_interests else None,
             "registrations": registration_count if is_owner or visibility.activity_scope == PUBLIC_SCOPE else None,
+            "followers": follower_count,
+            "following": following_count,
         },
     }
+
+
+def _user_search_items(query_text):
+    query = User.query.filter(User.status == "active")
+    if query_text:
+        pattern = f"%{query_text}%"
+        query = query.filter(
+            or_(
+                User.username.ilike(pattern),
+                User.nickname.ilike(pattern),
+                User.city.ilike(pattern),
+                User.bio.ilike(pattern),
+            )
+        )
+    return query.order_by(User.created_at.desc(), User.id.desc()).limit(60).all()
+
+
+def _relationship_items(user_id, relationship, query_text):
+    if relationship == "followers":
+        query = UserFollow.query.join(User, User.id == UserFollow.follower_id).filter(
+            UserFollow.followed_id == user_id,
+            User.status == "active",
+        )
+    else:
+        query = UserFollow.query.join(User, User.id == UserFollow.followed_id).filter(
+            UserFollow.follower_id == user_id,
+            User.status == "active",
+        )
+    if query_text:
+        pattern = f"%{query_text}%"
+        query = query.filter(
+            or_(
+                User.username.ilike(pattern),
+                User.nickname.ilike(pattern),
+                User.city.ilike(pattern),
+                User.bio.ilike(pattern),
+            )
+        )
+    return query.order_by(UserFollow.created_at.desc()).all()
 
 
 def _registration_items(user, filters):
@@ -509,13 +559,19 @@ def view_profile(user_id):
     if visibility.profile_scope == PRIVATE_SCOPE and not is_owner:
         abort(404)
     context = _profile_context(user, visibility, is_owner=is_owner)
-    if not is_owner:
-        return render_template("profile.html", **context)
 
     default_filters = _empty_filters()
+    circles = _circle_items(user, default_filters) if context["permissions"]["circles"] else []
+    if not is_owner:
+        return render_template(
+            "profile.html",
+            **context,
+            circle_memberships_preview=_preview_items(circles),
+            circle_memberships_count=len(circles),
+        )
+
     created_activities = _published_activities(user, default_filters)
     joined_activities = _registration_items(user, default_filters)
-    circles = _circle_items(user, default_filters)
     posts = _profile_posts(user, default_filters)
     comments = _profile_comments(user, default_filters)
     favorite_activities_count = ActivityFavorite.query.filter_by(user_id=user.id).count()
@@ -541,6 +597,136 @@ def view_profile(user_id):
         circle_interactions_preview=_preview_items(circle_interactions),
         circle_interactions_count=len(circle_interactions),
     )
+
+
+@profile_bp.route("/users")
+@login_required
+def user_search():
+    query_text = request.args.get("q", "").strip()
+    users = _user_search_items(query_text)
+    current_user_id = session["user_id"]
+    following_ids = {
+        row.followed_id
+        for row in UserFollow.query.filter_by(follower_id=current_user_id).all()
+    }
+    return render_template(
+        "users.html",
+        query=query_text,
+        users=users,
+        following_ids=following_ids,
+        page_title="搜索用户",
+    )
+
+
+@profile_bp.route("/<int:user_id>/followers")
+@login_required
+def followers(user_id):
+    user = User.query.get_or_404(user_id)
+    visibility = _get_or_create_visibility(user)
+    is_owner = session.get("user_id") == user.id
+    if visibility.profile_scope == PRIVATE_SCOPE and not is_owner:
+        abort(404)
+    query_text = request.args.get("q", "").strip()
+    rows = _relationship_items(user.id, "followers", query_text)
+    current_user_id = session["user_id"]
+    following_ids = {
+        row.followed_id
+        for row in UserFollow.query.filter_by(follower_id=current_user_id).all()
+    }
+    return render_template(
+        "follows.html",
+        **_profile_context(user, visibility, is_owner=is_owner),
+        page_title=f"{get_user_display_name(user)} 的粉丝",
+        heading="粉丝",
+        query=query_text,
+        relationship="followers",
+        rows=rows,
+        following_ids=following_ids,
+    )
+
+
+@profile_bp.route("/<int:user_id>/following")
+@login_required
+def following(user_id):
+    user = User.query.get_or_404(user_id)
+    visibility = _get_or_create_visibility(user)
+    is_owner = session.get("user_id") == user.id
+    if visibility.profile_scope == PRIVATE_SCOPE and not is_owner:
+        abort(404)
+    query_text = request.args.get("q", "").strip()
+    rows = _relationship_items(user.id, "following", query_text)
+    current_user_id = session["user_id"]
+    following_ids = {
+        row.followed_id
+        for row in UserFollow.query.filter_by(follower_id=current_user_id).all()
+    }
+    return render_template(
+        "follows.html",
+        **_profile_context(user, visibility, is_owner=is_owner),
+        page_title=f"{get_user_display_name(user)} 的关注",
+        heading="关注",
+        query=query_text,
+        relationship="following",
+        rows=rows,
+        following_ids=following_ids,
+    )
+
+
+@profile_bp.route("/<int:user_id>/circles")
+@login_required
+def user_circles(user_id):
+    user = User.query.get_or_404(user_id)
+    visibility = _get_or_create_visibility(user)
+    is_owner = session.get("user_id") == user.id
+    if visibility.profile_scope == PRIVATE_SCOPE and not is_owner:
+        abort(404)
+    if not (is_owner or visibility.circle_scope == PUBLIC_SCOPE):
+        abort(404)
+    filters = _section_filters("circle")
+    return render_template(
+        "user_circles.html",
+        **_profile_context(user, visibility, is_owner=is_owner),
+        page_title=f"{get_user_display_name(user)} 加入的同好圈",
+        items=_circle_items(user, filters),
+        filters=filters,
+        reset_url=url_for("profile.user_circles", user_id=user.id),
+    )
+
+
+@profile_bp.route("/<int:user_id>/follow", methods=["POST"])
+@login_required
+def follow_user(user_id):
+    current_user_id = session["user_id"]
+    fallback_url = request.form.get("next") or request.referrer or url_for("profile.view_profile", user_id=user_id)
+    if user_id == current_user_id:
+        flash("不能关注自己。", "error")
+        return redirect(fallback_url)
+    target = User.query.filter(User.id == user_id, User.status == "active").first()
+    if target is None:
+        flash("用户不存在或不可关注。", "error")
+        return redirect(fallback_url)
+    existing = UserFollow.query.filter_by(follower_id=current_user_id, followed_id=user_id).first()
+    if existing is None:
+        db.session.add(UserFollow(follower_id=current_user_id, followed_id=user_id))
+        try:
+            db.session.commit()
+            flash("已关注该用户。", "success")
+        except IntegrityError:
+            db.session.rollback()
+    return redirect(fallback_url)
+
+
+@profile_bp.route("/<int:user_id>/unfollow", methods=["POST"])
+@login_required
+def unfollow_user(user_id):
+    current_user_id = session["user_id"]
+    fallback_url = request.form.get("next") or request.referrer or url_for("profile.view_profile", user_id=user_id)
+    follow = UserFollow.query.filter_by(follower_id=current_user_id, followed_id=user_id).first()
+    if follow:
+        db.session.delete(follow)
+        db.session.commit()
+        flash("已取消关注。", "success")
+    return redirect(fallback_url)
 
 
 def _render_profile_section(section_key, template_title, heading, items, filter_prefix, status_options, type_options):
