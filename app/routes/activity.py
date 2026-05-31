@@ -4,6 +4,7 @@ from collections import defaultdict
 from flask import Blueprint, abort, jsonify, render_template, request, session, redirect, url_for, flash
 from functools import wraps
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import and_, func, or_
 from sqlalchemy.exc import IntegrityError
 
@@ -11,7 +12,7 @@ from app.models import (
     db,
     Activity,
     ActivityFavorite,
-    ActivityReview,
+    Comment,
     Registration,
     TrustScoreLog,
     User,
@@ -35,11 +36,22 @@ def login_required(f):
 activity_bp = Blueprint("activity", __name__)
 
 
-RATING_ELIGIBLE_STATUSES = {"attended", "completed"}
+RATING_ELIGIBLE_STATUSES = {"registered", "attended", "completed"}
+CANCEL_REASON_LABELS = {
+    "time_conflict": "时间冲突",
+    "venue_issue": "场地问题",
+    "insufficient_participants": "人数不足",
+    "weather": "天气原因",
+    "organizer": "主办方原因",
+    "other": "其他",
+}
 TRUST_SCORE_THRESHOLD = 60
 ACTIVITY_IMAGE_MAX_BYTES = 800 * 1024
 ACTIVITY_IMAGE_UPLOAD_SUBDIR = os.path.join("images", "activities")
 ACTIVITY_CARD_AVATAR_LIMIT = 4
+ACTIVITY_ATTENDEE_DISPLAY_LIMIT = 7
+DEFAULT_ACTIVITY_TIMEZONE = "Asia/Shanghai"
+CHINESE_WEEKDAYS = ("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")
 
 USER_REVIEW_FIELDS = (
     "punctuality_score",
@@ -78,8 +90,107 @@ def _parse_rating_score(field_name):
     return score
 
 
+def _activity_timezone(activity):
+    timezone_name = activity.timezone if activity and activity.timezone else DEFAULT_ACTIVITY_TIMEZONE
+    try:
+        return ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        return ZoneInfo(DEFAULT_ACTIVITY_TIMEZONE)
+
+
+def _activity_now(activity):
+    return datetime.now(_activity_timezone(activity)).replace(tzinfo=None)
+
+
+def _activity_phase(activity, now=None):
+    now = now or _activity_now(activity)
+    if not activity:
+        return "ended"
+    if activity.status == "cancelled":
+        return "cancelled"
+    if activity.status == "closed" or (activity.end_time and now >= activity.end_time):
+        return "ended"
+    if activity.start_time and now >= activity.start_time:
+        return "ongoing"
+    return "upcoming"
+
+
 def _activity_has_ended(activity):
-    return bool(activity and activity.start_time and activity.start_time < datetime.utcnow())
+    return _activity_phase(activity) == "ended"
+
+
+def _format_time_without_leading_zero(value):
+    return value.strftime("%I:%M %p").lstrip("0")
+
+
+def _gmt_offset_label(activity):
+    timezone = _activity_timezone(activity)
+    offset = activity.start_time.replace(tzinfo=timezone).utcoffset()
+    offset_minutes = int(offset.total_seconds() / 60) if offset else 0
+    offset_sign = "+" if offset_minutes >= 0 else "-"
+    offset_hours, offset_remainder = divmod(abs(offset_minutes), 60)
+    gmt_offset = f"GMT{offset_sign}{offset_hours}"
+    if offset_remainder:
+        gmt_offset += f":{offset_remainder:02d}"
+    return gmt_offset
+
+
+def _format_activity_date_label(value):
+    return f"{CHINESE_WEEKDAYS[value.weekday()]}, {value.month}月 {value.day}"
+
+
+def _format_activity_sidebar_time(activity):
+    if not activity.start_time:
+        return "时间待确认"
+
+    gmt_offset = _gmt_offset_label(activity)
+    start_label = (
+        f"{_format_activity_date_label(activity.start_time)}"
+        f" · {_format_time_without_leading_zero(activity.start_time)}"
+    )
+    if not activity.end_time:
+        return f"{start_label} {gmt_offset}"
+
+    end_label = _format_time_without_leading_zero(activity.end_time)
+    if activity.end_time.date() != activity.start_time.date():
+        end_label = (
+            f"{_format_activity_date_label(activity.end_time)}"
+            f" · {end_label}"
+        )
+    return f"{start_label} to {end_label} {gmt_offset}"
+
+
+def _can_manage_activity(user, activity):
+    return bool(
+        user
+        and activity
+        and (user.role == "admin" or activity.organizer_id == user.id)
+    )
+
+
+def _active_registrations_query():
+    return Registration.query.filter(Registration.status != "cancelled")
+
+
+def sync_activity_statuses():
+    activities = Activity.query.filter(
+        Activity.status.in_({"open", "hidden"}),
+        Activity.end_time.isnot(None),
+    ).all()
+    updated = False
+    for activity in activities:
+        if _activity_phase(activity) == "ended":
+            activity.status = "closed"
+            updated = True
+    if updated:
+        db.session.commit()
+
+
+@activity_bp.before_app_request
+def sync_ended_activities():
+    if request.endpoint == "static":
+        return
+    sync_activity_statuses()
 
 
 def _is_activity_participant(user_id, activity_id):
@@ -91,6 +202,20 @@ def _is_activity_participant(user_id, activity_id):
         ).first()
         is not None
     )
+
+
+def _user_review_payload(review):
+    if not review:
+        return None
+    return {
+        "punctuality_score": review.punctuality_score,
+        "friendliness_score": review.friendliness_score,
+        "communication_score": review.communication_score,
+        "reliability_score": review.reliability_score,
+        "respect_score": review.respect_score,
+        "safety_score": review.safety_score,
+        "comment": review.comment or "",
+    }
 
 
 def _recalculate_user_trust_score(user, changed_by_id, related_review_id):
@@ -121,44 +246,6 @@ def _recalculate_user_trust_score(user, changed_by_id, related_review_id):
             related_id=related_review_id,
         )
     )
-
-
-def _get_rating_stats(activity_id):
-    stats = (
-        db.session.query(
-            func.count(ActivityReview.id).label("rating_count"),
-            func.avg(ActivityReview.organization_score).label("organization_avg"),
-            func.avg(ActivityReview.venue_score).label("venue_avg"),
-            func.avg(ActivityReview.content_score).label("content_avg"),
-            func.avg(ActivityReview.value_score).label("value_avg"),
-            func.avg(ActivityReview.experience_score).label("experience_avg"),
-            func.avg(ActivityReview.average_score).label("overall_avg"),
-        )
-        .filter(ActivityReview.activity_id == activity_id)
-        .one()
-    )
-
-    rating_count = int(stats.rating_count or 0)
-    if rating_count == 0:
-        return {
-            "count": 0,
-            "organization_avg": None,
-            "venue_avg": None,
-            "content_avg": None,
-            "value_avg": None,
-            "experience_avg": None,
-            "overall_avg": None,
-        }
-
-    return {
-        "count": rating_count,
-        "organization_avg": round(float(stats.organization_avg), 1),
-        "venue_avg": round(float(stats.venue_avg), 1),
-        "content_avg": round(float(stats.content_avg), 1),
-        "value_avg": round(float(stats.value_avg), 1),
-        "experience_avg": round(float(stats.experience_avg), 1),
-        "overall_avg": round(float(stats.overall_avg), 1),
-    }
 
 
 def _split_tags(tags):
@@ -203,7 +290,10 @@ def _get_activity_attendee_previews(activity_ids):
     rows = (
         db.session.query(Registration.activity_id, User)
         .join(User, User.id == Registration.user_id)
-        .filter(Registration.activity_id.in_(activity_ids))
+        .filter(
+            Registration.activity_id.in_(activity_ids),
+            Registration.status != "cancelled",
+        )
         .order_by(Registration.activity_id.asc(), Registration.register_time.asc())
         .all()
     )
@@ -222,6 +312,53 @@ def _get_activity_attendee_previews(activity_ids):
     return previews_by_activity
 
 
+def _get_activity_attendees(activity):
+    attendees = []
+    if activity.organizer:
+        organizer_name = (
+            "Gatherly官方"
+            if activity.is_official or activity.organizer.role == "admin"
+            else get_user_display_name(activity.organizer)
+        )
+        attendees.append(
+            {
+                "user": activity.organizer,
+                "display_name": organizer_name,
+                "role_label": "举办者",
+                "is_organizer": True,
+            }
+        )
+    participants = (
+        db.session.query(User)
+        .join(Registration, Registration.user_id == User.id)
+        .filter(
+            Registration.activity_id == activity.id,
+            Registration.status != "cancelled",
+            User.id != activity.organizer_id,
+        )
+        .order_by(Registration.register_time.asc())
+        .all()
+    )
+    attendees.extend(
+        {
+            "user": participant,
+            "display_name": get_user_display_name(participant),
+            "role_label": "参与者",
+            "is_organizer": False,
+        }
+        for participant in participants
+    )
+    return attendees
+
+
+def _get_activity_comments(activity_id):
+    return (
+        Comment.query.filter_by(activity_id=activity_id, status="published")
+        .order_by(Comment.created_at.desc(), Comment.id.desc())
+        .all()
+    )
+
+
 def _activity_to_summary(activity, registration_count=0, favorite_count=0, attendee_previews=None):
     tags = _split_tags(activity.tags)
     category = tags[0] if tags else DEFAULT_ACTIVITY_TAG
@@ -229,6 +366,9 @@ def _activity_to_summary(activity, registration_count=0, favorite_count=0, atten
     current_people = (activity.initial_participants or 0) + registration_count
     attendee_previews = attendee_previews or []
     organizer_is_verified = is_verified_merchant(activity.organizer)
+    is_gatherly_official = bool(
+        activity.is_official or (activity.organizer and activity.organizer.role == "admin")
+    )
     return {
         "id": activity.id,
         "title": activity.title,
@@ -237,16 +377,20 @@ def _activity_to_summary(activity, registration_count=0, favorite_count=0, atten
         "city": activity.city,
         "location": activity.location,
         "time": activity.start_time.strftime("%Y-%m-%d %H:%M") if activity.start_time else "时间待定",
+        "end_time": activity.end_time.strftime("%Y-%m-%d %H:%M") if activity.end_time else None,
+        "timezone": activity.timezone or DEFAULT_ACTIVITY_TIMEZONE,
+        "gmt_offset": _gmt_offset_label(activity) if activity.start_time else "",
+        "sidebar_time": _format_activity_sidebar_time(activity),
         "time_filter": _activity_time_filter(activity.start_time),
         "category": category,
         "tags": tags or [category],
         "image_url": activity.image,
         "organizer": (
-            "Gatherly官方活动"
-            if activity.organizer and activity.organizer.role == "admin"
+            "Gatherly官方"
+            if is_gatherly_official
             else activity.organizer.nickname or activity.organizer.username
             if activity.organizer
-            else "Gatherly 活动发起人"
+            else "Gatherly官方"
         ),
         "current_people": current_people,
         "attendee_previews": attendee_previews,
@@ -254,9 +398,13 @@ def _activity_to_summary(activity, registration_count=0, favorite_count=0, atten
         "favorite_count": favorite_count,
         "heat_score": heat_score,
         "is_featured": activity.is_featured,
-        "is_official": activity.is_official,
+        "is_official": is_gatherly_official,
         "organizer_is_verified": organizer_is_verified,
-        "is_upcoming": not activity.start_time or activity.start_time >= datetime.now(),
+        "is_upcoming": _activity_phase(activity) == "upcoming",
+        "is_ended": _activity_has_ended(activity),
+        "phase": _activity_phase(activity),
+        "is_cancelled": activity.status == "cancelled",
+        "cancel_reason": activity.cancel_reason,
         "fee": activity.fee,
         "status": activity.status,
         "demo": activity.id <= 7,
@@ -273,6 +421,7 @@ def index():
     db_activities = Activity.query.all()
     reg_counts = dict(
         db.session.query(Registration.activity_id, func.count(Registration.id))
+        .filter(Registration.status != "cancelled")
         .group_by(Registration.activity_id)
         .all()
     )
@@ -314,10 +463,14 @@ def index():
 
     if selected_tag and selected_tag in interest_tags:
         filtered_activities = [
-            activity for activity in normalized_activities if activity["category"] == selected_tag
+            activity
+            for activity in normalized_activities
+            if activity["category"] == selected_tag and activity["status"] == "open"
         ]
     else:
-        filtered_activities = normalized_activities
+        filtered_activities = [
+            activity for activity in normalized_activities if activity["status"] == "open"
+        ]
         selected_tag = ""
 
     expand_tags_by_default = (
@@ -333,7 +486,10 @@ def index():
         activity_lookup = {activity.id: activity for activity in db_activities}
 
         registration_rows = (
-            Registration.query.filter_by(user_id=user_id)
+            Registration.query.filter(
+                Registration.user_id == user_id,
+                Registration.status != "cancelled",
+            )
             .order_by(Registration.register_time.desc())
             .all()
         )
@@ -403,7 +559,13 @@ def my_events():
     search_query = request.args.get("q", "").strip()
 
     if active_tab == "created":
-        query = Activity.query.filter(Activity.organizer_id == user_id)
+        current_user = User.query.get(user_id)
+        query = Activity.query.filter(
+            or_(
+                Activity.organizer_id == user_id,
+                and_(current_user.role == "admin", Activity.is_official.is_(True)),
+            )
+        )
     elif active_tab == "saved":
         query = (
             Activity.query.join(
@@ -419,17 +581,24 @@ def my_events():
                 Registration.activity_id == Activity.id,
             )
             .filter(Registration.user_id == user_id)
+            .filter(Registration.status != "cancelled")
             .distinct()
         )
 
-    now = datetime.utcnow()
+    now = datetime.now()
     ended_filter = or_(
         Activity.status == "closed",
-        and_(Activity.start_time.isnot(None), Activity.start_time < now),
+        Activity.status == "cancelled",
+        and_(Activity.end_time.isnot(None), Activity.end_time <= now),
+        and_(
+            Activity.end_time.is_(None),
+            Activity.start_time.isnot(None),
+            Activity.start_time < now,
+        ),
     )
     if active_status == "upcoming":
         query = query.filter(
-            Activity.status != "closed",
+            Activity.status.notin_({"closed", "cancelled"}),
             or_(Activity.start_time.is_(None), Activity.start_time >= now),
         )
         ordering = (Activity.start_time.asc(), Activity.id.desc())
@@ -449,6 +618,7 @@ def my_events():
         reg_counts = dict(
             db.session.query(Registration.activity_id, func.count(Registration.id))
             .filter(Registration.activity_id.in_(activity_ids))
+            .filter(Registration.status != "cancelled")
             .group_by(Registration.activity_id)
             .all()
         )
@@ -471,67 +641,59 @@ def my_events():
 @activity_bp.route("/activity/<int:activity_id>")
 def activity_detail(activity_id):
     db_activity = Activity.query.get_or_404(activity_id)
-    registration_rows_count = Registration.query.filter_by(activity_id=activity_id).count()
+    registration_rows_count = _active_registrations_query().filter_by(activity_id=activity_id).count()
     registration_count = (db_activity.initial_participants or 0) + registration_rows_count
     activity = _activity_to_summary(db_activity, registration_rows_count)
     if db_activity is None:
         abort(404)
     max_participants = db_activity.max_participants
     preparation = db_activity.preparation
-    rating_stats = _get_rating_stats(activity_id)
+    comments = _get_activity_comments(activity_id)
+    attendees = _get_activity_attendees(db_activity)
 
     user_registered = False
     is_favorited = False
     user_attended = False
-    has_rated = False
-    can_rate = False
-    rating_notice = "登录并报名参加活动后，可在活动结束后评分。"
 
-    if "user_id" not in session:
-        rating_notice = "请先登录后再评分。"
-    else:
+    if "user_id" in session:
         is_favorited = ActivityFavorite.query.filter_by(
             user_id=session["user_id"], activity_id=activity_id
         ).first() is not None
         registration = Registration.query.filter_by(
             user_id=session["user_id"], activity_id=activity_id
         ).first()
-        user_registered = registration is not None
+        user_registered = registration is not None and registration.status != "cancelled"
         user_attended = (
             registration is not None
             and registration.status in RATING_ELIGIBLE_STATUSES
         )
-        has_rated = ActivityReview.query.filter_by(
-            reviewer_id=session["user_id"], activity_id=activity_id
-        ).first() is not None
 
-        if not user_registered:
-            rating_notice = "只有已报名并参加该活动的用户可以评分。"
-        elif not user_attended:
-            rating_notice = "只有已报名并参加该活动的用户可以评分。"
-        elif has_rated:
-            rating_notice = "您已提交过评分，不能重复评分。"
-        elif not db_activity or not db_activity.start_time:
-            rating_notice = "活动时间未确认，暂不能评分。"
-        elif not _activity_has_ended(db_activity):
-            rating_notice = "活动尚未结束，暂不能评分。"
-        else:
-            can_rate = True
-            rating_notice = ""
+    current_user = User.query.get(session["user_id"]) if "user_id" in session else None
+    can_manage_activity = _can_manage_activity(current_user, db_activity)
+    activity_phase = _activity_phase(db_activity)
+    is_cancel_action = activity_phase == "upcoming"
+    can_cancel_registration = bool(
+        user_registered
+        and current_user
+        and current_user.id != db_activity.organizer_id
+        and db_activity.status == "open"
+        and db_activity.start_time
+        and _activity_now(db_activity) < db_activity.start_time
+    )
 
     can_user_review = False
-    user_review_notice = "Log in and attend this activity before reviewing other participants."
+    user_review_notice = "活动结束后，实际参与者可以进行互评。"
     user_review_candidates = []
 
     if "user_id" in session:
         user_id = session["user_id"]
         if not user_attended:
-            user_review_notice = "Only actual participants can review other participants."
+            user_review_notice = "活动结束后，实际参与者可以进行互评。"
         elif not _activity_has_ended(db_activity):
-            user_review_notice = "Participant reviews open after the activity has ended."
+            user_review_notice = "活动结束后，实际参与者可以进行互评。"
         else:
-            reviewed_user_ids = {
-                review.reviewee_id
+            existing_reviews = {
+                review.reviewee_id: review
                 for review in UserReview.query.filter_by(
                     activity_id=activity_id,
                     reviewer_id=user_id,
@@ -551,17 +713,17 @@ def activity_detail(activity_id):
             user_review_candidates = [
                 {
                     "user": participant,
-                    "has_reviewed": participant.id in reviewed_user_ids,
+                    "display_name": get_user_display_name(participant),
+                    "role_label": "举办者" if participant.id == db_activity.organizer_id else "参与者",
+                    "is_organizer": participant.id == db_activity.organizer_id,
+                    "has_reviewed": participant.id in existing_reviews,
+                    "review": _user_review_payload(existing_reviews.get(participant.id)),
                 }
                 for participant in participant_rows
             ]
-            can_user_review = any(
-                not candidate["has_reviewed"] for candidate in user_review_candidates
-            )
+            can_user_review = bool(user_review_candidates)
             if not user_review_candidates:
-                user_review_notice = "No other attended participants are available for review."
-            elif not can_user_review:
-                user_review_notice = "You have reviewed all available participants for this activity."
+                user_review_notice = "暂无可互评参与者。"
             else:
                 user_review_notice = ""
 
@@ -573,13 +735,69 @@ def activity_detail(activity_id):
         preparation=preparation,
         user_registered=user_registered,
         is_favorited=is_favorited,
-        has_rated=has_rated,
-        can_rate=can_rate,
-        rating_notice=rating_notice,
-        rating_stats=rating_stats,
         can_user_review=can_user_review,
         user_review_candidates=user_review_candidates,
         user_review_notice=user_review_notice,
+        can_manage_activity=can_manage_activity,
+        is_cancel_action=is_cancel_action,
+        can_cancel_registration=can_cancel_registration,
+        cancel_reason_labels=CANCEL_REASON_LABELS,
+        activity_phase=activity_phase,
+        attendees=attendees[:ACTIVITY_ATTENDEE_DISPLAY_LIMIT],
+        attendee_overflow_count=max(0, len(attendees) - ACTIVITY_ATTENDEE_DISPLAY_LIMIT),
+        comments=comments,
+        comment_count=len(comments),
+    )
+
+
+@activity_bp.route("/activity/<int:activity_id>/close", methods=["POST"])
+@login_required
+def close_activity(activity_id):
+    db_activity = Activity.query.get_or_404(activity_id)
+    current_user = User.query.get(session["user_id"])
+    if not _can_manage_activity(current_user, db_activity):
+        abort(403)
+
+    if db_activity.status in {"closed", "cancelled"}:
+        flash("活动已经结束或取消，无需重复操作。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    now = _activity_now(db_activity)
+    is_cancel_action = bool(db_activity.start_time and now < db_activity.start_time)
+    if is_cancel_action:
+        cancel_reason = request.form.get("cancel_reason", "").strip()
+        custom_reason = request.form.get("custom_reason", "").strip()
+        if cancel_reason not in CANCEL_REASON_LABELS:
+            flash("请选择取消活动的理由。", "error")
+            return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+        if cancel_reason == "other" and not custom_reason:
+            flash("选择“其他”时，请填写自定义取消理由。", "error")
+            return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+        if len(custom_reason) > 300:
+            flash("自定义取消理由不能超过 300 个字符。", "error")
+            return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+        reason_label = CANCEL_REASON_LABELS[cancel_reason]
+        db_activity.status = "cancelled"
+        db_activity.cancel_reason = (
+            f"{reason_label}：{custom_reason}" if cancel_reason == "other" else reason_label
+        )
+        db_activity.cancelled_at = now
+        success_message = "活动已取消。"
+        redirect_anchor = None
+    else:
+        db_activity.status = "closed"
+        success_message = "活动已结束，可以前往参与者互评和评论区域。"
+        redirect_anchor = "participant-feedback"
+
+    db.session.commit()
+    flash(success_message, "success")
+    return redirect(
+        url_for(
+            "activity.activity_detail",
+            activity_id=activity_id,
+            _anchor=redirect_anchor,
+        )
     )
 
 
@@ -652,12 +870,17 @@ def create_activity():
     city = request.form.get("city", "").strip()
     location = request.form.get("location", "").strip()
     preparation = request.form.get("preparation", "").strip()
+    timezone = request.form.get("timezone", "").strip() or DEFAULT_ACTIVITY_TIMEZONE
+    if len(timezone) > 80 or not all(
+        character.isalnum() or character in "_-/+" for character in timezone
+    ):
+        timezone = DEFAULT_ACTIVITY_TIMEZONE
     tags = [
         tag for tag in request.form.getlist("tags")
         if tag in OFFICIAL_INTEREST_TAGS
     ]
     errors = []
-    wants_official = request.form.get("is_official") == "1"
+    wants_official = current_user.role == "admin" or request.form.get("is_official") == "1"
     wants_featured = request.form.get("is_featured") == "1"
     if (wants_official or wants_featured) and not can_publish_verified_activity:
         errors.append("只有已通过认证的商家才能发布官方认证或优质活动。")
@@ -669,6 +892,14 @@ def create_activity():
     except ValueError:
         start_time = None
         errors.append("请选择有效的活动时间。")
+
+    try:
+        end_time = datetime.fromisoformat(request.form.get("end_time", ""))
+        if start_time and end_time <= start_time:
+            errors.append("活动结束时间必须晚于开始时间。")
+    except ValueError:
+        end_time = None
+        errors.append("请选择有效的活动结束时间。")
 
     try:
         max_participants = int(request.form.get("max_participants", ""))
@@ -732,6 +963,8 @@ def create_activity():
             city=city,
             location=location,
             start_time=start_time,
+            end_time=end_time,
+            timezone=timezone,
             max_participants=max_participants,
             initial_participants=0,
             image=f"/static/{saved_paths[0]}",
@@ -743,6 +976,19 @@ def create_activity():
             is_featured=wants_featured,
         )
         db.session.add(activity)
+        db.session.flush()
+        existing_registration = Registration.query.filter_by(
+            user_id=current_user.id,
+            activity_id=activity.id,
+        ).first()
+        if not existing_registration:
+            db.session.add(
+                Registration(
+                    user_id=current_user.id,
+                    activity_id=activity.id,
+                    register_time=datetime.now(),
+                )
+            )
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -770,14 +1016,18 @@ def register_activity(activity_id):
 
     user_id = session["user_id"]
 
+    if db_activity.status != "open":
+        flash("该活动当前不可报名。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
     # ===== US-05-03：重复报名检查 =====
     existing = Registration.query.filter_by(user_id=user_id, activity_id=activity_id).first()
-    if existing:
+    if existing and existing.status != "cancelled":
         flash("您已报名该活动，无需重复报名", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     # 检查活动是否已过期
-    if db_activity.start_time and db_activity.start_time < datetime.utcnow():
+    if db_activity.start_time and db_activity.start_time < _activity_now(db_activity):
         flash("该活动已过期，无法报名", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
@@ -785,18 +1035,25 @@ def register_activity(activity_id):
     if db_activity.max_participants is not None:
         current_count = (
             (db_activity.initial_participants or 0)
-            + Registration.query.filter_by(activity_id=activity_id).count()
+            + _active_registrations_query().filter_by(activity_id=activity_id).count()
         )
         if current_count >= db_activity.max_participants:
             flash("该活动已满员，无法报名", "error")
             return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     # 创建报名记录
-    new_registration = Registration(
-        user_id=user_id,
-        activity_id=activity_id,
-        register_time=datetime.now(),
-    )
+    if existing:
+        existing.status = "registered"
+        existing.cancel_reason = None
+        existing.cancelled_at = None
+        existing.register_time = datetime.now()
+        new_registration = existing
+    else:
+        new_registration = Registration(
+            user_id=user_id,
+            activity_id=activity_id,
+            register_time=datetime.now(),
+        )
 
     try:
         db.session.add(new_registration)
@@ -809,154 +1066,130 @@ def register_activity(activity_id):
     return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
 
-@activity_bp.route("/activity/<int:activity_id>/rate", methods=["POST"])
-def submit_rating(activity_id):
-    """活动多维度评分提交路由"""
-    if "user_id" not in session:
-        flash("请先登录后再评分", "error")
-        return redirect(url_for("auth.login", next=url_for("activity.activity_detail", activity_id=activity_id)))
-
+@activity_bp.route("/activity/<int:activity_id>/comments", methods=["POST"])
+@login_required
+def comment_activity(activity_id):
     Activity.query.get_or_404(activity_id)
+    content = request.form.get("content", "").strip()
+    if not content:
+        flash("请填写评论内容。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id, _anchor="activity-comments"))
+    if len(content) > 1000:
+        flash("评论内容不能超过 1000 个字符。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id, _anchor="activity-comments"))
 
-    user_id = session["user_id"]
-
-    db_activity = Activity.query.get(activity_id)
-    if not db_activity or not db_activity.start_time:
-        flash("活动时间未确认，暂不能评分", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    if not _activity_has_ended(db_activity):
-        flash("活动尚未结束，暂不能评分", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    registered = Registration.query.filter_by(
-        user_id=user_id, activity_id=activity_id
-    ).first()
-    if not registered or registered.status not in RATING_ELIGIBLE_STATUSES:
-        flash("只有已报名并参加该活动的用户可以评分", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    existing = ActivityReview.query.filter_by(
-        reviewer_id=user_id, activity_id=activity_id
-    ).first()
-    if existing:
-        flash("您已提交过评分，不能重复评分", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    try:
-        org_score = _parse_rating_score("organization_score")
-        venue_score = _parse_rating_score("venue_score")
-        content_score = _parse_rating_score("content_score")
-        value_score = _parse_rating_score("value_score")
-        exp_score = _parse_rating_score("experience_score")
-    except (TypeError, ValueError):
-        flash("每个评分必须是 1 到 5 的整数", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    avg_score = round(
-        (org_score + venue_score + content_score + value_score + exp_score) / 5,
-        1,
-    )
-
-    comment = request.form.get("comment", "").strip()
-
-    rating = ActivityReview(
-        reviewer_id=user_id,
+    comment = Comment(
+        author_id=session["user_id"],
         activity_id=activity_id,
-        organization_score=org_score,
-        venue_score=venue_score,
-        content_score=content_score,
-        value_score=value_score,
-        experience_score=exp_score,
-        average_score=avg_score,
-        comment=comment or None,
+        content=content,
     )
+    db.session.add(comment)
+    db.session.commit()
+    flash("评论已发布。", "success")
+    return redirect(url_for("activity.activity_detail", activity_id=activity_id, _anchor=f"comment-{comment.id}"))
 
-    try:
-        db.session.add(rating)
-        db.session.commit()
-        flash("评分提交成功，感谢您的反馈", "success")
-    except IntegrityError:
-        db.session.rollback()
-        flash("您已提交过评分，不能重复评分", "error")
-    except Exception:
-        db.session.rollback()
-        flash("评分提交失败，请稍后重试", "error")
 
+@activity_bp.route("/activity/<int:activity_id>/registration/cancel", methods=["POST"])
+@login_required
+def cancel_registration(activity_id):
+    db_activity = Activity.query.get_or_404(activity_id)
+    now = _activity_now(db_activity)
+    if db_activity.organizer_id == session["user_id"]:
+        flash("活动创建者不能取消自己的报名。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+    if not db_activity.start_time or now >= db_activity.start_time:
+        flash("活动已开始，不能取消报名。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    registration = Registration.query.filter_by(
+        user_id=session["user_id"],
+        activity_id=activity_id,
+    ).first()
+    if not registration or registration.status == "cancelled":
+        flash("当前没有可取消的报名记录。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    registration.status = "cancelled"
+    registration.cancel_reason = "user_cancelled"
+    registration.cancelled_at = now
+    db.session.commit()
+    flash("报名已取消。", "success")
     return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
 
 @activity_bp.route("/activity/<int:activity_id>/user-reviews", methods=["POST"])
 def submit_user_review(activity_id):
     if "user_id" not in session:
-        flash("Please log in before reviewing participants.", "error")
+        flash("请先登录后再评价参与者。", "error")
         return redirect(url_for("auth.login", next=url_for("activity.activity_detail", activity_id=activity_id)))
 
     Activity.query.get_or_404(activity_id)
 
     db_activity = Activity.query.get(activity_id)
     if not _activity_has_ended(db_activity):
-        flash("Participant reviews are only available after the activity ends.", "error")
+        flash("活动结束后，实际参与者可以进行互评。", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     reviewer_id = session["user_id"]
     try:
         reviewee_id = int(request.form.get("reviewee_id", ""))
     except (TypeError, ValueError):
-        flash("Please choose a valid participant to review.", "error")
+        flash("请选择有效的参与者。", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     if reviewer_id == reviewee_id:
-        flash("You cannot review yourself.", "error")
+        flash("不能评价自己。", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     if not _is_activity_participant(reviewer_id, activity_id):
-        flash("Only actual participants can submit participant reviews.", "error")
+        flash("只有实际参与者可以提交互评。", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     reviewee = User.query.get(reviewee_id)
     if not reviewee or not _is_activity_participant(reviewee_id, activity_id):
-        flash("The reviewed user must be an actual participant in this activity.", "error")
+        flash("被评价用户必须是该活动的实际参与者。", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
-    existing = UserReview.query.filter_by(
+    user_review = UserReview.query.filter_by(
         activity_id=activity_id,
         reviewer_id=reviewer_id,
         reviewee_id=reviewee_id,
     ).first()
-    if existing:
-        flash("You have already reviewed this participant for this activity.", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+    is_update = user_review is not None
 
     try:
         scores = {field: _parse_rating_score(field) for field in USER_REVIEW_FIELDS}
     except (TypeError, ValueError):
-        flash("Each participant review score must be an integer from 1 to 5.", "error")
+        flash("每项互评分数必须为 1 到 5 的整数。", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     average_score = round(sum(scores.values()) / len(scores), 1)
     comment = request.form.get("comment", "").strip()
 
-    user_review = UserReview(
-        activity_id=activity_id,
-        reviewer_id=reviewer_id,
-        reviewee_id=reviewee_id,
-        average_score=average_score,
-        comment=comment or None,
-        **scores,
-    )
+    if user_review is None:
+        user_review = UserReview(
+            activity_id=activity_id,
+            reviewer_id=reviewer_id,
+            reviewee_id=reviewee_id,
+        )
+    for field, score in scores.items():
+        setattr(user_review, field, score)
+    user_review.average_score = average_score
+    user_review.comment = comment or None
+    user_review.status = "published"
+    user_review.updated_at = datetime.utcnow()
 
     try:
         db.session.add(user_review)
         db.session.flush()
         _recalculate_user_trust_score(reviewee, reviewer_id, user_review.id)
         db.session.commit()
-        flash("Participant review submitted.", "success")
+        flash("评价已更新。" if is_update else "评价已提交。", "success")
     except IntegrityError:
         db.session.rollback()
-        flash("You have already reviewed this participant for this activity.", "error")
+        flash("评价保存失败，请刷新后重试。", "error")
     except Exception:
         db.session.rollback()
-        flash("Participant review submission failed. Please try again later.", "error")
+        flash("参与者互评提交失败，请稍后重试。", "error")
 
     return redirect(url_for("activity.activity_detail", activity_id=activity_id))
