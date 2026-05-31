@@ -3772,6 +3772,11 @@ textarea.form-input {
   gap: 10px;
 }
 
+[data-favorite-activity-list][hidden],
+[data-favorite-empty-state][hidden] {
+  display: none;
+}
+
 .discover-toolbar {
   display: flex;
   gap: 9px;
