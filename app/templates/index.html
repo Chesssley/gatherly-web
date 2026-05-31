@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}首页 - Gatherly{% endblock %}
+{% block title %}{% if search_results_mode|default(false) %}搜索结果 - Gatherly{% else %}首页 - Gatherly{% endif %}{% endblock %}
 
 {% block content %}
 {% macro activity_card(activity, detail_url, favorite_activity_id, demo=false) %}
@@ -75,6 +75,90 @@
 </article>
 {% endmacro %}
 
+{% if search_results_mode|default(false) %}
+<section class="section search-results-page">
+    <div class="container">
+        <div class="search-results-heading">
+            <p class="eyebrow">Search</p>
+            <h1>搜索结果：{{ search_query }}</h1>
+            {% if search_city %}
+            <p>已限定城市 / 地区：{{ search_city }}</p>
+            {% else %}
+            <p>活动、同好圈和公开用户中与关键词相关的内容。</p>
+            {% endif %}
+        </div>
+
+        {% set total_results = activities|length + circles|length + users|length %}
+        {% if total_results == 0 %}
+        <div class="search-empty-panel">未找到相关内容</div>
+        {% endif %}
+
+        <section class="search-result-section" aria-labelledby="search-activities-title">
+            <div class="search-result-section-heading">
+                <h2 id="search-activities-title">活动</h2>
+                <span>{{ activities|length }}</span>
+            </div>
+            {% if activities %}
+            <div class="card-grid activity-discovery-grid">
+                {% for activity in activities %}
+                    {{ activity_card(activity, url_for('activity.activity_detail', activity_id=activity.id), activity.id, activity.demo|default(false)) }}
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="search-empty-text">未找到相关内容</p>
+            {% endif %}
+        </section>
+
+        <section class="search-result-section" aria-labelledby="search-circles-title">
+            <div class="search-result-section-heading">
+                <h2 id="search-circles-title">同好圈</h2>
+                <span>{{ circles|length }}</span>
+            </div>
+            {% if circles %}
+            <div class="search-result-list">
+                {% for circle in circles %}
+                <a class="search-result-row" href="{{ circle.url }}">
+                    <span class="search-result-avatar" aria-hidden="true">{{ circle.title[:1]|upper }}</span>
+                    <span>
+                        <strong>{{ circle.title }}</strong>
+                        <small>{{ circle.subtitle or '同好圈' }}{% if circle.member_count is not none %} · {{ circle.member_count }} 位成员{% endif %}</small>
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="search-empty-text">未找到相关内容</p>
+            {% endif %}
+        </section>
+
+        <section class="search-result-section" aria-labelledby="search-users-title">
+            <div class="search-result-section-heading">
+                <h2 id="search-users-title">用户</h2>
+                <span>{{ users|length }}</span>
+            </div>
+            {% if users %}
+            <div class="search-result-list">
+                {% for user in users %}
+                <a class="search-result-row" href="{{ user.url }}">
+                    {% if user.avatar %}
+                    <img class="search-result-avatar" src="{{ user.avatar }}" alt="">
+                    {% else %}
+                    <span class="search-result-avatar" aria-hidden="true">{{ user.title[:1]|upper }}</span>
+                    {% endif %}
+                    <span>
+                        <strong>{{ user.title }}</strong>
+                        <small>{{ user.subtitle or '公开用户' }}</small>
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="search-empty-text">未找到相关内容</p>
+            {% endif %}
+        </section>
+    </div>
+</section>
+{% else %}
 <section class="home-intro">
     <div class="container home-intro-inner">
         <div>
@@ -220,4 +304,5 @@
         </div>
     </div>
 </section>
+{% endif %}
 {% endblock %}
