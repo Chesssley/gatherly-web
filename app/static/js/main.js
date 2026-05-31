@@ -201,71 +201,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  const favoriteActivityList = document.querySelector("[data-favorite-activity-list]");
-  const favoriteEmptyState = document.querySelector("[data-favorite-empty-state]");
-
-  const syncFavoritePanelState = () => {
-    if (!favoriteActivityList || !favoriteEmptyState) {
-      return;
-    }
-
-    const hasItems = favoriteActivityList.querySelector("[data-favorite-activity-item]") !== null;
-    favoriteActivityList.hidden = !hasItems;
-    favoriteEmptyState.hidden = hasItems;
-  };
-
-  const buildFavoriteActivityItem = (button) => {
-    const link = document.createElement("a");
-    link.className = "my-activity-item favorite-activity-item";
-    link.href = button.dataset.activityDetailUrl || "#";
-    link.dataset.favoriteActivityItem = button.dataset.activityId || "";
-
-    const main = document.createElement("div");
-    main.className = "my-activity-item-main";
-
-    const tag = document.createElement("span");
-    tag.className = "tag";
-    const card = button.closest(".discover-card");
-    const firstTag = card?.querySelector(".card-tags .tag");
-    tag.textContent = firstTag?.textContent.trim() || "城市探索";
-
-    const title = document.createElement("strong");
-    title.textContent = button.dataset.activityTitle || "活动";
-
-    main.appendChild(tag);
-    main.appendChild(title);
-
-    const meta = document.createElement("span");
-    const activityTime = button.dataset.activityTime || "时间待定";
-    const activityLocation = button.dataset.activityLocation || "地点待定";
-    meta.textContent = `${activityTime} · ${activityLocation}`;
-
-    link.appendChild(main);
-    link.appendChild(meta);
-    return link;
-  };
-
-  const syncFavoriteActivityList = (button, isFavorited) => {
-    if (!favoriteActivityList) {
-      return;
-    }
-
-    const activityId = button.dataset.activityId;
-    const existingItem = favoriteActivityList.querySelector(
-      `[data-favorite-activity-item="${activityId}"]`
-    );
-
-    if (isFavorited && !existingItem) {
-      favoriteActivityList.prepend(buildFavoriteActivityItem(button));
-    } else if (!isFavorited && existingItem) {
-      existingItem.remove();
-    }
-
-    syncFavoritePanelState();
-  };
-
-  syncFavoritePanelState();
-
   document.querySelectorAll("[data-activity-favorite]").forEach(button => {
     button.addEventListener("click", async () => {
       if (!button.dataset.favoriteUrl) {
@@ -291,7 +226,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         syncFavoriteButtons(button.dataset.activityId, result.is_favorited);
-        syncFavoriteActivityList(button, result.is_favorited);
         showShareToast(result.is_favorited ? "已收藏活动" : "已取消收藏");
       } catch (error) {
         showShareToast("收藏操作失败，请稍后重试");
@@ -343,22 +277,6 @@ document.addEventListener("DOMContentLoaded", () => {
     strip.addEventListener("scroll", updateCarouselButtons, { passive: true });
     window.addEventListener("resize", updateCarouselButtons);
     updateCarouselButtons();
-  });
-
-  const homeTabs = document.querySelectorAll("[data-home-tab]");
-  const homeTabPanels = document.querySelectorAll("[data-home-tab-panel]");
-  homeTabs.forEach(tab => {
-    tab.addEventListener("click", () => {
-      const selectedTab = tab.dataset.homeTab;
-      homeTabs.forEach(item => {
-        const isActive = item === tab;
-        item.classList.toggle("is-active", isActive);
-        item.setAttribute("aria-selected", String(isActive));
-      });
-      homeTabPanels.forEach(panel => {
-        panel.hidden = panel.dataset.homeTabPanel !== selectedTab;
-      });
-    });
   });
 
   document.querySelectorAll("[data-login-required]").forEach(button => {
@@ -533,27 +451,35 @@ document.addEventListener("DOMContentLoaded", () => {
     panel.hidden = !shouldOpen;
   };
 
-  const accountMenuButton = document.querySelector("[data-nav-menu-toggle]");
-  const accountMenu = document.querySelector("[data-nav-menu]");
+  const accountMenuButtons = Array.from(document.querySelectorAll("[data-nav-menu-toggle]"));
+  const accountMenus = Array.from(document.querySelectorAll("[data-nav-menu]"));
   const mobileSearchButton = document.querySelector("[data-mobile-search-toggle]");
   const mobileSearchPanel = document.querySelector("[data-mobile-search]");
   const mobileMenuButton = document.querySelector("[data-mobile-menu-toggle]");
   const mobileMenu = document.querySelector("[data-mobile-menu]");
 
   const closeNavigationPanels = () => {
-    togglePanel(accountMenuButton, accountMenu, false);
+    accountMenuButtons.forEach(button => {
+      const menu = document.getElementById(button.getAttribute("aria-controls"));
+      togglePanel(button, menu, false);
+    });
     togglePanel(mobileSearchButton, mobileSearchPanel, false);
     togglePanel(mobileMenuButton, mobileMenu, false);
   };
 
-  if (accountMenuButton && accountMenu) {
-    accountMenuButton.addEventListener("click", event => {
+  accountMenuButtons.forEach(button => {
+    const menu = document.getElementById(button.getAttribute("aria-controls"));
+    if (!menu || !accountMenus.includes(menu)) {
+      return;
+    }
+
+    button.addEventListener("click", event => {
       event.stopPropagation();
-      const shouldOpen = accountMenu.hidden;
+      const shouldOpen = menu.hidden;
       closeNavigationPanels();
-      togglePanel(accountMenuButton, accountMenu, shouldOpen);
+      togglePanel(button, menu, shouldOpen);
     });
-  }
+  });
 
   if (mobileSearchButton && mobileSearchPanel) {
     mobileSearchButton.addEventListener("click", event => {

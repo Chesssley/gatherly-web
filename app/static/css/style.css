@@ -3768,7 +3768,7 @@ textarea.form-input {
   gap: 9px;
   color: var(--color-primary-dark);
   font-size: 23px;
-  letter-spacing: -0.5px;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
@@ -4054,6 +4054,18 @@ textarea.form-input {
   transform: rotate(180deg);
 }
 
+.mobile-avatar-button {
+  display: none;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
 .account-menu {
   position: absolute;
   top: calc(100% + 12px);
@@ -4068,6 +4080,7 @@ textarea.form-input {
 }
 
 .account-menu[hidden],
+.mobile-account-menu[hidden],
 .mobile-search-panel[hidden],
 .mobile-menu[hidden] {
   display: none;
@@ -4401,6 +4414,7 @@ textarea.form-input {
 
 .mobile-nav,
 .mobile-search-panel,
+.mobile-account-menu,
 .mobile-menu {
   display: none;
 }
@@ -4476,7 +4490,18 @@ textarea.form-input {
     color: var(--color-primary-dark);
   }
 
+  .mobile-avatar-button {
+    display: grid;
+  }
+
+  .mobile-avatar-button .nav-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+
   .mobile-search-panel,
+  .mobile-account-menu,
   .mobile-menu {
     display: block;
     padding-bottom: 14px;
@@ -4522,6 +4547,28 @@ textarea.form-input {
   .mobile-menu a:hover {
     color: var(--color-primary);
   }
+
+  .mobile-account-menu {
+    display: grid;
+    gap: 2px;
+    border-top: 1px solid var(--color-border);
+    padding-top: 10px;
+  }
+
+  .mobile-account-menu a {
+    padding: 9px 6px;
+    color: var(--color-text);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .mobile-account-menu a:hover {
+    color: var(--color-primary);
+  }
+
+  .mobile-account-menu[hidden] {
+    display: none;
+  }
 }
 
 /* ============================================
@@ -4529,7 +4576,7 @@ textarea.form-input {
    ============================================ */
 
 .home-intro {
-  padding: 34px 0 20px;
+  padding: 26px 0 12px;
   background: #ffffff;
 }
 
@@ -4545,7 +4592,7 @@ textarea.form-input {
   margin: 2px 0 8px;
   font-size: clamp(30px, 4vw, 46px);
   line-height: 1.12;
-  letter-spacing: -1px;
+  letter-spacing: 0;
 }
 
 .home-intro p,
@@ -4556,6 +4603,11 @@ textarea.form-input {
 
 .home-section {
   padding: 32px 0;
+}
+
+.recommended-section {
+  padding: 26px 0 46px;
+  background: #ffffff;
 }
 
 .home-section:nth-of-type(even) {
@@ -4589,7 +4641,7 @@ textarea.form-input {
 
 .featured-strip {
   display: flex;
-  gap: 16px;
+  gap: 18px;
   overflow-x: auto;
   scroll-behavior: smooth;
   scrollbar-width: none;
@@ -4607,8 +4659,8 @@ textarea.form-input {
 .featured-card {
   position: relative;
   display: flex;
-  flex: 0 0 min(520px, calc(50% - 8px));
-  min-height: 212px;
+  flex: 0 0 min(680px, calc(58% - 9px));
+  min-height: 286px;
   align-items: end;
   overflow: hidden;
   border-radius: 22px;
@@ -4635,7 +4687,8 @@ textarea.form-input {
 .featured-card-overlay {
   position: relative;
   z-index: 1;
-  padding: 22px;
+  width: 100%;
+  padding: 28px;
 }
 
 .featured-label,
@@ -4649,13 +4702,17 @@ textarea.form-input {
 }
 
 .featured-card h3 {
-  margin: 10px 0 2px;
-  font-size: clamp(20px, 2.4vw, 28px);
+  max-width: 92%;
+  margin: 10px 0 4px;
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.18;
 }
 
 .featured-card p {
-  margin-bottom: 12px;
+  max-width: 92%;
+  margin-bottom: 0;
   color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
 }
 
 .featured-card a {
@@ -4705,117 +4762,6 @@ textarea.form-input {
   border-radius: 18px;
   color: var(--color-muted);
   background: #fbfaf7;
-}
-
-.my-activities-panel {
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 18px;
-  background: var(--color-surface);
-  box-shadow: 0 6px 16px rgba(34, 34, 34, 0.06);
-}
-
-.home-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 8px 14px 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.home-tab {
-  padding: 11px 14px 10px;
-  border: 0;
-  border-bottom: 3px solid transparent;
-  background: transparent;
-  color: var(--color-muted);
-  cursor: pointer;
-  font: inherit;
-  font-weight: 800;
-}
-
-.home-tab.is-active {
-  border-bottom-color: var(--color-primary);
-  color: var(--color-primary-dark);
-}
-
-.home-tab-panel {
-  padding: 18px 22px 20px;
-}
-
-.home-tab-panel p {
-  margin-bottom: 7px;
-  color: var(--color-muted);
-}
-
-.my-activity-list {
-  display: grid;
-  gap: 10px;
-}
-
-.my-activity-item {
-  display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: #f7faf8;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.my-activity-item:hover {
-  border-color: #c7ddd6;
-  background: #eef6f3;
-}
-
-.my-activity-item-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.my-activity-item strong {
-  color: var(--color-text);
-  font-size: 15px;
-}
-
-.my-activity-item span:last-child {
-  color: var(--color-muted);
-  font-size: 13px;
-}
-
-.my-activity-empty-state,
-.my-activity-login-guide {
-  display: grid;
-  justify-items: start;
-  gap: 10px;
-  padding: 22px;
-  border: 1px dashed var(--color-border);
-  border-radius: 16px;
-  background: #fbfaf7;
-}
-
-.my-activity-empty-state h3,
-.my-activity-login-guide h3 {
-  margin: 0;
-  color: var(--color-text);
-  font-size: 20px;
-}
-
-.my-activity-empty-state p,
-.my-activity-login-guide p {
-  margin: 0;
-  color: var(--color-muted);
-}
-
-.favorite-activity-list {
-  display: grid;
-  gap: 10px;
-}
-
-[data-favorite-activity-list][hidden],
-[data-favorite-empty-state][hidden] {
-  display: none;
 }
 
 .discover-toolbar {
@@ -5307,12 +5253,16 @@ textarea.form-input {
   }
 
   .featured-card {
-    flex-basis: 86%;
-    min-height: 176px;
+    flex-basis: 92%;
+    min-height: 230px;
   }
 
   .featured-card-overlay {
-    padding: 20px;
+    padding: 22px;
+  }
+
+  .featured-card h3 {
+    font-size: 24px;
   }
 
   .featured-carousel-button.is-previous {
@@ -5321,17 +5271,6 @@ textarea.form-input {
 
   .featured-carousel-button.is-next {
     right: -8px;
-  }
-
-  .my-activity-item-main {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .my-activity-empty-state,
-  .my-activity-login-guide {
-    padding: 18px;
   }
 
   .discover-section .interest-section {
