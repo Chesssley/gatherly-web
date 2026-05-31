@@ -171,33 +171,75 @@
 
 <section class="home-section recommended-section">
     <div class="container">
-        <div class="home-section-heading">
+        <div class="home-section-heading recommended-header">
             <div>
-                <p class="eyebrow">Recommended</p>
-                <h2>近期推荐活动</h2>
-                <p>先看看近期最值得加入的线下体验。</p>
+                <p class="eyebrow recommended-eyebrow">Recommended</p>
+                <h2 class="recommended-title">近期推荐活动</h2>
+                <p class="recommended-subtitle">先看看近期最值得加入的线下体验。</p>
             </div>
             <a class="section-link" href="#discover-events">浏览全部活动 <span aria-hidden="true">&#8594;</span></a>
         </div>
-        <div class="featured-carousel" data-featured-carousel>
-            <button class="featured-carousel-button is-previous" type="button" aria-label="查看上一组推荐活动" data-featured-previous>&#8592;</button>
-            <div class="featured-strip" data-featured-strip>
+        <div class="recommended-track-wrap" data-recommended-carousel>
+            <button class="recommended-scroll-btn is-previous" type="button" aria-label="查看上一组推荐活动" data-recommended-previous>&#8592;</button>
+            <div class="recommended-track" data-recommended-track>
                 {% for activity in featured_activities %}
-                <a class="featured-card" href="{{ activity.detail_url }}">
-                    <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
-                         alt="{{ activity.title }}"
-                         onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
-                    <div class="featured-card-overlay">
-                        <span class="featured-label">优质活动</span>
-                        <h3>{{ activity.title }}</h3>
-                        <p>{{ activity.time }} · {% if activity.city %}{{ activity.city }} · {% endif %}{{ activity.location }}</p>
+                <article class="recommended-card" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}">
+                    <div class="recommended-card-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
+                        <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
+                             alt="{{ activity.title }}"
+                             onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                        {% if not activity.image_url %}<span class="activity-image-placeholder" aria-hidden="true">&#10024;</span>{% endif %}
+                        {% if activity.id in registered_activity_ids|default([]) %}
+                        <span class="going-badge"><span aria-hidden="true"></span>已报名</span>
+                        {% elif activity.is_featured %}
+                        <span class="going-badge is-featured">优质活动</span>
+                        {% endif %}
+                        <button class="favorite-btn {% if activity.id in favorite_activity_ids %}is-active{% endif %}"
+                                type="button"
+                                aria-label="收藏 {{ activity.title }}"
+                                aria-pressed="{{ 'true' if activity.id in favorite_activity_ids else 'false' }}"
+                                data-activity-favorite
+                                data-activity-id="{{ activity.id }}"
+                                data-activity-title="{{ activity.title }}"
+                                data-activity-time="{{ activity.time }}"
+                                data-activity-location="{{ activity.location or '' }}"
+                                data-activity-detail-url="{{ activity.detail_url }}"
+                                data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=activity.id) }}"
+                                data-login-url="{{ url_for('auth.login', next=activity.detail_url) }}">
+                            <span aria-hidden="true">{% if activity.id in favorite_activity_ids %}&#9829;{% else %}&#9825;{% endif %}</span>
+                        </button>
                     </div>
-                </a>
+                    <div class="recommended-card-body">
+                        <h3 class="recommended-card-title">{{ activity.title }}</h3>
+                        <p class="recommended-card-meta">{{ activity.sidebar_time or activity.time }}</p>
+                        <p class="recommended-card-meta">{% if activity.city %}{{ activity.city }} · {% endif %}{{ activity.location or '地点待定' }}</p>
+                        <p class="recommended-card-host">主办方：{{ activity.organizer }}</p>
+                        <div class="recommended-card-footer">
+                            <div class="card-attendee-summary">
+                                {% if activity.attendee_previews %}
+                                <div class="card-attendee-avatars" aria-label="已报名用户">
+                                    {% for attendee in activity.attendee_previews %}
+                                        {% if attendee.avatar %}
+                                        <img class="card-attendee-avatar" src="{{ attendee.avatar }}" alt="{{ attendee.display_name }}" title="{{ attendee.display_name }}">
+                                        {% else %}
+                                        <span class="card-attendee-avatar card-attendee-placeholder" title="{{ attendee.display_name }}" aria-label="{{ attendee.display_name }}">{{ attendee.initial }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                <span>{{ activity.current_people|default(0) }} 人参与</span>
+                            </div>
+                            {% if activity.rating_average %}
+                            <span class="recommended-card-rating">{{ '%.1f'|format(activity.rating_average) }} <span aria-hidden="true">★</span></span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
                 {% else %}
-                <div class="featured-empty-state">管理员精选活动后，会在这里展示近期推荐。</div>
+                <div class="recommended-empty-state">近期暂无可推荐活动。</div>
                 {% endfor %}
             </div>
-            <button class="featured-carousel-button is-next" type="button" aria-label="查看下一组推荐活动" data-featured-next>&#8594;</button>
+            <button class="recommended-scroll-btn is-next" type="button" aria-label="查看下一组推荐活动" data-recommended-next>&#8594;</button>
         </div>
     </div>
 </section>

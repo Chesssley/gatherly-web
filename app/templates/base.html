@@ -26,30 +26,48 @@
         </button>
       </form>
 
-      <div class="desktop-nav">
-        <a href="{{ url_for('activity.create_activity') }}">发布活动</a>
-        <a href="{{ url_for('circle.circles') }}">同好圈</a>
+      <div class="desktop-nav nav-actions">
+        <a class="nav-icon-btn" href="{{ url_for('activity.create_activity') }}" title="发布活动" aria-label="发布活动">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 5v14M5 12h14"></path>
+          </svg>
+          <span class="sr-only">发布活动</span>
+        </a>
+        <a class="nav-icon-btn" href="{{ url_for('circle.circles') }}" title="同好圈" aria-label="同好圈">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"></path>
+            <path d="M16 13a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
+            <path d="M3 21a5 5 0 0 1 10 0"></path>
+            <path d="M12.5 21a4.5 4.5 0 0 1 8.5-2"></path>
+          </svg>
+          <span class="sr-only">同好圈</span>
+        </a>
         {% if session.get('user_id') %}
-          <a class="nav-notification-link" href="{{ url_for('messages.message_list') }}">
-            <span aria-hidden="true">&#128172;</span>
-            <span>私信</span>
-            {% if unread_direct_message_count %}<strong>{{ unread_direct_message_count }}</strong>{% endif %}
+          <a class="nav-icon-btn nav-notification-link" href="{{ url_for('messages.message_list') }}" title="私信" aria-label="私信{% if unread_direct_message_count %}，{{ unread_direct_message_count }} 条未读{% endif %}">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M4 5.5h16v11H8.5L4 20V5.5Z"></path>
+            </svg>
+            <span class="sr-only">私信</span>
+            {% if unread_direct_message_count %}<strong class="nav-icon-badge">{{ unread_direct_message_count if unread_direct_message_count < 100 else '99+' }}</strong>{% endif %}
           </a>
-          <a class="nav-notification-link" href="{{ url_for('notifications.notification_list') }}">
-            <span aria-hidden="true">&#128276;</span>
-            <span>通知中心</span>
-            {% if unread_notification_count %}<strong>{{ unread_notification_count }}</strong>{% endif %}
+          <a class="nav-icon-btn nav-notification-link" href="{{ url_for('notifications.notification_list') }}" title="通知中心" aria-label="通知中心{% if unread_notification_count %}，{{ unread_notification_count }} 条未读{% endif %}">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M18 9a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"></path>
+              <path d="M10 21h4"></path>
+            </svg>
+            <span class="sr-only">通知中心</span>
+            {% if unread_notification_count %}<strong class="nav-icon-badge">{{ unread_notification_count if unread_notification_count < 100 else '99+' }}</strong>{% endif %}
           </a>
           <div class="nav-account">
-            <button class="avatar-button" type="button" data-nav-menu-toggle aria-expanded="false" aria-controls="account-menu">
-              <span class="nav-avatar">
+            <button class="avatar-button nav-avatar-btn" type="button" data-nav-menu-toggle aria-expanded="false" aria-controls="account-menu" title="用户菜单" aria-label="打开用户菜单">
+              <span class="nav-avatar {% if not (current_user and current_user.avatar) %}nav-avatar-initial{% endif %}">
                 {% if current_user and current_user.avatar %}
                   <img src="{{ current_user.avatar }}" alt="">
                 {% else %}
                   {{ session.get('nickname', '用户')[:1] }}
                 {% endif %}
               </span>
-              <span class="nav-chevron" aria-hidden="true">&#8964;</span>
+              <span class="nav-chevron nav-dropdown-arrow" aria-hidden="true">&#8964;</span>
               <span class="sr-only">打开用户菜单</span>
             </button>
             <div class="account-menu" id="account-menu" data-nav-menu hidden>
@@ -65,7 +83,7 @@
             </div>
           </div>
         {% else %}
-          <a href="{{ url_for('auth.login') }}">登录</a>
+          <a class="nav-auth-link" href="{{ url_for('auth.login') }}">登录</a>
           <a class="nav-register" href="{{ url_for('auth.register') }}">注册</a>
         {% endif %}
       </div>
