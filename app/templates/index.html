@@ -10,6 +10,7 @@
              alt="{{ activity.title }}"
              onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
         {% if not activity.image_url %}<span class="activity-image-placeholder" aria-hidden="true">&#10024;</span>{% endif %}
+        {% if activity.gmt_offset %}<span class="card-timezone-badge">{{ activity.gmt_offset }}</span>{% endif %}
         <div class="card-image-actions">
             <button class="card-icon-button favorite-button {% if favorite_activity_id in favorite_activity_ids %}is-active{% endif %}"
                     type="button"
@@ -42,12 +43,11 @@
         </div>
         <h3 class="card-title">{{ activity.title }}</h3>
         <div class="card-meta">
-            <p class="meta-time"><span aria-hidden="true">&#128197;</span> {{ activity.time }}</p>
+            <p class="meta-time"><span aria-hidden="true">&#128197;</span> {{ activity.time }}{% if activity.gmt_offset %} <span class="card-timezone">{{ activity.gmt_offset }}</span>{% endif %}</p>
             <p class="meta-location"><span aria-hidden="true">&#128205;</span> {{ activity.location }}</p>
-            <p class="card-host"><span aria-hidden="true">&#9673;</span> 主办方：{{ activity.organizer|default("Gatherly 活动发起人") }}</p>
+            <p class="card-host"><span aria-hidden="true">&#9673;</span> 主办方：{{ activity.organizer|default("Gatherly官方") }}</p>
         </div>
         <div class="card-social">
-            <span><strong>{{ activity.rating|default("4.8") }}</strong> <span class="rating-star" aria-hidden="true">&#9733;</span> 评分</span>
             <div class="card-attendee-summary">
                 {% if activity.attendee_previews %}
                 <div class="card-attendee-avatars" aria-label="已报名用户">
@@ -67,7 +67,7 @@
             </div>
         </div>
         <div class="card-activity-badges">
-            {% if activity.organizer_is_verified %}<span class="activity-badge is-official">官方认证</span>{% endif %}
+            {% if activity.is_official %}<span class="activity-badge is-official">Gatherly官方</span>{% elif activity.organizer_is_verified %}<span class="activity-badge is-official">官方认证</span>{% endif %}
             {% if activity.is_featured %}<span class="activity-badge is-featured">优质活动</span>{% endif %}
             {% if activity.is_hot %}<span class="activity-badge is-hot">热门活动</span>{% endif %}
         </div>
@@ -310,7 +310,7 @@
             </div>
         </div>
         <div class="trust-grid">
-            <article class="trust-card"><span aria-hidden="true">&#128737;</span><h3>真实参与反馈</h3><p>活动结束后，由实际参与者提交评分与反馈，帮助你判断活动质量。</p></article>
+            <article class="trust-card"><span aria-hidden="true">&#128737;</span><h3>真实参与反馈</h3><p>活动结束后，由实际参与者完成互评，帮助社区保持真实可靠。</p></article>
             <article class="trust-card"><span aria-hidden="true">&#10003;</span><h3>明确报名规则</h3><p>报名人数、活动时间和地点清晰展示，请按约到场并尊重主办方安排。</p></article>
             <article class="trust-card"><span aria-hidden="true">&#129309;</span><h3>友善社区约定</h3><p>保持尊重、注意安全。如遇不适当行为，请及时联系平台处理。</p></article>
         </div>

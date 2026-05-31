@@ -451,6 +451,50 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-cancel-reason]").forEach(select => {
+    const form = select.closest("form");
+    const customReason = form?.querySelector("[data-custom-reason]");
+    const customReasonLabel = form?.querySelector("[data-custom-reason-label]");
+    const syncCustomReason = () => {
+      const isOther = select.value === "other";
+      if (customReason) {
+        customReason.hidden = !isOther;
+        customReason.required = isOther;
+        if (!isOther) {
+          customReason.value = "";
+        }
+      }
+      if (customReasonLabel) {
+        customReasonLabel.hidden = !isOther;
+      }
+    };
+
+    select.addEventListener("change", syncCustomReason);
+    syncCustomReason();
+  });
+
+  document.querySelectorAll("[data-activity-timezone]").forEach(input => {
+    if (!input.value) {
+      input.value = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    }
+  });
+
+  document.querySelectorAll("[data-peer-review-list]").forEach(list => {
+    const items = Array.from(list.querySelectorAll("[data-peer-review-item]"));
+    items.forEach(item => {
+      item.addEventListener("toggle", () => {
+        if (!item.open) {
+          return;
+        }
+        items.forEach(otherItem => {
+          if (otherItem !== item) {
+            otherItem.open = false;
+          }
+        });
+      });
+    });
+  });
+
   const myEventsSearch = document.querySelector("[data-my-events-search]");
   const myEventsSearchToggle = myEventsSearch?.querySelector("[data-my-events-search-toggle]");
   const myEventsSearchField = myEventsSearch?.querySelector("[data-my-events-search-field]");

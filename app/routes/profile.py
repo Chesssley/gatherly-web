@@ -4,14 +4,13 @@ from urllib.parse import urlencode
 from uuid import uuid4
 
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
-from sqlalchemy import or_, text
+from sqlalchemy import and_, or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.models import (
     Activity,
     ActivityFavorite,
-    ActivityReview,
     Circle,
     CircleMember,
     Comment,
@@ -247,7 +246,7 @@ def _membership_matches(circle_id, query):
     )
 
 
-def _interaction_type_options(user, target_type, review_type):
+def _interaction_type_options(user, target_type, review_type=None):
     action_types = [
         row[0]
         for row in db.session.query(Interaction.action_type)
@@ -257,7 +256,7 @@ def _interaction_type_options(user, target_type, review_type):
         .all()
         if row[0]
     ]
-    return action_types + [review_type]
+    return action_types + ([review_type] if review_type else [])
 
 
 def _owner_profile_or_404():
@@ -268,7 +267,10 @@ def _owner_profile_or_404():
 
 def _profile_context(user, visibility, is_owner=True):
     circle_count = CircleMember.query.filter_by(user_id=user.id, status="active").count()
-    registration_count = Registration.query.filter_by(user_id=user.id).count()
+    registration_count = Registration.query.filter(
+        Registration.user_id == user.id,
+        Registration.status != "cancelled",
+    ).count()
     return {
         "user": user,
         "display_name": get_user_display_name(user),
@@ -343,7 +345,12 @@ def _circle_items(user, filters):
 
 
 def _published_activities(user, filters):
-    query = Activity.query.filter(Activity.organizer_id == user.id)
+    query = Activity.query.filter(
+        or_(
+            Activity.organizer_id == user.id,
+            and_(user.role == "admin", Activity.is_official.is_(True)),
+        )
+    )
     if filters["q"]:
         pattern = f"%{filters['q']}%"
         query = query.filter(
@@ -375,21 +382,7 @@ def _activity_interactions(user, filters):
             .order_by(Interaction.created_at.desc())
         )
     ]
-    activity_reviews = [
-        {
-            "id": review.activity_id,
-            "title": review.activity.title if review.activity else _activity_label(review.activity_id),
-            "type": "activity_review",
-            "action": f"活动评分 {review.average_score}/5",
-            "time": review.created_at,
-            "url": url_for("activity.activity_detail", activity_id=review.activity_id),
-        }
-        for review in _safe_all(
-            ActivityReview.query.filter_by(reviewer_id=user.id)
-            .order_by(ActivityReview.created_at.desc())
-        )
-    ]
-    items = activity_actions + activity_reviews
+    items = activity_actions
     if filters["q"]:
         needle = filters["q"].casefold()
         items = [
@@ -650,7 +643,7 @@ def my_activity_interactions():
         _activity_interactions,
         "activity_interaction",
         [],
-        _interaction_type_options(user, "activity", "activity_review"),
+        _interaction_type_options(user, "activity"),
     )
 
 

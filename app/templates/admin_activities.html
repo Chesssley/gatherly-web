@@ -9,12 +9,12 @@
   <div class="page-title"><p class="eyebrow">Admin Activities</p><h1>活动管理</h1><p>查看活动、维护状态，并指定首页近期推荐的精选活动。</p></div>
   {{ list_filters('admin.admin_activities', filters, status_options) }}
   <div class="admin-table-wrap"><table class="admin-table">
-    <thead><tr><th>ID</th><th>标题</th><th>组织者</th><th>地点</th><th>开始时间</th><th>状态</th><th>精选</th><th>操作</th></tr></thead>
+    <thead><tr><th>ID</th><th>标题</th><th>组织者</th><th>地点</th><th>开始时间</th><th>结束时间</th><th>状态</th><th>精选</th><th>操作</th></tr></thead>
     <tbody>{% for activity in activities %}<tr>
-      <td>{{ activity.id }}</td><td>{{ activity.title }}</td><td>{{ 'Gatherly官方活动' if activity.organizer.role == 'admin' else activity.organizer.username }}</td><td>{{ activity.location or '-' }}</td><td>{{ activity.start_time.strftime('%Y-%m-%d %H:%M') if activity.start_time else '-' }}</td><td><span class="admin-status status-{{ activity.status }}">{{ activity.status }}</span></td>
+      <td>{{ activity.id }}</td><td>{{ activity.title }}</td><td>{{ 'Gatherly官方' if activity.is_official or activity.organizer.role == 'admin' else (activity.organizer.nickname or activity.organizer.username) }}</td><td>{{ activity.location or '-' }}</td><td>{{ activity.start_time.strftime('%Y-%m-%d %H:%M') if activity.start_time else '-' }}</td><td>{{ activity.end_time.strftime('%Y-%m-%d %H:%M') if activity.end_time else '-' }}</td><td><span class="admin-status status-{{ activity.status }}">{{ activity.status }}</span></td>
       <td><form method="post" action="{{ url_for('admin.toggle_activity_featured', activity_id=activity.id) }}"><button class="button button-small {% if activity.is_featured %}button-secondary{% endif %}" type="submit">{{ '取消精选' if activity.is_featured else '设为精选' }}</button></form></td>
       <td><form class="admin-action" method="post" action="{{ url_for('admin.update_activity_status', activity_id=activity.id) }}"><select name="status" aria-label="修改 {{ activity.title }} 的状态">{% for status in ['open', 'hidden', 'closed'] %}<option value="{{ status }}" {% if activity.status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select><button class="button button-small" type="submit">保存</button></form></td>
-    </tr>{% else %}<tr><td class="admin-empty" colspan="8">暂无活动。</td></tr>{% endfor %}</tbody>
+    </tr>{% else %}<tr><td class="admin-empty" colspan="9">暂无活动。</td></tr>{% endfor %}</tbody>
   </table></div>
 </div></section>
 {% endblock %}

@@ -2,6 +2,7 @@
 """数据库初始化脚本"""
 
 import os
+from datetime import timedelta
 
 from werkzeug.security import generate_password_hash
 
@@ -34,6 +35,8 @@ with app.app_context():
         for field, value in activity_data.items():
             if field != "id":
                 setattr(activity, field, value)
+        if activity.start_time and not activity.end_time:
+            activity.end_time = activity.start_time + timedelta(hours=2)
     db.session.commit()
 
     print("数据库初始化完成！")

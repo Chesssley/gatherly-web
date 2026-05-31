@@ -128,6 +128,8 @@ class Activity(db.Model):
     city = db.Column(db.String(80))
     location = db.Column(db.String(255))
     start_time = db.Column(db.DateTime)
+    end_time = db.Column(db.DateTime)
+    timezone = db.Column(db.String(80), default="Asia/Shanghai", nullable=False)
     max_participants = db.Column(db.Integer)
     initial_participants = db.Column(db.Integer, default=0, nullable=False)
     image = db.Column(db.String(255))
@@ -166,6 +168,13 @@ def ensure_activity_schema():
         statements.append("ALTER TABLE activity ADD COLUMN detail TEXT")
     if rows and "city" not in existing_columns:
         statements.append("ALTER TABLE activity ADD COLUMN city VARCHAR(80)")
+    if rows and "end_time" not in existing_columns:
+        statements.append("ALTER TABLE activity ADD COLUMN end_time DATETIME")
+    if rows and "timezone" not in existing_columns:
+        statements.append(
+            "ALTER TABLE activity ADD COLUMN timezone VARCHAR(80) "
+            "NOT NULL DEFAULT 'Asia/Shanghai'"
+        )
     if rows and "initial_participants" not in existing_columns:
         statements.append(
             "ALTER TABLE activity ADD COLUMN initial_participants INTEGER NOT NULL DEFAULT 0"
@@ -191,7 +200,23 @@ def ensure_activity_schema():
 
     for statement in statements:
         db.session.execute(text(statement))
-    if statements:
+    if rows:
+        db.session.execute(
+            text(
+                "UPDATE activity "
+                "SET end_time = datetime(start_time, '+2 hours') "
+                "WHERE end_time IS NULL AND start_time IS NOT NULL"
+            )
+        )
+        db.session.execute(
+            text(
+                "UPDATE activity SET is_official = 1 "
+                "WHERE organizer_id IN ("
+                "SELECT id FROM user WHERE role = 'admin' OR username = 'gatherly_demo'"
+                ")"
+            )
+        )
+    if statements or rows:
         db.session.commit()
 
 
@@ -227,7 +252,23 @@ def ensure_registration_schema():
 
     for statement in statements:
         db.session.execute(text(statement))
-    if statements:
+    if rows:
+        db.session.execute(
+            text(
+                "INSERT INTO registration "
+                "(user_id, activity_id, status, register_time) "
+                "SELECT activity.organizer_id, activity.id, 'registered', "
+                "COALESCE(activity.created_at, CURRENT_TIMESTAMP) "
+                "FROM activity "
+                "WHERE activity.organizer_id IS NOT NULL "
+                "AND NOT EXISTS ("
+                "SELECT 1 FROM registration "
+                "WHERE registration.user_id = activity.organizer_id "
+                "AND registration.activity_id = activity.id"
+                ")"
+            )
+        )
+    if statements or rows:
         db.session.commit()
 
 

@@ -842,6 +842,20 @@ img {
   color: var(--color-primary-dark);
 }
 
+.btn.button-secondary,
+.btn.button-secondary:hover,
+.btn.button-secondary:focus {
+  border-color: var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+}
+
+.btn.button-secondary:hover,
+.btn.button-secondary:focus {
+  background: #e8f0ed;
+  color: var(--color-primary-dark);
+}
+
 /* 移动端适配增强 */
 @media (max-width: 860px) {
   .search-bar {
@@ -2083,6 +2097,104 @@ textarea.form-input {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.peer-review-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.peer-review-item {
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 5px 14px rgba(34, 34, 34, 0.05);
+}
+
+.peer-review-item[open] {
+  border-color: rgba(47, 111, 99, 0.35);
+}
+
+.peer-review-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.peer-review-card::-webkit-details-marker {
+  display: none;
+}
+
+.peer-review-avatar {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.peer-review-placeholder {
+  background: linear-gradient(135deg, #d7ede6, #f2d7bd);
+  color: var(--color-primary-dark);
+  font-weight: 800;
+}
+
+.peer-review-person {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.peer-review-person strong {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.peer-review-role,
+.peer-review-status {
+  justify-self: start;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #f0ece6;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.peer-review-role.is-organizer {
+  background: #e0f0eb;
+  color: var(--color-primary-dark);
+}
+
+.peer-review-status {
+  justify-self: end;
+  background: #fbefe7;
+  color: #a55736;
+}
+
+.peer-review-status.is-reviewed {
+  background: #e0f0eb;
+  color: var(--color-primary-dark);
+}
+
+.peer-review-form-panel {
+  padding: 0 14px 14px;
+}
+
+.peer-review-form-title {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: 17px;
+}
+
 .user-review-form .rating-dimension:last-of-type,
 .user-review-form .rating-submit {
   grid-column: 1 / -1;
@@ -2226,6 +2338,21 @@ textarea.form-input {
 .rating-notice,
 .rating-empty {
   margin: 0;
+}
+
+@media (max-width: 640px) {
+  .peer-review-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .peer-review-status {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .user-review-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
@@ -4910,6 +5037,27 @@ textarea.form-input {
   font-size: 13px;
 }
 
+.card-timezone {
+  margin-left: 4px;
+  color: var(--color-primary-dark);
+  font-weight: 800;
+}
+
+.card-timezone-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 2;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-primary-dark);
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(34, 34, 34, 0.12);
+  backdrop-filter: blur(8px);
+}
+
 .discover-card .card-host {
   margin-top: 3px;
   padding-top: 7px;
@@ -5492,6 +5640,43 @@ textarea.form-input {
   line-height: 1.5;
 }
 
+.meetup-detail-info-card {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 5px 16px rgba(34, 34, 34, 0.05);
+}
+
+.meetup-detail-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 0 18px;
+  padding: 18px 0;
+}
+
+.meetup-detail-info-row + .meetup-detail-info-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.meetup-detail-info-row > div:not(.meetup-detail-side-icon) {
+  display: grid;
+  gap: 3px;
+}
+
+.meetup-detail-info-row strong {
+  color: var(--color-text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.meetup-detail-info-row span {
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .meetup-detail-capacity-card {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5516,6 +5701,222 @@ textarea.form-input {
 
 .meetup-detail-sidebar-registration {
   margin-top: 0;
+}
+
+.meetup-detail-management-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 12px rgba(34, 34, 34, 0.05);
+}
+
+.meetup-detail-management-card h2,
+.meetup-detail-rating-section h3 {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: 18px;
+  letter-spacing: -0.2px;
+}
+
+.meetup-detail-management-card p,
+.meetup-detail-rating-section .rating-notice,
+.meetup-detail-rating-section .rating-empty {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.meetup-detail-management-form {
+  display: grid;
+  gap: 8px;
+}
+
+.meetup-detail-management-form label {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.meetup-detail-management-form select,
+.meetup-detail-management-form textarea {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.meetup-detail-management-form textarea {
+  resize: vertical;
+}
+
+.meetup-detail-cancel-details {
+  display: grid;
+  gap: 10px;
+}
+
+.meetup-detail-cancel-details summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.meetup-detail-cancel-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.meetup-detail-cancel-details[open] .meetup-detail-management-form {
+  margin-top: 10px;
+}
+
+.meetup-detail-cancel-registration {
+  width: 100%;
+}
+
+.meetup-detail-community-section,
+.meetup-detail-rating-section {
+  color: var(--color-text);
+}
+
+.meetup-detail-community-section .meetup-detail-section-heading,
+.meetup-detail-rating-section .rating-header {
+  margin-bottom: 16px;
+}
+
+.meetup-detail-community-section .meetup-detail-section-heading h2,
+.meetup-detail-rating-section .rating-header h3 {
+  color: var(--color-primary-dark);
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.meetup-detail-attendee-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+  gap: 12px;
+}
+
+.meetup-detail-attendee-card {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  padding: 14px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 15px;
+  background: #ffffff;
+  color: var(--color-text);
+  text-align: center;
+  text-decoration: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.meetup-detail-attendee-card[href]:hover {
+  border-color: #a9cfc5;
+  box-shadow: 0 6px 14px rgba(34, 34, 34, 0.08);
+  transform: translateY(-2px);
+}
+
+.meetup-detail-attendee-avatar {
+  display: grid;
+  width: 62px;
+  height: 62px;
+  place-items: center;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.meetup-detail-attendee-placeholder {
+  background: linear-gradient(135deg, #d7ede6, #f2d7bd);
+  color: var(--color-primary-dark);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.meetup-detail-attendee-role {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.meetup-detail-attendee-role.is-organizer {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e0f0eb;
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.meetup-detail-attendee-more {
+  color: var(--color-primary-dark);
+}
+
+.meetup-detail-attendee-more strong {
+  font-size: 24px;
+}
+
+.meetup-detail-comment-form {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 16px;
+}
+
+.meetup-detail-comment-form textarea {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  color: var(--color-text);
+  font: inherit;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.meetup-detail-comment-form .button {
+  justify-self: start;
+}
+
+.meetup-detail-comment-list {
+  display: grid;
+  gap: 10px;
+}
+
+.meetup-detail-comment {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.meetup-detail-comment-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.meetup-detail-comment time {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.meetup-detail-comment p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-line;
 }
 
 .meetup-detail-bottom-bar {
@@ -5694,6 +6095,15 @@ textarea.form-input {
   .meetup-detail-side-card {
     padding: 14px;
     border-radius: 14px;
+  }
+
+  .meetup-detail-info-card {
+    border-radius: 17px;
+  }
+
+  .meetup-detail-info-row {
+    margin: 0 14px;
+    padding: 15px 0;
   }
 
   .meetup-detail-capacity-card {

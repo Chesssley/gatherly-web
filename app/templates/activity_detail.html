@@ -4,14 +4,27 @@
 
 {% macro registration_button(extra_class="") %}
     {% set activity_status = activity.status|default('', true)|lower %}
-    {% set event_ended = activity_status in ['ended', 'closed', 'completed', 'expired'] %}
+    {% set event_cancelled = activity_status == 'cancelled' %}
+    {% set event_ended = activity.is_ended or activity_status in ['ended', 'closed', 'completed', 'expired'] %}
+    {% set event_ongoing = activity.phase == 'ongoing' %}
     {% set is_full = max_participants is not none and registration_count >= max_participants %}
-    {% if event_ended %}
+    {% if event_cancelled %}
+        <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>活动已取消</button>
+    {% elif event_ended %}
         <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>活动已结束</button>
-    {% elif is_full %}
-        <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>已满员</button>
+    {% elif event_ongoing and not user_registered %}
+        <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>活动进行中</button>
+    {% elif can_cancel_registration %}
+        <form class="meetup-detail-register-form"
+              action="{{ url_for('activity.cancel_registration', activity_id=activity.id) }}"
+              method="post"
+              onsubmit="return confirm('确定取消报名吗？');">
+            <button type="submit" class="btn button-secondary {{ extra_class }}">取消报名</button>
+        </form>
     {% elif user_registered %}
         <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>已报名</button>
+    {% elif is_full %}
+        <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>已满员</button>
     {% elif session.get('user_id') %}
         <form class="meetup-detail-register-form" action="{{ url_for('activity.register_activity', activity_id=activity.id) }}" method="post">
             <button type="submit" class="btn btn-register {{ extra_class }}">立即报名</button>
@@ -24,10 +37,12 @@
 
 {% block content %}
 {% set activity_status = activity.status|default('', true)|lower %}
-{% set event_ended = activity_status in ['ended', 'closed', 'completed', 'expired'] %}
+{% set event_cancelled = activity_status == 'cancelled' %}
+{% set event_ended = activity.is_ended or activity_status in ['ended', 'closed', 'completed', 'expired'] %}
+{% set event_ongoing = activity.phase == 'ongoing' %}
 {% set is_full = max_participants is not none and registration_count >= max_participants %}
 {% set remaining_places = max_participants - registration_count if max_participants is not none else none %}
-{% set organizer_name = activity.organizer|default('Gatherly 活动发起人', true) %}
+{% set organizer_name = activity.organizer|default('Gatherly官方', true) %}
 {% set circle_name = activity.circle_name|default(activity.circle|default(activity.category|default('城市兴趣同好圈', true), true), true) %}
 {% set activity_fee = activity.fee|default(0, true) %}
 {% set attendee_count = activity.attendee_count|default(registration_count, true) %}
@@ -64,7 +79,7 @@
                     <h1 class="meetup-detail-title">{{ activity.title }}</h1>
                     <p class="meetup-detail-host">主办方 <strong>{{ organizer_name }}</strong></p>
                     <div class="card-activity-badges">
-                        {% if activity.organizer_is_verified %}<span class="activity-badge is-official">官方认证</span>{% endif %}
+                        {% if activity.is_official %}<span class="activity-badge is-official">Gatherly官方</span>{% elif activity.organizer_is_verified %}<span class="activity-badge is-official">官方认证</span>{% endif %}
                         {% if activity.is_featured %}<span class="activity-badge is-featured">优质活动</span>{% endif %}
                     </div>
 
@@ -73,13 +88,6 @@
                         <div>
                             <span>所属同好圈</span>
                             <strong>{{ circle_name }}</strong>
-                            <small>
-                                {% if rating_stats.count %}
-                                    {{ rating_stats.overall_avg }} <span class="rating-star" aria-hidden="true">&#9733;</span> · {{ rating_stats.count }} 条评分
-                                {% else %}
-                                    暂无评分
-                                {% endif %}
-                            </small>
                         </div>
                     </div>
                 </header>
@@ -108,130 +116,94 @@
                     </div>
                 </section>
 
-                <section class="meetup-detail-section">
+                <section class="meetup-detail-section meetup-detail-community-section">
                     <div class="meetup-detail-section-heading">
                         <h2>参与者</h2>
                         <span>{{ attendee_count }} 人已报名</span>
                     </div>
-                    <p class="meetup-detail-muted">报名成功后，你将和其他兴趣伙伴一起在线下见面。</p>
+                    <div class="meetup-detail-attendee-grid">
+                        {% for attendee in attendees %}
+                        <a class="meetup-detail-attendee-card" href="{{ url_for('profile.view_profile', user_id=attendee.user.id) }}">
+                            {% if attendee.user.avatar %}
+                            <img class="meetup-detail-attendee-avatar" src="{{ attendee.user.avatar }}" alt="{{ attendee.display_name }}">
+                            {% else %}
+                            <span class="meetup-detail-attendee-avatar meetup-detail-attendee-placeholder">{{ attendee.display_name[:1]|upper }}</span>
+                            {% endif %}
+                            <strong>{{ attendee.display_name }}</strong>
+                            <span class="meetup-detail-attendee-role {% if attendee.is_organizer %}is-organizer{% endif %}">{{ attendee.role_label }}</span>
+                        </a>
+                        {% endfor %}
+                        {% if attendee_overflow_count %}
+                        <div class="meetup-detail-attendee-card meetup-detail-attendee-more">
+                            <strong>+{{ attendee_overflow_count }}</strong>
+                            <span>更多参与者</span>
+                        </div>
+                        {% endif %}
+                    </div>
                 </section>
 
-                <section class="meetup-detail-section">
+                <section class="meetup-detail-section meetup-detail-community-section" id="activity-comments">
                     <div class="meetup-detail-section-heading">
                         <h2>评论</h2>
                         <span>{{ comment_count }} 条</span>
                     </div>
-                    <p class="meetup-detail-muted">暂无公开评论。活动结束后可以在评分区分享体验。</p>
-                </section>
-
-                <section class="rating-section meetup-detail-rating-section">
-                    <div class="rating-header">
-                        <h3>活动评分</h3>
-                        {% if rating_stats.count %}
-                            <span class="rating-count">{{ rating_stats.count }} 人已评分</span>
-                        {% endif %}
-                    </div>
-
-                    {% if rating_stats.count %}
-                    <div class="rating-summary">
-                        <div class="rating-overall">
-                            <span class="rating-overall-label">综合平均分</span>
-                            <strong>{{ rating_stats.overall_avg }}</strong>
-                            <span>/ 5</span>
-                        </div>
-                        <div class="rating-averages">
-                            <div class="rating-average-item"><span>组织能力</span><strong>{{ rating_stats.organization_avg }}</strong></div>
-                            <div class="rating-average-item"><span>场地环境</span><strong>{{ rating_stats.venue_avg }}</strong></div>
-                            <div class="rating-average-item"><span>内容质量</span><strong>{{ rating_stats.content_avg }}</strong></div>
-                            <div class="rating-average-item"><span>性价比</span><strong>{{ rating_stats.value_avg }}</strong></div>
-                            <div class="rating-average-item"><span>活动体验</span><strong>{{ rating_stats.experience_avg }}</strong></div>
-                        </div>
-                    </div>
-                    {% else %}
-                        <p class="rating-empty">暂无评分</p>
-                    {% endif %}
-
-                    {% if can_rate %}
-                    <form class="rating-form" method="post" action="{{ url_for('activity.submit_rating', activity_id=activity.id) }}">
-                        <div class="rating-dimension">
-                            <h4>组织能力</h4>
-                            <div class="star-rating" aria-label="组织能力评分">
-                                <input type="radio" id="org5" name="organization_score" value="5" required><label for="org5">&#9733;</label>
-                                <input type="radio" id="org4" name="organization_score" value="4"><label for="org4">&#9733;</label>
-                                <input type="radio" id="org3" name="organization_score" value="3"><label for="org3">&#9733;</label>
-                                <input type="radio" id="org2" name="organization_score" value="2"><label for="org2">&#9733;</label>
-                                <input type="radio" id="org1" name="organization_score" value="1"><label for="org1">&#9733;</label>
-                            </div>
-                        </div>
-                        <div class="rating-dimension">
-                            <h4>场地环境</h4>
-                            <div class="star-rating" aria-label="场地环境评分">
-                                <input type="radio" id="venue5" name="venue_score" value="5" required><label for="venue5">&#9733;</label>
-                                <input type="radio" id="venue4" name="venue_score" value="4"><label for="venue4">&#9733;</label>
-                                <input type="radio" id="venue3" name="venue_score" value="3"><label for="venue3">&#9733;</label>
-                                <input type="radio" id="venue2" name="venue_score" value="2"><label for="venue2">&#9733;</label>
-                                <input type="radio" id="venue1" name="venue_score" value="1"><label for="venue1">&#9733;</label>
-                            </div>
-                        </div>
-                        <div class="rating-dimension">
-                            <h4>内容质量</h4>
-                            <div class="star-rating" aria-label="内容质量评分">
-                                <input type="radio" id="content5" name="content_score" value="5" required><label for="content5">&#9733;</label>
-                                <input type="radio" id="content4" name="content_score" value="4"><label for="content4">&#9733;</label>
-                                <input type="radio" id="content3" name="content_score" value="3"><label for="content3">&#9733;</label>
-                                <input type="radio" id="content2" name="content_score" value="2"><label for="content2">&#9733;</label>
-                                <input type="radio" id="content1" name="content_score" value="1"><label for="content1">&#9733;</label>
-                            </div>
-                        </div>
-                        <div class="rating-dimension">
-                            <h4>性价比</h4>
-                            <div class="star-rating" aria-label="性价比评分">
-                                <input type="radio" id="value5" name="value_score" value="5" required><label for="value5">&#9733;</label>
-                                <input type="radio" id="value4" name="value_score" value="4"><label for="value4">&#9733;</label>
-                                <input type="radio" id="value3" name="value_score" value="3"><label for="value3">&#9733;</label>
-                                <input type="radio" id="value2" name="value_score" value="2"><label for="value2">&#9733;</label>
-                                <input type="radio" id="value1" name="value_score" value="1"><label for="value1">&#9733;</label>
-                            </div>
-                        </div>
-                        <div class="rating-dimension">
-                            <h4>活动体验</h4>
-                            <div class="star-rating" aria-label="活动体验评分">
-                                <input type="radio" id="exp5" name="experience_score" value="5" required><label for="exp5">&#9733;</label>
-                                <input type="radio" id="exp4" name="experience_score" value="4"><label for="exp4">&#9733;</label>
-                                <input type="radio" id="exp3" name="experience_score" value="3"><label for="exp3">&#9733;</label>
-                                <input type="radio" id="exp2" name="experience_score" value="2"><label for="exp2">&#9733;</label>
-                                <input type="radio" id="exp1" name="experience_score" value="1"><label for="exp1">&#9733;</label>
-                            </div>
-                        </div>
-                        <div class="rating-dimension">
-                            <h4>文字评价</h4>
-                            <textarea class="rating-comment" name="comment" rows="4" maxlength="1000" placeholder="分享本次活动体验"></textarea>
-                        </div>
-                        <button type="submit" class="btn rating-submit">提交评分</button>
+                    {% if session.get('user_id') %}
+                    <form class="meetup-detail-comment-form" method="post" action="{{ url_for('activity.comment_activity', activity_id=activity.id) }}">
+                        <label class="sr-only" for="activity-comment-content">发表评论</label>
+                        <textarea id="activity-comment-content" name="content" rows="3" maxlength="1000" placeholder="分享你对活动的想法" required></textarea>
+                        <button class="button button-small" type="submit">发布评论</button>
                     </form>
-                    {% elif rating_notice %}
-                        <p class="rating-notice">{{ rating_notice }}</p>
+                    {% else %}
+                    <p class="meetup-detail-muted"><a href="{{ url_for('auth.login', next=url_for('activity.activity_detail', activity_id=activity.id)) }}">登录后</a>可以发表评论。</p>
                     {% endif %}
+                    <div class="meetup-detail-comment-list">
+                        {% for comment in comments %}
+                        <article class="meetup-detail-comment" id="comment-{{ comment.id }}">
+                            <a class="meetup-detail-comment-author" href="{{ url_for('profile.view_profile', user_id=comment.author.id) }}">
+                                {% if comment.author.avatar %}
+                                <img class="avatar-small" src="{{ comment.author.avatar }}" alt="{{ comment.author.nickname or comment.author.username }}">
+                                {% else %}
+                                <span class="avatar-small avatar-placeholder">{{ (comment.author.nickname or comment.author.username)[:1]|upper }}</span>
+                                {% endif %}
+                                <strong>{{ comment.author.nickname or comment.author.username }}</strong>
+                            </a>
+                            <time datetime="{{ comment.created_at.isoformat() }}">{{ comment.created_at.strftime('%m-%d %H:%M') }}</time>
+                            <p>{{ comment.content }}</p>
+                        </article>
+                        {% else %}
+                        <p class="meetup-detail-muted">暂无公开评论，欢迎分享你的想法。</p>
+                        {% endfor %}
+                    </div>
                 </section>
 
-                <section class="user-review-section meetup-detail-rating-section">
+                <section class="user-review-section meetup-detail-rating-section" id="participant-feedback">
                     <div class="rating-header">
                         <h3>参与者互评</h3>
                     </div>
 
                     {% if can_user_review %}
+                        <p class="rating-notice">点击参与者头像卡片展开评分。</p>
+                        <div class="peer-review-list" data-peer-review-list>
                         {% for candidate in user_review_candidates %}
-                            <div class="user-review-card">
-                                <div class="user-review-card-header">
-                                    <strong>{{ candidate.user.nickname or candidate.user.username }}</strong>
-                                    {% if candidate.has_reviewed %}
-                                        <span class="status-badge status-registered">已评价</span>
+                            <details class="peer-review-item" data-peer-review-item>
+                                <summary class="peer-review-card">
+                                    {% if candidate.user.avatar %}
+                                    <img class="peer-review-avatar" src="{{ candidate.user.avatar }}" alt="{{ candidate.display_name }}">
+                                    {% else %}
+                                    <span class="peer-review-avatar peer-review-placeholder">{{ candidate.display_name[:1]|upper }}</span>
                                     {% endif %}
-                                </div>
-
-                                {% if not candidate.has_reviewed %}
+                                    <span class="peer-review-person">
+                                        <strong>{{ candidate.display_name }}</strong>
+                                        <span class="peer-review-role {% if candidate.is_organizer %}is-organizer{% endif %}">{{ candidate.role_label }}</span>
+                                    </span>
+                                    <span class="peer-review-status {% if candidate.has_reviewed %}is-reviewed{% endif %}">
+                                        {{ '已评价' if candidate.has_reviewed else '待评价' }}
+                                    </span>
+                                </summary>
+                                <div class="peer-review-form-panel">
                                 <form class="rating-form user-review-form" method="post" action="{{ url_for('activity.submit_user_review', activity_id=activity.id) }}">
                                     <input type="hidden" name="reviewee_id" value="{{ candidate.user.id }}">
+                                    <h4 class="peer-review-form-title">评价 {{ candidate.display_name }}</h4>
                                     {% set dimensions = [
                                         ('punctuality_score', '守时'),
                                         ('friendliness_score', '友善'),
@@ -246,7 +218,7 @@
                                         <div class="star-rating" aria-label="{{ label }}">
                                             {% for score in [5, 4, 3, 2, 1] %}
                                                 {% set input_id = field ~ '-' ~ candidate.user.id ~ '-' ~ score %}
-                                                <input type="radio" id="{{ input_id }}" name="{{ field }}" value="{{ score }}" required>
+                                                <input type="radio" id="{{ input_id }}" name="{{ field }}" value="{{ score }}" {% if candidate.review and candidate.review[field] == score %}checked{% endif %} required>
                                                 <label for="{{ input_id }}">&#9733;</label>
                                             {% endfor %}
                                         </div>
@@ -254,13 +226,14 @@
                                     {% endfor %}
                                     <div class="rating-dimension">
                                         <h4>补充评价</h4>
-                                        <textarea class="rating-comment" name="comment" rows="3" maxlength="1000" placeholder="可选：补充本次同行体验"></textarea>
+                                        <textarea class="rating-comment" name="comment" rows="3" maxlength="1000" placeholder="可选：补充本次同行体验">{{ candidate.review.comment if candidate.review else '' }}</textarea>
                                     </div>
-                                    <button type="submit" class="btn rating-submit">提交参与者评价</button>
+                                    <button type="submit" class="btn rating-submit">{{ '更新评价' if candidate.has_reviewed else '提交评价' }}</button>
                                 </form>
-                                {% endif %}
-                            </div>
+                                </div>
+                            </details>
                         {% endfor %}
+                        </div>
                     {% elif user_review_notice %}
                         <p class="rating-notice">{{ user_review_notice }}</p>
                     {% endif %}
@@ -279,48 +252,69 @@
                     {% endif %}
                 </div>
 
-                <div class="meetup-detail-side-card">
-                    <div class="meetup-detail-side-icon" aria-hidden="true">&#128197;</div>
-                    <div>
-                        <span>活动时间</span>
-                        <strong>{{ activity.time|default('时间待确认', true) }}</strong>
+                <div class="meetup-detail-info-card">
+                    <div class="meetup-detail-info-row">
+                        <div class="meetup-detail-side-icon" aria-hidden="true">&#128197;</div>
+                        <strong>{{ activity.sidebar_time }}</strong>
                     </div>
-                </div>
-
-                <div class="meetup-detail-side-card">
-                    <div class="meetup-detail-side-icon" aria-hidden="true">&#128205;</div>
-                    <div>
-                        <span>活动地点</span>
-                        <strong>{{ activity.location|default('地点待确认', true) }}</strong>
-                    </div>
-                </div>
-
-                <div class="meetup-detail-side-card meetup-detail-capacity-card">
-                    <div>
-                        <span>人数</span>
-                        <strong>{{ registration_count }}{% if max_participants is not none %} / {{ max_participants }}{% endif %} 人</strong>
-                    </div>
-                    <div>
-                        <span>费用</span>
-                        <strong>{% if activity_fee %}&yen;{{ activity_fee }}{% else %}免费{% endif %}</strong>
-                    </div>
-                    <div>
-                        <span>状态</span>
-                        {% if event_ended %}
-                            <strong class="meetup-detail-status is-closed">活动已结束</strong>
-                        {% elif is_full %}
-                            <strong class="meetup-detail-status is-closed">已满员</strong>
-                        {% elif user_registered %}
-                            <strong class="meetup-detail-status is-registered">已报名</strong>
-                        {% else %}
-                            <strong class="meetup-detail-status">可报名</strong>
-                        {% endif %}
+                    <div class="meetup-detail-info-row">
+                        <div class="meetup-detail-side-icon" aria-hidden="true">&#128205;</div>
+                        <div>
+                            <strong>{{ activity.location|default('地点待确认', true) }}</strong>
+                            {% if activity.city %}<span>{{ activity.city }}</span>{% endif %}
+                        </div>
                     </div>
                 </div>
 
                 <div class="registration-action meetup-detail-sidebar-registration">
                     {{ registration_button() }}
                 </div>
+                {% if can_manage_activity %}
+                <section class="meetup-detail-management-card">
+                    <h2>活动管理</h2>
+                    {% if event_cancelled %}
+                        <p>活动已取消{% if activity.cancel_reason %}：{{ activity.cancel_reason }}{% endif %}</p>
+                    {% elif event_ended %}
+                        <p>活动已结束，参与者互评和评论区域已开放。</p>
+                        <a class="button button-secondary" href="#participant-feedback">前往参与者互评</a>
+                    {% else %}
+                        <p>{{ '活动尚未开始，可以取消活动。取消时需要选择理由。' if is_cancel_action else '活动正在进行中，可以提前结束活动。结束后将开放参与者互评和评论区域。' }}</p>
+                        {% if is_cancel_action %}
+                        <details class="meetup-detail-cancel-details">
+                            <summary class="button button-danger">取消活动</summary>
+                            <form class="meetup-detail-management-form"
+                                  method="post"
+                                  action="{{ url_for('activity.close_activity', activity_id=activity.id) }}"
+                                  onsubmit="return confirm('确定取消这个活动吗？取消后不可恢复。');">
+                            <label for="cancel-reason">取消理由</label>
+                            <select id="cancel-reason" name="cancel_reason" required data-cancel-reason>
+                                <option value="">请选择取消理由</option>
+                                {% for reason_value, reason_label in cancel_reason_labels.items() %}
+                                    <option value="{{ reason_value }}">{{ reason_label }}</option>
+                                {% endfor %}
+                            </select>
+                            <label for="custom-reason" data-custom-reason-label hidden>自定义理由</label>
+                            <textarea id="custom-reason"
+                                      name="custom_reason"
+                                      rows="3"
+                                      maxlength="300"
+                                      placeholder="请填写具体取消理由"
+                                      data-custom-reason
+                                      hidden></textarea>
+                                <button class="button button-danger" type="submit">确认取消活动</button>
+                            </form>
+                        </details>
+                        {% else %}
+                        <form class="meetup-detail-management-form"
+                              method="post"
+                              action="{{ url_for('activity.close_activity', activity_id=activity.id) }}"
+                              onsubmit="return confirm('确定结束这个活动吗？结束后将开放参与者互评。');">
+                            <button class="button button-danger" type="submit">结束活动</button>
+                        </form>
+                        {% endif %}
+                    {% endif %}
+                </section>
+                {% endif %}
             </aside>
         </div>
     </div>
