@@ -203,6 +203,7 @@ def _activity_to_summary(activity, registration_count=0):
         "fee": activity.fee,
         "status": activity.status,
         "demo": activity.id <= 7,
+        "is_official": bool(activity.is_official),
     }
 
 
@@ -526,7 +527,16 @@ def create_activity():
         return redirect(url_for("activity.index"))
 
     if request.method == "GET":
-        return render_template("activity_create.html", interest_tags=OFFICIAL_INTEREST_TAGS)
+        is_verified_merchant = (
+            current_user
+            and current_user.is_merchant
+            and current_user.merchant_status == "verified"
+        )
+        return render_template(
+            "activity_create.html",
+            interest_tags=OFFICIAL_INTEREST_TAGS,
+            is_verified_merchant=is_verified_merchant,
+        )
 
     title = request.form.get("title", "").strip()
     description = request.form.get("description", "").strip()
@@ -579,6 +589,19 @@ def create_activity():
     if not preparation:
         errors.append("请填写准备事项。")
 
+    # 官方活动权限校验
+    is_official_raw = request.form.get("is_official", "").strip()
+    is_official = bool(is_official_raw)
+
+    if is_official:
+        is_verified_merchant = (
+            current_user
+            and current_user.is_merchant
+            and current_user.merchant_status == "verified"
+        )
+        if not is_verified_merchant:
+            errors.append("仅已认证商家可以发布官方活动。")
+
     validated_images = []
     try:
         validated_images = validate_image_files(
@@ -594,7 +617,16 @@ def create_activity():
     if errors:
         for error in errors:
             flash(error, "error")
-        return render_template("activity_create.html", interest_tags=OFFICIAL_INTEREST_TAGS), 400
+        is_verified_merchant = (
+            current_user
+            and current_user.is_merchant
+            and current_user.merchant_status == "verified"
+        )
+        return render_template(
+            "activity_create.html",
+            interest_tags=OFFICIAL_INTEREST_TAGS,
+            is_verified_merchant=is_verified_merchant,
+        ), 400
 
     saved_paths = []
     try:
@@ -613,6 +645,7 @@ def create_activity():
             tags=",".join(tags),
             preparation=preparation,
             organizer_id=current_user.id,
+            is_official=is_official,
         )
         db.session.add(activity)
         db.session.commit()

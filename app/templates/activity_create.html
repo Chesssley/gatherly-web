@@ -73,6 +73,29 @@
                     <textarea id="preparation" name="preparation" class="form-input" rows="4" required>{{ request.form.get('preparation', '') }}</textarea>
                 </div>
 
+                <div class="form-group official-section">
+                    <label class="form-label">
+                        官方认证活动
+                        {% if is_verified_merchant %}
+                        <span class="official-badge official-badge--verified">已认证商家</span>
+                        {% else %}
+                        <span class="official-badge official-badge--unverified">需商家认证</span>
+                        {% endif %}
+                    </label>
+                    <label class="form-checkbox-label {% if not is_verified_merchant %}disabled{% endif %}">
+                        <input type="checkbox" name="is_official" value="1"
+                            {% if request.form.get('is_official') %}checked{% endif %}
+                            {% if not is_verified_merchant %}disabled{% endif %}>
+                        <span>将此活动标记为官方认证活动</span>
+                    </label>
+                    {% if not is_verified_merchant %}
+                    <p class="form-hint official-hint">
+                        仅已认证商家可以发布官方活动。
+                        <a href="{{ url_for('profile.edit_profile') }}">前往个人中心完成商家认证</a>
+                    </p>
+                    {% endif %}
+                </div>
+
                 <div class="form-group">
                     <label for="image" class="form-label">活动图片 <span class="form-required">*</span></label>
                     <input type="file" id="image" name="image" class="form-input" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required>

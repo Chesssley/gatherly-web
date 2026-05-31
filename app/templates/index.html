@@ -41,6 +41,9 @@
                 <span class="tag">{{ activity.category }}</span>
             {% endif %}
         </div>
+        {% if activity.is_official %}
+        <span class="official-cert-badge">官方认证</span>
+        {% endif %}
         <h3 class="card-title">{{ activity.title }}</h3>
         <div class="card-meta">
             <p class="meta-time"><span aria-hidden="true">&#128197;</span> {{ activity.time }}</p>

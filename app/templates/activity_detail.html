@@ -61,6 +61,10 @@
                         {% endif %}
                     </div>
 
+                    {% if activity.is_official %}
+                    <span class="official-cert-badge official-cert-badge--detail">官方认证</span>
+                    {% endif %}
+
                     <h1 class="meetup-detail-title">{{ activity.title }}</h1>
                     <p class="meetup-detail-host">主办方 <strong>{{ organizer_name }}</strong></p>
 
