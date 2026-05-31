@@ -6,7 +6,7 @@ from functools import wraps
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import and_, func, or_
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.models import (
     db,
@@ -14,6 +14,7 @@ from app.models import (
     ActivityFavorite,
     Circle,
     Comment,
+    ProfileVisibility,
     Registration,
     TrustScoreLog,
     User,
@@ -39,6 +40,10 @@ activity_bp = Blueprint("activity", __name__)
 
 
 RATING_ELIGIBLE_STATUSES = {"registered", "attended", "completed"}
+SEARCH_QUERY_MAX_LENGTH = 50
+SEARCH_SUGGESTION_LIMIT = 5
+SEARCH_RESULT_ACTIVITY_LIMIT = 60
+SEARCH_RESULT_LIST_LIMIT = 12
 CANCEL_REASON_LABELS = {
     "time_conflict": "时间冲突",
     "venue_issue": "场地问题",
@@ -457,6 +462,232 @@ def _sort_same_city_first(activities, user_city):
         key=lambda activity: (
             0 if locations_match(activity.get("city"), normalized_user_city) else 1,
         ),
+    )
+
+
+def _normalized_search_query(raw_query=None):
+    return (raw_query if raw_query is not None else request.args.get("q", "")).strip()[
+        :SEARCH_QUERY_MAX_LENGTH
+    ]
+
+
+def _search_pattern(query):
+    return f"%{query}%"
+
+
+def _truncate_text(value, max_length=80):
+    value = (value or "").strip()
+    if len(value) <= max_length:
+        return value
+    return f"{value[: max_length - 1]}…"
+
+
+def _join_subtitle_parts(*parts):
+    return " / ".join(str(part).strip() for part in parts if part and str(part).strip())
+
+
+def _activity_search_query(query_text):
+    pattern = _search_pattern(query_text)
+    return Activity.query.filter(
+        Activity.status == "open",
+        or_(
+            Activity.title.ilike(pattern),
+            Activity.description.ilike(pattern),
+            Activity.detail.ilike(pattern),
+            Activity.location.ilike(pattern),
+            Activity.city.ilike(pattern),
+            Activity.tags.ilike(pattern),
+        ),
+    )
+
+
+def _circle_search_query(query_text):
+    pattern = _search_pattern(query_text)
+    return Circle.query.filter(
+        Circle.status == "active",
+        or_(
+            Circle.name.ilike(pattern),
+            Circle.description.ilike(pattern),
+            Circle.tag.ilike(pattern),
+        ),
+    )
+
+
+def _public_user_search_query(query_text):
+    pattern = _search_pattern(query_text)
+    return (
+        User.query.outerjoin(ProfileVisibility, ProfileVisibility.user_id == User.id)
+        .filter(
+            User.status == "active",
+            or_(ProfileVisibility.id.is_(None), ProfileVisibility.profile_scope == "public"),
+            or_(
+                User.nickname.ilike(pattern),
+                User.username.ilike(pattern),
+                User.bio.ilike(pattern),
+                User.city.ilike(pattern),
+            ),
+        )
+    )
+
+
+def _safe_search_rows(query, limit):
+    try:
+        return query.limit(limit).all()
+    except SQLAlchemyError:
+        db.session.rollback()
+        return []
+
+
+def _activity_suggestion_item(activity):
+    time_label = activity.start_time.strftime("%Y-%m-%d %H:%M") if activity.start_time else ""
+    place_label = _join_subtitle_parts(activity.city, activity.location)
+    tag_label = ", ".join(_split_tags(activity.tags)[:2])
+    subtitle = _join_subtitle_parts(time_label, place_label, tag_label)
+    return {
+        "id": activity.id,
+        "title": activity.title,
+        "subtitle": subtitle or _truncate_text(activity.description, 64),
+        "url": url_for("activity.activity_detail", activity_id=activity.id),
+    }
+
+
+def _circle_suggestion_item(circle):
+    subtitle = _join_subtitle_parts(circle.tag, _truncate_text(circle.description, 64))
+    return {
+        "id": circle.id,
+        "title": circle.name,
+        "subtitle": subtitle,
+        "url": url_for("circle.circle_detail", circle_id=circle.id),
+    }
+
+
+def _user_suggestion_item(user):
+    display_name = get_user_display_name(user).strip() or user.username
+    subtitle = _join_subtitle_parts(user.city, _truncate_text(user.bio, 64))
+    return {
+        "id": user.id,
+        "title": display_name,
+        "subtitle": subtitle or user.username,
+        "avatar": user.avatar,
+        "url": url_for("profile.view_profile", user_id=user.id),
+    }
+
+
+def _circle_result_item(circle):
+    item = _circle_suggestion_item(circle)
+    item["member_count"] = circle.member_count
+    return item
+
+
+@activity_bp.route("/search/suggestions")
+def search_suggestions():
+    query_text = _normalized_search_query()
+    empty_payload = {"activities": [], "circles": [], "users": []}
+    if not query_text:
+        return jsonify(empty_payload)
+
+    activities = _safe_search_rows(
+        _activity_search_query(query_text).order_by(Activity.start_time.asc(), Activity.id.desc()),
+        SEARCH_SUGGESTION_LIMIT,
+    )
+    circles = _safe_search_rows(
+        _circle_search_query(query_text).order_by(Circle.is_pinned.desc(), Circle.updated_at.desc()),
+        SEARCH_SUGGESTION_LIMIT,
+    )
+    users = _safe_search_rows(
+        _public_user_search_query(query_text).order_by(User.created_at.desc(), User.id.desc()),
+        SEARCH_SUGGESTION_LIMIT,
+    )
+
+    return jsonify(
+        {
+            "activities": [_activity_suggestion_item(activity) for activity in activities],
+            "circles": [_circle_suggestion_item(circle) for circle in circles],
+            "users": [_user_suggestion_item(user) for user in users],
+        }
+    )
+
+
+@activity_bp.route("/search")
+def search():
+    query_text = _normalized_search_query()
+    city_query = request.args.get("city", "").strip()[:SEARCH_QUERY_MAX_LENGTH]
+    if not query_text:
+        return redirect(url_for("activity.index"))
+
+    activity_query = _activity_search_query(query_text)
+    if city_query:
+        city_pattern = _search_pattern(city_query)
+        activity_query = activity_query.filter(
+            or_(Activity.city.ilike(city_pattern), Activity.location.ilike(city_pattern))
+        )
+    db_activities = _safe_search_rows(
+        activity_query.order_by(Activity.start_time.asc(), Activity.id.desc()),
+        SEARCH_RESULT_ACTIVITY_LIMIT,
+    )
+
+    reg_counts = dict(
+        db.session.query(Registration.activity_id, func.count(Registration.id))
+        .filter(Registration.status != "cancelled")
+        .group_by(Registration.activity_id)
+        .all()
+    )
+    favorite_counts = dict(
+        db.session.query(ActivityFavorite.activity_id, func.count(ActivityFavorite.id))
+        .group_by(ActivityFavorite.activity_id)
+        .all()
+    )
+    attendee_previews = _get_activity_attendee_previews([activity.id for activity in db_activities])
+    activities = [
+        _activity_to_summary(
+            activity,
+            reg_counts.get(activity.id, 0),
+            favorite_counts.get(activity.id, 0),
+            attendee_previews.get(activity.id, []),
+        )
+        for activity in db_activities
+    ]
+
+    circles = [
+        _circle_result_item(circle)
+        for circle in _safe_search_rows(
+            _circle_search_query(query_text).order_by(Circle.is_pinned.desc(), Circle.updated_at.desc()),
+            SEARCH_RESULT_LIST_LIMIT,
+        )
+    ]
+    users = [
+        _user_suggestion_item(user)
+        for user in _safe_search_rows(
+            _public_user_search_query(query_text).order_by(User.created_at.desc(), User.id.desc()),
+            SEARCH_RESULT_LIST_LIMIT,
+        )
+    ]
+
+    favorite_activity_ids = set()
+    if "user_id" in session:
+        favorite_activity_ids = {
+            favorite.activity_id
+            for favorite in ActivityFavorite.query.filter_by(user_id=session["user_id"]).all()
+        }
+
+    return render_template(
+        "index.html",
+        search_results_mode=True,
+        search_query=query_text,
+        search_city=city_query,
+        activities=activities,
+        circles=circles,
+        users=users,
+        featured_activities=[],
+        categories=OFFICIAL_INTEREST_TAGS,
+        expand_tags_by_default=False,
+        interest_categories=OFFICIAL_INTEREST_CATEGORIES,
+        interest_tags=OFFICIAL_INTEREST_TAGS,
+        selected_tag="",
+        selected_category="",
+        selected_time="any",
+        visible_tag_count=len(OFFICIAL_INTEREST_TAGS),
+        favorite_activity_ids=favorite_activity_ids,
     )
 
 

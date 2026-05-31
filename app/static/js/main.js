@@ -21,6 +21,247 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 3000);
   });
 
+  const initGlobalSearchSuggestions = () => {
+    const forms = Array.from(document.querySelectorAll("[data-search-suggestions]"));
+    if (!forms.length) {
+      return;
+    }
+
+    const createStatus = (menu, message, isLoading = false) => {
+      menu.textContent = "";
+      const status = document.createElement("div");
+      status.className = "search-suggestions-state";
+      status.textContent = message;
+      menu.appendChild(status);
+      menu.hidden = false;
+      menu.setAttribute("aria-busy", String(isLoading));
+    };
+
+    const itemInitial = (title) => Array.from((title || "").trim())[0]?.toUpperCase() || "G";
+
+    forms.forEach((form, formIndex) => {
+      const keywordInput = form.querySelector('input[name="q"]');
+      if (!keywordInput) {
+        return;
+      }
+
+      const cityInput = form.querySelector('input[name="city"]');
+      const suggestionsUrl = form.dataset.suggestionsUrl || "/search/suggestions";
+      const searchUrl = form.dataset.searchUrl || form.getAttribute("action") || "/search";
+      const menu = document.createElement("div");
+      menu.className = "search-suggestions-menu";
+      menu.id = `search-suggestions-menu-${formIndex}`;
+      menu.setAttribute("role", "listbox");
+      menu.hidden = true;
+      form.appendChild(menu);
+
+      keywordInput.setAttribute("aria-autocomplete", "list");
+      keywordInput.setAttribute("aria-controls", menu.id);
+      keywordInput.setAttribute("aria-expanded", "false");
+
+      let debounceTimer = null;
+      let activeController = null;
+      let requestSerial = 0;
+      let lastRenderedQuery = "";
+
+      const setMenuOpen = (isOpen) => {
+        menu.hidden = !isOpen;
+        keywordInput.setAttribute("aria-expanded", String(isOpen));
+        if (!isOpen) {
+          menu.removeAttribute("aria-busy");
+        }
+      };
+
+      const closeMenu = () => {
+        setMenuOpen(false);
+      };
+
+      const renderSection = (title, items, type) => {
+        if (!Array.isArray(items) || !items.length) {
+          return;
+        }
+
+        const section = document.createElement("section");
+        section.className = "search-suggestions-section";
+        const heading = document.createElement("h3");
+        heading.textContent = title;
+        section.appendChild(heading);
+
+        const list = document.createElement("div");
+        list.className = "search-suggestions-list";
+        items.forEach(item => {
+          const row = item.url ? document.createElement("a") : document.createElement("div");
+          row.className = `search-suggestion-item search-suggestion-${type}`;
+          row.setAttribute("role", "option");
+          if (item.url) {
+            row.href = item.url;
+          }
+
+          if (type === "user") {
+            if (item.avatar) {
+              const avatar = document.createElement("img");
+              avatar.className = "search-suggestion-avatar";
+              avatar.src = item.avatar;
+              avatar.alt = "";
+              row.appendChild(avatar);
+            } else {
+              const avatar = document.createElement("span");
+              avatar.className = "search-suggestion-avatar search-suggestion-avatar-placeholder";
+              avatar.textContent = itemInitial(item.title);
+              avatar.setAttribute("aria-hidden", "true");
+              row.appendChild(avatar);
+            }
+          }
+
+          const text = document.createElement("span");
+          text.className = "search-suggestion-text";
+          const main = document.createElement("strong");
+          main.textContent = item.title || "未命名";
+          const subtitle = document.createElement("small");
+          subtitle.textContent = item.subtitle || "";
+          text.appendChild(main);
+          if (subtitle.textContent) {
+            text.appendChild(subtitle);
+          }
+          row.appendChild(text);
+          list.appendChild(row);
+        });
+
+        section.appendChild(list);
+        menu.appendChild(section);
+      };
+
+      const renderResults = (query, payload) => {
+        if (keywordInput.value.trim() !== query) {
+          return;
+        }
+
+        menu.textContent = "";
+        menu.removeAttribute("aria-busy");
+        renderSection("活动", payload.activities, "activity");
+        renderSection("同好圈", payload.circles, "circle");
+        renderSection("用户", payload.users, "user");
+        const hasResults = Boolean(menu.children.length);
+        if (!hasResults) {
+          createStatus(menu, "未找到相关内容");
+        } else {
+          setMenuOpen(true);
+        }
+        lastRenderedQuery = query;
+      };
+
+      const fetchSuggestions = async (query) => {
+        if (!query) {
+          closeMenu();
+          if (activeController) {
+            activeController.abort();
+          }
+          return;
+        }
+
+        if (activeController) {
+          activeController.abort();
+        }
+        activeController = new AbortController();
+        const serial = requestSerial + 1;
+        requestSerial = serial;
+        createStatus(menu, "正在搜索...", true);
+
+        const url = new URL(suggestionsUrl, window.location.origin);
+        url.searchParams.set("q", query);
+        try {
+          const response = await fetch(url.toString(), {
+            headers: { Accept: "application/json" },
+            signal: activeController.signal,
+          });
+          if (!response.ok) {
+            throw new Error("suggestion request failed");
+          }
+          const payload = await response.json();
+          if (serial !== requestSerial) {
+            return;
+          }
+          renderResults(query, payload || {});
+        } catch (error) {
+          if (error.name === "AbortError" || serial !== requestSerial) {
+            return;
+          }
+          createStatus(menu, "未找到相关内容");
+          lastRenderedQuery = query;
+        }
+      };
+
+      const queueFetch = () => {
+        const query = keywordInput.value.trim();
+        window.clearTimeout(debounceTimer);
+        if (!query) {
+          closeMenu();
+          return;
+        }
+        debounceTimer = window.setTimeout(() => fetchSuggestions(query), 250);
+      };
+
+      const navigateToSearch = () => {
+        const query = keywordInput.value.trim();
+        if (!query) {
+          closeMenu();
+          return false;
+        }
+
+        const url = new URL(searchUrl, window.location.origin);
+        url.searchParams.set("q", query);
+        const city = cityInput?.value.trim();
+        if (city) {
+          url.searchParams.set("city", city);
+        }
+        window.location.href = url.toString();
+        return true;
+      };
+
+      keywordInput.addEventListener("input", queueFetch);
+      keywordInput.addEventListener("focus", () => {
+        const query = keywordInput.value.trim();
+        if (!query) {
+          return;
+        }
+        if (lastRenderedQuery === query && menu.children.length) {
+          setMenuOpen(true);
+          return;
+        }
+        fetchSuggestions(query);
+      });
+      keywordInput.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+          closeMenu();
+        } else if (event.key === "Enter") {
+          event.preventDefault();
+          navigateToSearch();
+        }
+      });
+      cityInput?.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          navigateToSearch();
+        } else if (event.key === "Escape") {
+          closeMenu();
+        }
+      });
+
+      form.addEventListener("submit", event => {
+        event.preventDefault();
+        navigateToSearch();
+      });
+
+      document.addEventListener("click", event => {
+        if (!form.contains(event.target)) {
+          closeMenu();
+        }
+      });
+    });
+  };
+
+  initGlobalSearchSuggestions();
+
   // UI-05: Meetup 风格分类导航和时间筛选。
   const discoverySection = document.querySelector(".discover-section");
   const categoryLinks = discoverySection?.querySelectorAll("[data-category]") || [];

@@ -14,12 +14,12 @@
         <span>Gatherly</span>
       </a>
 
-      <form class="nav-search" action="{{ url_for('activity.index') }}" method="get" role="search">
+      <form class="nav-search" action="{{ url_for('activity.search') }}" method="get" role="search" data-search-suggestions data-suggestions-url="{{ url_for('activity.search_suggestions') }}" data-search-url="{{ url_for('activity.search') }}">
         <label class="sr-only" for="global-search-keyword">搜索活动、圈子或关键词</label>
-        <input id="global-search-keyword" name="q" type="search" placeholder="搜索活动 / 圈子 / 关键词" autocomplete="off">
+        <input id="global-search-keyword" name="q" type="search" placeholder="搜索活动 / 圈子 / 关键词" autocomplete="off" value="{{ request.args.get('q', '') if request.endpoint == 'activity.search' else '' }}">
         <span class="nav-search-divider" aria-hidden="true"></span>
         <label class="sr-only" for="global-search-city">城市或地区</label>
-        <input id="global-search-city" class="nav-search-city" name="city" type="search" placeholder="城市 / 地区" autocomplete="off">
+        <input id="global-search-city" class="nav-search-city" name="city" type="search" placeholder="城市 / 地区" autocomplete="off" value="{{ request.args.get('city', '') if request.endpoint == 'activity.search' else '' }}">
         <button class="nav-search-submit" type="submit" aria-label="搜索">
           <span aria-hidden="true">&#128269;</span>
           <span>搜索</span>
@@ -110,11 +110,11 @@
     </nav>
 
     <div class="mobile-search-panel container" id="mobile-search-panel" data-mobile-search hidden>
-      <form class="nav-search" action="{{ url_for('activity.index') }}" method="get" role="search">
+      <form class="nav-search" action="{{ url_for('activity.search') }}" method="get" role="search" data-search-suggestions data-suggestions-url="{{ url_for('activity.search_suggestions') }}" data-search-url="{{ url_for('activity.search') }}">
         <label class="sr-only" for="mobile-search-keyword">搜索活动、圈子或关键词</label>
-        <input id="mobile-search-keyword" name="q" type="search" placeholder="活动 / 圈子 / 关键词" autocomplete="off">
+        <input id="mobile-search-keyword" name="q" type="search" placeholder="搜索活动 / 圈子 / 关键词" autocomplete="off" value="{{ request.args.get('q', '') if request.endpoint == 'activity.search' else '' }}">
         <label class="sr-only" for="mobile-search-city">城市或地区</label>
-        <input id="mobile-search-city" class="nav-search-city" name="city" type="search" placeholder="城市 / 地区" autocomplete="off">
+        <input id="mobile-search-city" class="nav-search-city" name="city" type="search" placeholder="城市 / 地区" autocomplete="off" value="{{ request.args.get('city', '') if request.endpoint == 'activity.search' else '' }}">
         <button class="nav-search-submit" type="submit" aria-label="搜索"><span aria-hidden="true">&#128269;</span></button>
       </form>
     </div>
