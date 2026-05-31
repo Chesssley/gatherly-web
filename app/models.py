@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
@@ -241,16 +241,82 @@ class EmailVerificationCode(db.Model):
 
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    recipient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    recipient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
     type = db.Column(db.String(50), nullable=False)
     title = db.Column(db.String(120), nullable=False)
     content = db.Column(db.Text)
     related_type = db.Column(db.String(50))
     related_id = db.Column(db.Integer)
-    read_at = db.Column(db.DateTime)
+    read_at = db.Column(db.DateTime, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     recipient = db.relationship("User", back_populates="notifications")
+
+
+NOTIFICATION_RETENTION_DAYS = 90
+
+
+def create_notification(
+    recipient_id,
+    notification_type,
+    title,
+    content=None,
+    related_type=None,
+    related_id=None,
+    retention_days=NOTIFICATION_RETENTION_DAYS,
+):
+    notification = Notification(
+        recipient_id=recipient_id,
+        type=notification_type,
+        title=title,
+        content=content,
+        related_type=related_type,
+        related_id=related_id,
+        expires_at=datetime.utcnow() + timedelta(days=retention_days),
+    )
+    db.session.add(notification)
+    return notification
+
+
+def cleanup_expired_notifications(now=None):
+    return Notification.query.filter(
+        Notification.expires_at <= (now or datetime.utcnow())
+    ).delete(synchronize_session=False)
+
+
+def ensure_notification_schema():
+    Notification.__table__.create(db.engine, checkfirst=True)
+    if db.engine.dialect.name != "sqlite":
+        return
+
+    rows = db.session.execute(text("PRAGMA table_info(notification)")).fetchall()
+    existing_columns = {row[1] for row in rows}
+    if rows and "expires_at" not in existing_columns:
+        db.session.execute(text("ALTER TABLE notification ADD COLUMN expires_at DATETIME"))
+        db.session.execute(
+            text(
+                "UPDATE notification SET expires_at = "
+                "datetime(COALESCE(created_at, CURRENT_TIMESTAMP), '+90 days') "
+                "WHERE expires_at IS NULL"
+            )
+        )
+    db.session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_notification_recipient_id "
+            "ON notification (recipient_id)"
+        )
+    )
+    db.session.execute(
+        text("CREATE INDEX IF NOT EXISTS ix_notification_read_at ON notification (read_at)")
+    )
+    db.session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_notification_expires_at "
+            "ON notification (expires_at)"
+        )
+    )
+    db.session.commit()
 
 
 class DirectMessage(db.Model):
@@ -309,11 +375,11 @@ def ensure_task_foundation_schema():
     ensure_registration_schema()
     for model in (
         EmailVerificationCode,
-        Notification,
         DirectMessage,
         MerchantVerification,
     ):
         model.__table__.create(db.engine, checkfirst=True)
+    ensure_notification_schema()
 
 
 class ActivityFavorite(db.Model):

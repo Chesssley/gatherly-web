@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}商家认证审核 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <nav class="admin-nav" aria-label="后台管理导航">
+      <a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a>
+      <a class="is-active" href="{{ url_for('admin.merchant_verifications') }}">商家认证</a>
+      <a href="{{ url_for('admin.admin_users') }}">用户</a>
+      <a href="{{ url_for('admin.admin_activities') }}">活动</a>
+      <a href="{{ url_for('admin.admin_logs') }}">操作日志</a>
+    </nav>
+    <div class="page-title">
+      <p class="eyebrow">Merchant Verification</p>
+      <h1>商家认证审核</h1>
+      <p>处理商家认证申请。审核结果会写入申请人的通知中心。</p>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>提交时间</th><th>用户</th><th>商家名称</th><th>执照编号</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody>
+          {% for application in applications %}
+          <tr>
+            <td>{{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>{{ application.user.username }}</td>
+            <td>{{ application.business_name }}</td>
+            <td>{{ application.license_number or '-' }}</td>
+            <td><span class="admin-status status-{{ application.status }}">{{ application.status }}</span></td>
+            <td>
+              {% if application.status == 'pending' %}
+              <form class="admin-action" method="post" action="{{ url_for('admin.review_merchant_verification', verification_id=application.id) }}">
+                <select name="decision" required>
+                  <option value="">选择结果</option>
+                  <option value="approved">通过</option>
+                  <option value="rejected">拒绝</option>
+                </select>
+                <input class="form-input" name="reject_reason" placeholder="拒绝原因（选填）">
+                <button class="button button-small" type="submit">保存</button>
+              </form>
+              {% else %}
+                {{ application.reject_reason or '-' }}
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td class="admin-empty" colspan="6">暂无商家认证申请。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}
