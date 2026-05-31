@@ -6,7 +6,20 @@ from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.models import Activity, AdminLog, Circle, CircleMember, Comment, Interaction, Post, User, db
+from app.models import (
+    Activity,
+    AdminLog,
+    Circle,
+    CircleMember,
+    Comment,
+    Interaction,
+    MerchantVerification,
+    Post,
+    Registration,
+    User,
+    create_notification,
+    db,
+)
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -102,6 +115,47 @@ def log_admin_action(admin_id, action, target_type, target_id, detail=None):
     )
 
 
+def _notify_admin_result(target, previous_status, new_status):
+    related_type = None
+    recipient_ids = set()
+    label = f"{target.__class__.__name__} #{target.id}"
+
+    if isinstance(target, Activity):
+        related_type = "activity"
+        recipient_ids.add(target.organizer_id)
+        label = f"活动“{target.title}”"
+        if new_status == "closed":
+            recipient_ids.update(
+                row[0]
+                for row in db.session.query(Registration.user_id)
+                .filter_by(activity_id=target.id)
+                .all()
+            )
+    elif isinstance(target, Circle):
+        related_type = "circle"
+        recipient_ids.add(target.owner_id)
+        label = f"同好圈“{target.name}”"
+    elif isinstance(target, Post):
+        related_type = "post"
+        recipient_ids.add(target.user_id)
+        label = f"帖子“{target.title}”"
+    elif isinstance(target, Comment):
+        related_type = "comment"
+        recipient_ids.add(target.author_id)
+        label = f"评论 #{target.id}"
+
+    for recipient_id in recipient_ids:
+        if recipient_id:
+            create_notification(
+                recipient_id,
+                "admin_result",
+                "管理员处理结果",
+                f"{label}的状态已由 {previous_status} 更新为 {new_status}。",
+                related_type,
+                target.id,
+            )
+
+
 @admin_bp.after_app_request
 def log_official_circle_creation(response):
     if (
@@ -143,6 +197,7 @@ def _update_status(model, target_id, allowed_statuses, target_type, list_endpoin
         return redirect(url_for(list_endpoint))
 
     target.status = new_status
+    _notify_admin_result(target, previous_status, new_status)
     log_admin_action(
         get_current_user().id,
         "update_status",
@@ -255,6 +310,14 @@ def _update_user_ban_status(user_id, new_status):
 
     user.status = new_status
     user.banned_at = datetime.utcnow() if new_status == "banned" else None
+    create_notification(
+        user.id,
+        "admin_result",
+        "账号状态更新",
+        f"您的账号状态已由 {previous_status} 更新为 {new_status}。",
+        "user",
+        user.id,
+    )
     log_admin_action(
         admin.id,
         "ban_user" if new_status == "banned" else "unban_user",
@@ -745,3 +808,57 @@ def admin_account():
                 return redirect(url_for("admin.admin_account"))
 
     return render_template("admin_account.html", user=user)
+
+
+@admin_bp.route("/admin/merchant-verifications")
+@admin_required
+def merchant_verifications():
+    applications = (
+        MerchantVerification.query.join(MerchantVerification.user)
+        .order_by(MerchantVerification.created_at.desc(), MerchantVerification.id.desc())
+        .all()
+    )
+    return render_template("admin_merchant_verifications.html", applications=applications)
+
+
+@admin_bp.route("/admin/merchant-verifications/<int:verification_id>/review", methods=["POST"])
+@admin_required
+def review_merchant_verification(verification_id):
+    verification = MerchantVerification.query.get_or_404(verification_id)
+    decision = request.form.get("decision", "").strip()
+    reject_reason = request.form.get("reject_reason", "").strip()
+    if decision not in {"approved", "rejected"}:
+        flash("请选择有效的审核结果。", "error")
+        return redirect(url_for("admin.merchant_verifications"))
+    if verification.status != "pending":
+        flash("该认证申请已经处理。", "info")
+        return redirect(url_for("admin.merchant_verifications"))
+
+    admin = get_current_user()
+    verification.status = decision
+    verification.reject_reason = reject_reason if decision == "rejected" else None
+    verification.reviewer_id = admin.id
+    verification.reviewed_at = datetime.utcnow()
+    create_notification(
+        verification.user_id,
+        "merchant_verification_result",
+        "商家认证审核结果",
+        (
+            f"您的商家认证申请“{verification.business_name}”已通过审核。"
+            if decision == "approved"
+            else f"您的商家认证申请“{verification.business_name}”未通过审核。"
+            + (f" 原因：{reject_reason}" if reject_reason else "")
+        ),
+        "merchant_verification",
+        verification.id,
+    )
+    log_admin_action(
+        admin.id,
+        "review_merchant_verification",
+        "merchant_verification",
+        verification.id,
+        f"status: pending -> {decision}",
+    )
+    db.session.commit()
+    flash("商家认证审核结果已保存。", "success")
+    return redirect(url_for("admin.merchant_verifications"))

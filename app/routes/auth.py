@@ -5,7 +5,13 @@ from datetime import datetime
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from werkzeug.security import generate_password_hash, check_password_hash
-from app.models import User, db, ensure_user_account_schema
+from app.models import (
+    MerchantVerification,
+    User,
+    create_notification,
+    db,
+    ensure_user_account_schema,
+)
 from app.forms import RegistrationForm
 
 auth_bp = Blueprint("auth", __name__)
@@ -95,7 +101,52 @@ def account_settings():
         session.clear()
         flash("该账号已注销", "error")
         return redirect(url_for("activity.index"))
-    return render_template("account_settings.html", user=user)
+    latest_merchant_verification = (
+        MerchantVerification.query.filter_by(user_id=user.id)
+        .order_by(MerchantVerification.created_at.desc())
+        .first()
+    )
+    return render_template(
+        "account_settings.html",
+        user=user,
+        latest_merchant_verification=latest_merchant_verification,
+    )
+
+
+@auth_bp.route("/account/merchant-verification", methods=["POST"])
+def apply_merchant_verification():
+    user = _get_session_user()
+    if user is None:
+        return redirect(url_for("auth.login", next=url_for("auth.account_settings")))
+
+    business_name = request.form.get("business_name", "").strip()
+    license_number = request.form.get("license_number", "").strip()
+    if not business_name:
+        flash("请填写商家名称。", "error")
+        return redirect(url_for("auth.account_settings"))
+    if MerchantVerification.query.filter_by(user_id=user.id, status="pending").first():
+        flash("您已有待审核的商家认证申请。", "info")
+        return redirect(url_for("auth.account_settings"))
+
+    verification = MerchantVerification(
+        user_id=user.id,
+        business_name=business_name,
+        license_number=license_number or None,
+    )
+    db.session.add(verification)
+    db.session.flush()
+    for admin in User.query.filter_by(role="admin", status="active").all():
+        create_notification(
+            admin.id,
+            "merchant_verification_application",
+            "新的商家认证申请",
+            f"{user.nickname or user.username} 提交了商家“{business_name}”的认证申请。",
+            "merchant_verification",
+            verification.id,
+        )
+    db.session.commit()
+    flash("商家认证申请已提交。", "success")
+    return redirect(url_for("auth.account_settings"))
 
 
 @auth_bp.route("/account/delete", methods=["POST"])

@@ -3754,6 +3754,130 @@ textarea.form-input {
   position: relative;
 }
 
+.nav-notification-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.nav-notification-link strong {
+  display: inline-grid;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.notification-heading,
+.notification-meta,
+.notification-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.notification-heading h1 {
+  margin-bottom: 4px;
+  font-size: 42px;
+}
+
+.notification-heading p,
+.notification-retention-note {
+  color: var(--color-muted);
+}
+
+.notification-retention-note {
+  margin: 18px 0;
+  font-size: 13px;
+}
+
+.notification-list {
+  display: grid;
+  gap: 12px;
+}
+
+.notification-card {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+}
+
+.notification-card.is-unread {
+  border-color: rgba(47, 111, 99, 0.45);
+  background: #f4fbf8;
+}
+
+.notification-icon,
+.notification-empty-icon {
+  font-size: 30px;
+}
+
+.notification-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-body h2 {
+  margin: 4px 0;
+  font-size: 18px;
+}
+
+.notification-body p {
+  margin-bottom: 8px;
+  color: var(--color-muted);
+}
+
+.notification-meta {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.notification-meta strong {
+  color: var(--color-primary-dark);
+}
+
+.notification-actions {
+  justify-content: flex-start;
+  font-size: 14px;
+}
+
+.notification-actions form {
+  margin: 0;
+}
+
+.text-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.notification-empty {
+  padding: 80px 24px;
+  border: 1px dashed var(--color-border);
+  border-radius: 20px;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.notification-empty h2 {
+  margin: 8px 0 2px;
+  color: var(--color-text);
+}
+
 .avatar-button {
   display: flex;
   align-items: center;
