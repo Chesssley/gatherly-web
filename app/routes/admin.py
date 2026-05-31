@@ -19,6 +19,7 @@ from app.models import (
     User,
     create_notification,
     db,
+    is_verified_merchant,
 )
 
 admin_bp = Blueprint("admin", __name__)
@@ -225,6 +226,7 @@ def admin_dashboard():
         "circles": Circle.query.filter(Circle.status != "deleted").count(),
         "posts": Post.query.count(),
         "comments": Comment.query.count(),
+        "merchant_pending": MerchantVerification.query.filter_by(status="pending").count(),
     }
     logs = AdminLog.query.order_by(AdminLog.created_at.desc()).limit(30).all()
     return render_template("admin_dashboard.html", stats=stats, logs=logs)
@@ -545,6 +547,13 @@ def update_activity_status(activity_id):
 @admin_required
 def toggle_activity_featured(activity_id):
     activity = Activity.query.get_or_404(activity_id)
+    if not activity.is_featured and not (
+        activity.organizer
+        and (activity.organizer.role == "admin" or is_verified_merchant(activity.organizer))
+    ):
+        flash("只有管理员或已通过认证的商家创建的活动才能设为优质活动。", "error")
+        return redirect(url_for("admin.admin_activities"))
+
     activity.is_featured = not activity.is_featured
     log_admin_action(
         get_current_user().id,

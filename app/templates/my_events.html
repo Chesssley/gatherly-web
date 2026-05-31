@@ -98,6 +98,10 @@
               <span class="tag">{{ tag }}</span>
               {% endfor %}
             </div>
+            <div class="card-activity-badges">
+              {% if activity.organizer_is_verified %}<span class="activity-badge is-official">官方认证</span>{% endif %}
+              {% if activity.is_featured %}<span class="activity-badge is-featured">优质活动</span>{% endif %}
+            </div>
             <h2>{{ activity.title }}</h2>
             <p><span aria-hidden="true">&#128197;</span> {{ activity.time }}</p>
             <p><span aria-hidden="true">&#128205;</span> {{ activity.location or "地点待定" }}</p>

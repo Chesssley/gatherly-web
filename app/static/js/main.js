@@ -451,6 +451,30 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-merchant-verification-toggle]").forEach(button => {
+    const panel = document.getElementById(button.getAttribute("aria-controls"));
+    if (!panel) {
+      return;
+    }
+    const collapsedLabel = button.textContent.trim();
+
+    button.addEventListener("click", () => {
+      const shouldOpen = panel.hidden;
+      panel.hidden = !shouldOpen;
+      button.setAttribute("aria-expanded", String(shouldOpen));
+      button.textContent = shouldOpen ? "收起认证详情" : collapsedLabel;
+    });
+  });
+
+  document.querySelectorAll(".admin-user-action-menu select[name='action']").forEach(select => {
+    select.addEventListener("change", () => {
+      if (!select.value || !select.form) {
+        return;
+      }
+      select.form.submit();
+    });
+  });
+
   const myEventsSearch = document.querySelector("[data-my-events-search]");
   const myEventsSearchToggle = myEventsSearch?.querySelector("[data-my-events-search-toggle]");
   const myEventsSearchField = myEventsSearch?.querySelector("[data-my-events-search-field]");

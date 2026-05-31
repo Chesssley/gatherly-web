@@ -3498,6 +3498,38 @@ textarea.form-input {
   max-width: 720px;
 }
 
+.merchant-verification-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.merchant-verification-card {
+  border: 1px dashed var(--color-border);
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.merchant-verification-compact h2,
+.merchant-verification-compact p {
+  margin-bottom: 0;
+}
+
+.merchant-verification-compact .button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 14px;
+  font-size: 14px;
+}
+
+.merchant-verification-panel {
+  margin-top: 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+}
+
 .danger-zone {
   margin-top: 24px;
   padding: 24px;
@@ -3548,6 +3580,15 @@ textarea.form-input {
 }
 
 @media (max-width: 720px) {
+  .merchant-verification-compact {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .merchant-verification-compact .button {
+    width: 100%;
+  }
+
   .profile-layout {
     grid-template-columns: 1fr;
     gap: 32px;
