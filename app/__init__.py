@@ -1,7 +1,7 @@
 from flask import Flask, flash, redirect, request, url_for
 from werkzeug.exceptions import RequestEntityTooLarge
 
-from app.models import db, ensure_activity_schema, ensure_user_account_schema
+from app.models import db, ensure_task_foundation_schema
 
 
 def create_app():
@@ -13,8 +13,7 @@ def create_app():
 
     db.init_app(app)
     with app.app_context():
-        ensure_user_account_schema()
-        ensure_activity_schema()
+        ensure_task_foundation_schema()
 
     from app.routes.activity import activity_bp
     from app.routes.admin import admin_bp

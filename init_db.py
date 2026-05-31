@@ -6,15 +6,14 @@ import os
 from werkzeug.security import generate_password_hash
 
 from app import create_app
-from app.models import Activity, User, db, ensure_activity_schema, ensure_user_account_schema
+from app.models import Activity, User, db, ensure_task_foundation_schema
 from seed_data import DEMO_ACTIVITIES
 
 app = create_app()
 
 with app.app_context():
     db.create_all()
-    ensure_user_account_schema()
-    ensure_activity_schema()
+    ensure_task_foundation_schema()
 
     demo_organizer = User.query.filter_by(username="gatherly_demo").first()
     if demo_organizer is None:

@@ -12,10 +12,12 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     nickname = db.Column(db.String(80), nullable=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
+    email_verified_at = db.Column(db.DateTime)
     password = db.Column(db.String(255), nullable=False)
     avatar = db.Column(db.String(255))
     bio = db.Column(db.Text)
     interests = db.Column(db.Text)
+    city = db.Column(db.String(80))
     role = db.Column(db.String(20), default="user", nullable=False)
     trust_score = db.Column(db.Integer, default=100, nullable=False)
     status = db.Column(db.String(20), default="active", nullable=False)
@@ -61,6 +63,31 @@ class User(db.Model):
         foreign_keys="AdminLog.admin_id",
         back_populates="admin",
     )
+    email_verification_codes = db.relationship(
+        "EmailVerificationCode",
+        back_populates="user",
+    )
+    notifications = db.relationship("Notification", back_populates="recipient")
+    sent_messages = db.relationship(
+        "DirectMessage",
+        foreign_keys="DirectMessage.sender_id",
+        back_populates="sender",
+    )
+    received_messages = db.relationship(
+        "DirectMessage",
+        foreign_keys="DirectMessage.recipient_id",
+        back_populates="recipient",
+    )
+    merchant_verifications = db.relationship(
+        "MerchantVerification",
+        foreign_keys="MerchantVerification.user_id",
+        back_populates="user",
+    )
+    reviewed_merchant_verifications = db.relationship(
+        "MerchantVerification",
+        foreign_keys="MerchantVerification.reviewer_id",
+        back_populates="reviewer",
+    )
 
 
 def ensure_user_account_schema():
@@ -70,10 +97,16 @@ def ensure_user_account_schema():
     rows = db.session.execute(text('PRAGMA table_info("user")')).fetchall()
     existing_columns = {row[1] for row in rows}
     statements = []
+    if rows and "nickname" not in existing_columns:
+        statements.append('ALTER TABLE "user" ADD COLUMN nickname VARCHAR(80)')
     if rows and "deleted_at" not in existing_columns:
         statements.append('ALTER TABLE "user" ADD COLUMN deleted_at DATETIME')
     if rows and "bio" not in existing_columns:
         statements.append('ALTER TABLE "user" ADD COLUMN bio TEXT')
+    if rows and "city" not in existing_columns:
+        statements.append('ALTER TABLE "user" ADD COLUMN city VARCHAR(80)')
+    if rows and "email_verified_at" not in existing_columns:
+        statements.append('ALTER TABLE "user" ADD COLUMN email_verified_at DATETIME')
 
     for statement in statements:
         db.session.execute(text(statement))
@@ -101,6 +134,8 @@ class Activity(db.Model):
     fee = db.Column(db.Float, default=0, nullable=False)
     tags = db.Column(db.Text)
     status = db.Column(db.String(20), default="open", nullable=False)
+    cancel_reason = db.Column(db.Text)
+    cancelled_at = db.Column(db.DateTime)
     is_featured = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     organizer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
@@ -136,6 +171,14 @@ def ensure_activity_schema():
         )
     if rows and "tags" not in existing_columns:
         statements.append("ALTER TABLE activity ADD COLUMN tags TEXT")
+    if rows and "status" not in existing_columns:
+        statements.append(
+            "ALTER TABLE activity ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'open'"
+        )
+    if rows and "cancel_reason" not in existing_columns:
+        statements.append("ALTER TABLE activity ADD COLUMN cancel_reason TEXT")
+    if rows and "cancelled_at" not in existing_columns:
+        statements.append("ALTER TABLE activity ADD COLUMN cancelled_at DATETIME")
     if rows and "is_featured" not in existing_columns:
         statements.append(
             "ALTER TABLE activity ADD COLUMN is_featured BOOLEAN NOT NULL DEFAULT 0"
@@ -152,10 +195,125 @@ class Registration(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
     status = db.Column(db.String(20), default="registered", nullable=False)
+    cancel_reason = db.Column(db.Text)
+    cancelled_at = db.Column(db.DateTime)
     register_time = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     user = db.relationship("User", back_populates="registrations")
     activity = db.relationship("Activity", back_populates="registrations")
+
+
+def ensure_registration_schema():
+    if db.engine.dialect.name != "sqlite":
+        return
+
+    rows = db.session.execute(text("PRAGMA table_info(registration)")).fetchall()
+    existing_columns = {row[1] for row in rows}
+    statements = []
+    if rows and "status" not in existing_columns:
+        statements.append(
+            "ALTER TABLE registration ADD COLUMN status VARCHAR(20) "
+            "NOT NULL DEFAULT 'registered'"
+        )
+    if rows and "cancel_reason" not in existing_columns:
+        statements.append("ALTER TABLE registration ADD COLUMN cancel_reason TEXT")
+    if rows and "cancelled_at" not in existing_columns:
+        statements.append("ALTER TABLE registration ADD COLUMN cancelled_at DATETIME")
+
+    for statement in statements:
+        db.session.execute(text(statement))
+    if statements:
+        db.session.commit()
+
+
+class EmailVerificationCode(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    email = db.Column(db.String(120), nullable=False, index=True)
+    code = db.Column(db.String(20), nullable=False)
+    purpose = db.Column(db.String(30), default="register", nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship("User", back_populates="email_verification_codes")
+
+
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    recipient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    type = db.Column(db.String(50), nullable=False)
+    title = db.Column(db.String(120), nullable=False)
+    content = db.Column(db.Text)
+    related_type = db.Column(db.String(50))
+    related_id = db.Column(db.Integer)
+    read_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    recipient = db.relationship("User", back_populates="notifications")
+
+
+class DirectMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    recipient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    read_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    sender = db.relationship(
+        "User",
+        foreign_keys=[sender_id],
+        back_populates="sent_messages",
+    )
+    recipient = db.relationship(
+        "User",
+        foreign_keys=[recipient_id],
+        back_populates="received_messages",
+    )
+
+
+class MerchantVerification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    business_name = db.Column(db.String(120), nullable=False)
+    license_number = db.Column(db.String(120))
+    document_path = db.Column(db.String(255))
+    status = db.Column(db.String(20), default="pending", nullable=False)
+    reject_reason = db.Column(db.Text)
+    reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    reviewed_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    user = db.relationship(
+        "User",
+        foreign_keys=[user_id],
+        back_populates="merchant_verifications",
+    )
+    reviewer = db.relationship(
+        "User",
+        foreign_keys=[reviewer_id],
+        back_populates="reviewed_merchant_verifications",
+    )
+
+
+def ensure_task_foundation_schema():
+    ensure_user_account_schema()
+    ensure_activity_schema()
+    ensure_registration_schema()
+    for model in (
+        EmailVerificationCode,
+        Notification,
+        DirectMessage,
+        MerchantVerification,
+    ):
+        model.__table__.create(db.engine, checkfirst=True)
 
 
 class ActivityFavorite(db.Model):
