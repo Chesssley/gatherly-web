@@ -55,6 +55,7 @@
             <div class="account-menu" id="account-menu" data-nav-menu hidden>
               <a href="{{ url_for('activity.my_events') }}">我的活动</a>
               <a href="{{ url_for('profile.my_profile') }}">个人主页</a>
+              <a href="{{ url_for('profile.nearby_users') }}">附近的人</a>
               {% if current_user and current_user.role == 'admin' %}
                 <a href="{{ url_for('admin.admin_dashboard') }}">后台管理</a>
               {% endif %}
@@ -122,6 +123,7 @@
     <div class="mobile-account-menu container" id="mobile-account-menu" data-nav-menu hidden>
       <a href="{{ url_for('activity.my_events') }}">我的活动</a>
       <a href="{{ url_for('profile.my_profile') }}">个人主页</a>
+      <a href="{{ url_for('profile.nearby_users') }}">附近的人</a>
       <a href="{{ url_for('auth.account_settings') }}">账号设置</a>
       {% if current_user and current_user.role == 'admin' %}
         <a href="{{ url_for('admin.admin_dashboard') }}">后台管理</a>

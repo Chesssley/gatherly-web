@@ -431,6 +431,7 @@ def register():
         username = form.username.data.strip()
         nickname = request.form.get("nickname", "").strip() or username
         email = form.email.data.strip()
+        city = request.form.get("city", "").strip() or None
 
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
@@ -453,6 +454,7 @@ def register():
             username=username,
             nickname=nickname,
             email=email,
+            city=city,
             email_verified_at=datetime.utcnow(),
             password=hashed_password,
             role="user",

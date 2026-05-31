@@ -50,6 +50,27 @@
         <p class="form-hint">{{ user.email }} · 邮箱和密码请在<a href="{{ url_for('auth.account_settings') }}" class="text-link">账号设置</a>中修改。</p>
       </div>
       <div class="form-group">
+        <label class="form-label" for="city">城市</label>
+        <input class="form-input" id="city" name="city" value="{{ user.city or '' }}" maxlength="80" placeholder="例如：上海">
+        <p class="form-hint">用于个人主页展示和活动同城优先排序，可留空。</p>
+      </div>
+      <div class="form-group nearby-setting">
+        <label class="tag-checkbox">
+          <input type="checkbox" name="nearby_enabled" value="1" {% if user.nearby_enabled %}checked{% endif %}>
+          <span>附近的人：{{ '开启' if user.nearby_enabled else '关闭' }}</span>
+        </label>
+        {% if user.nearby_enabled %}
+        <p class="form-hint">附近的人基于 IP 所属地区粗略匹配，不会展示精确位置。</p>
+        {% else %}
+        <p class="form-hint">附近的人：关闭。关闭后，其他用户不会在附近的人列表中看到你。</p>
+        {% endif %}
+        {% if user.detected_city or user.detected_region %}
+        <p class="form-hint">当前 IP 粗略地区：{{ user.detected_city or user.detected_region }}</p>
+        {% else %}
+        <p class="form-hint">暂无 IP 地区信息，本地开发或检测失败时不会影响使用。</p>
+        {% endif %}
+      </div>
+      <div class="form-group">
         <label class="form-label" for="bio">个人简介</label>
         <textarea class="form-input" id="bio" name="bio" rows="5" maxlength="300" placeholder="简单介绍一下自己、常参加的活动或希望认识的伙伴。">{{ user.bio or '' }}</textarea>
         <p class="form-hint">最多 300 个字符。</p>

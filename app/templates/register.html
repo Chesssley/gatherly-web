@@ -36,6 +36,13 @@
                 {% endfor %}
             </div>
 
+            <!-- 城市 -->
+            <div style="margin-bottom: 16px;">
+                <label for="city" class="form-label">城市</label>
+                <input type="text" id="city" name="city" class="form-input" maxlength="80" value="{{ request.form.get('city', '') }}" placeholder="可选，例如：上海">
+                <p class="form-hint">城市可稍后在个人主页修改，不会自动开启“附近的人”。</p>
+            </div>
+
             <div style="margin-bottom: 16px;">
                 <label for="email_code" class="form-label">邮箱验证码</label>
                 <input type="text" id="email_code" name="email_code" class="form-input" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="6 位数字验证码">

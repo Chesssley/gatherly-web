@@ -8,22 +8,31 @@
     <div class="directory-heading">
       <div>
         <p class="eyebrow">People</p>
-        <h1>搜索用户</h1>
+        <h1>{{ heading|default('搜索用户') }}</h1>
       </div>
       <a class="button button-secondary" href="{{ url_for('profile.my_profile') }}">返回个人主页</a>
     </div>
 
+    {% if nearby_mode %}
+    <div class="nearby-privacy-note">
+      <strong>附近的人</strong>
+      <p>列表只显示主动开启“附近的人”的用户，并基于 IP 所属地区做粗略匹配，不展示完整 IP 或精确位置。</p>
+    </div>
+    {% endif %}
+
+    {% if not nearby_mode %}
     <form class="people-search-form" method="get" role="search">
       <label class="sr-only" for="user-search-q">搜索用户名、昵称、城市或简介</label>
       <input id="user-search-q" name="q" type="search" value="{{ query }}" placeholder="搜索用户名、昵称、城市或简介">
       <button class="button" type="submit">搜索</button>
     </form>
+    {% endif %}
 
     <div class="user-card-list">
       {% for card_user in users %}
         {% include "_user_card.html" %}
       {% else %}
-        <p class="rating-empty">暂无匹配用户。</p>
+        <p class="rating-empty">{{ empty_message|default('暂无匹配用户。') }}</p>
       {% endfor %}
     </div>
   </div>

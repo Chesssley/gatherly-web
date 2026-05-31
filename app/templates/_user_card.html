@@ -11,6 +11,9 @@
     <span class="user-card-copy">
       <strong>{{ card_name }}</strong>
       <span>@{{ card_user.username }}{% if card_user.city %} · {{ card_user.city }}{% endif %}</span>
+      {% if nearby_mode and (card_user.detected_city or card_user.detected_region) %}
+      <small>IP 粗略地区：{{ card_user.detected_city or card_user.detected_region }}</small>
+      {% endif %}
       {% if card_user.bio %}<small>{{ card_user.bio|truncate(72, True) }}</small>{% endif %}
     </span>
   </a>

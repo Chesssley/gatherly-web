@@ -18,6 +18,10 @@ class User(db.Model):
     bio = db.Column(db.Text)
     interests = db.Column(db.Text)
     city = db.Column(db.String(80))
+    nearby_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    detected_city = db.Column(db.String(80))
+    detected_region = db.Column(db.String(80))
+    last_location_detected_at = db.Column(db.DateTime)
     role = db.Column(db.String(20), default="user", nullable=False)
     trust_score = db.Column(db.Integer, default=100, nullable=False)
     status = db.Column(db.String(20), default="active", nullable=False)
@@ -117,6 +121,16 @@ def ensure_user_account_schema():
         statements.append('ALTER TABLE "user" ADD COLUMN bio TEXT')
     if rows and "city" not in existing_columns:
         statements.append('ALTER TABLE "user" ADD COLUMN city VARCHAR(80)')
+    if rows and "nearby_enabled" not in existing_columns:
+        statements.append(
+            'ALTER TABLE "user" ADD COLUMN nearby_enabled BOOLEAN NOT NULL DEFAULT 0'
+        )
+    if rows and "detected_city" not in existing_columns:
+        statements.append('ALTER TABLE "user" ADD COLUMN detected_city VARCHAR(80)')
+    if rows and "detected_region" not in existing_columns:
+        statements.append('ALTER TABLE "user" ADD COLUMN detected_region VARCHAR(80)')
+    if rows and "last_location_detected_at" not in existing_columns:
+        statements.append('ALTER TABLE "user" ADD COLUMN last_location_detected_at DATETIME')
     if rows and "email_verified_at" not in existing_columns:
         statements.append('ALTER TABLE "user" ADD COLUMN email_verified_at DATETIME')
 
