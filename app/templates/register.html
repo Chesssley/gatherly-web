@@ -36,6 +36,13 @@
                 {% endfor %}
             </div>
 
+            <!-- 城市 -->
+            <div style="margin-bottom: 16px;">
+                <label for="city" class="form-label">城市</label>
+                <input type="text" id="city" name="city" class="form-input" maxlength="80" value="{{ request.form.get('city', '') }}" placeholder="可选，例如：上海">
+                <p class="form-hint">城市可稍后在个人主页修改，不会自动开启“附近的人”。</p>
+            </div>
+
             <!-- 密码 -->
             <div style="margin-bottom: 16px;">
                 {{ form.password.label(class="form-label") }}

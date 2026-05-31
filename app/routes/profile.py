@@ -25,6 +25,7 @@ from app.models import (
     db,
     get_user_display_name,
 )
+from app.utils.location_utils import locations_match, update_user_detected_location
 
 profile_bp = Blueprint("profile", __name__, url_prefix="/profile")
 
@@ -191,6 +192,14 @@ def _safe_all(query):
         return []
 
 
+def _refresh_detected_location(user):
+    try:
+        update_user_detected_location(user)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
 def _activity_label(activity_id):
     activity = Activity.query.get(activity_id)
     if activity:
@@ -308,6 +317,14 @@ def _profile_context(user, visibility, is_owner=True):
             "following": following_count,
         },
     }
+
+
+def _nearby_match_score(current_user, candidate):
+    if locations_match(current_user.detected_city, candidate.detected_city):
+        return 0
+    if locations_match(current_user.detected_region, candidate.detected_region):
+        return 1
+    return 2
 
 
 def _user_search_items(query_text):
@@ -554,6 +571,8 @@ def view_profile(user_id):
         return render_template("profile.html", user=user, display_name=display_name)
 
     is_owner = session.get("user_id") == user.id
+    if is_owner:
+        _refresh_detected_location(user)
     visibility = _get_or_create_visibility(user)
 
     if visibility.profile_scope == PRIVATE_SCOPE and not is_owner:
@@ -615,6 +634,55 @@ def user_search():
         users=users,
         following_ids=following_ids,
         page_title="搜索用户",
+        heading="搜索用户",
+        empty_message="暂无匹配用户。",
+        nearby_mode=False,
+    )
+
+
+@profile_bp.route("/nearby")
+@login_required
+def nearby_users():
+    current_user = User.query.get_or_404(session["user_id"])
+    _refresh_detected_location(current_user)
+    following_ids = {
+        row.followed_id
+        for row in UserFollow.query.filter_by(follower_id=current_user.id).all()
+    }
+    users = []
+    location_notice = None
+    if current_user.detected_city or current_user.detected_region:
+        users = (
+            User.query.filter(
+                User.status == "active",
+                User.nearby_enabled.is_(True),
+                User.id != current_user.id,
+            )
+            .order_by(User.created_at.desc(), User.id.desc())
+            .limit(120)
+            .all()
+        )
+        users = sorted(
+            users,
+            key=lambda user: (
+                _nearby_match_score(current_user, user),
+                -(user.created_at.timestamp() if user.created_at else 0),
+                -user.id,
+            ),
+        )[:60]
+    else:
+        location_notice = "暂时无法根据 IP 判断附近用户。"
+
+    return render_template(
+        "users.html",
+        query="",
+        users=users,
+        following_ids=following_ids,
+        page_title="附近的人",
+        heading="附近的人",
+        empty_message=location_notice or "附近暂时没有主动开启该功能的用户。",
+        location_notice=location_notice,
+        nearby_mode=True,
     )
 
 
@@ -909,6 +977,7 @@ def edit_profile():
         if form_type == "profile":
             nickname = request.form.get("nickname", "").strip() or user.username
             email = request.form.get("email", "").strip()
+            city = request.form.get("city", "").strip() or None
             bio = request.form.get("bio", "").strip() or None
             interests = _normalize_interests(request.form.get("interests", "")) or None
 
@@ -920,6 +989,9 @@ def edit_profile():
                 return render_template("edit_profile.html", user=user, visibility=visibility)
             if len(email) > 120:
                 flash("邮箱不能超过 120 个字符。", "error")
+                return render_template("edit_profile.html", user=user, visibility=visibility)
+            if city and len(city) > 80:
+                flash("城市不能超过 80 个字符。", "error")
                 return render_template("edit_profile.html", user=user, visibility=visibility)
             if bio and len(bio) > BIO_MAX_LENGTH:
                 flash(f"个人简介不能超过 {BIO_MAX_LENGTH} 个字符。", "error")
@@ -953,6 +1025,8 @@ def edit_profile():
 
             user.nickname = nickname
             user.email = email
+            user.city = city
+            user.nearby_enabled = bool(request.form.get("nearby_enabled"))
             if new_avatar:
                 user.avatar = new_avatar
             elif request.form.get("remove_avatar"):

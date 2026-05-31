@@ -21,6 +21,7 @@ from app.models import (
     is_verified_merchant,
 )
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
+from app.utils.location_utils import locations_match, normalize_city
 
 def login_required(f):
     """登录态检查装饰器，未登录重定向到登录页"""
@@ -412,6 +413,19 @@ def _activity_to_summary(activity, registration_count=0, favorite_count=0, atten
     }
 
 
+def _sort_same_city_first(activities, user_city):
+    normalized_user_city = normalize_city(user_city)
+    if not normalized_user_city:
+        return activities
+
+    return sorted(
+        activities,
+        key=lambda activity: (
+            0 if locations_match(activity.get("city"), normalized_user_city) else 1,
+        ),
+    )
+
+
 @activity_bp.route("/")
 def index():
     selected_tag = request.args.get("tag", "").strip()
@@ -448,6 +462,11 @@ def index():
             activity["id"],
         )
     )
+    current_user_city = None
+    if "user_id" in session:
+        current_user = User.query.get(session["user_id"])
+        current_user_city = current_user.city if current_user else None
+    normalized_activities = _sort_same_city_first(normalized_activities, current_user_city)
     hot_activity_ids = {
         activity["id"]
         for activity in normalized_activities[:3]

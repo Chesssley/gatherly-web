@@ -36,6 +36,9 @@
 
   <div class="profile-sidebar-meta">
     <p><span aria-hidden="true">&#128205;</span> {{ user.city or '城市未设置' }}</p>
+    {% if is_owner %}
+    <p><span aria-hidden="true">&#128101;</span> 附近的人：{{ '开启' if user.nearby_enabled else '关闭' }}</p>
+    {% endif %}
     <p><span aria-hidden="true">&#128197;</span> 加入于 {{ user.created_at.strftime('%Y年%m月') if user.created_at else '-' }}</p>
   </div>
 

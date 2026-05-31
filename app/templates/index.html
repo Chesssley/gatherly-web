@@ -44,7 +44,7 @@
         <h3 class="card-title">{{ activity.title }}</h3>
         <div class="card-meta">
             <p class="meta-time"><span aria-hidden="true">&#128197;</span> {{ activity.time }}{% if activity.gmt_offset %} <span class="card-timezone">{{ activity.gmt_offset }}</span>{% endif %}</p>
-            <p class="meta-location"><span aria-hidden="true">&#128205;</span> {{ activity.location }}</p>
+            <p class="meta-location"><span aria-hidden="true">&#128205;</span> {% if activity.city %}{{ activity.city }} · {% endif %}{{ activity.location }}</p>
             <p class="card-host"><span aria-hidden="true">&#9673;</span> 主办方：{{ activity.organizer|default("Gatherly官方") }}</p>
         </div>
         <div class="card-social">
@@ -106,7 +106,7 @@
                     <div class="featured-card-overlay">
                         <span class="featured-label">优质活动</span>
                         <h3>{{ activity.title }}</h3>
-                        <p>{{ activity.time }} · {{ activity.location }}</p>
+                        <p>{{ activity.time }} · {% if activity.city %}{{ activity.city }} · {% endif %}{{ activity.location }}</p>
                     </div>
                 </a>
                 {% else %}

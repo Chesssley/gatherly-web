@@ -4549,6 +4549,26 @@ textarea.form-input {
   margin-bottom: 20px;
 }
 
+.nearby-privacy-note {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(34, 34, 34, 0.04);
+}
+
+.nearby-privacy-note strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.nearby-privacy-note p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
 .people-search-form.compact {
   margin: 4px 0 16px;
 }
