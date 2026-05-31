@@ -62,16 +62,35 @@
             </form>
         </div>
         {% else %}
-        <div class="page-title">
-            <p class="eyebrow">Circles</p>
-            <h1>找到你的同好圈</h1>
-            <p>浏览不同兴趣社区，发现和你一样热爱小众活动的人。</p>
-            {% if session.get("user_id") %}
-            <a class="button" href="{{ url_for('circle.create_circle') }}">创建同好圈</a>
-            {% endif %}
+        <div class="circle-directory-hero">
+            <div>
+                <p class="eyebrow">Gatherly Circles</p>
+                <h1>找到你的同好圈</h1>
+                <p>从共同兴趣开始认识新朋友。浏览社区动态，加入讨论，也可以创建属于你的长期交流空间。</p>
+                <div class="circle-directory-actions">
+                    {% if session.get("user_id") %}
+                    <a class="button" href="{{ url_for('circle.create_circle') }}">创建同好圈</a>
+                    {% else %}
+                    <a class="button" href="{{ url_for('auth.login', next=request.url) }}">登录后加入圈子</a>
+                    {% endif %}
+                    <span>开放浏览 · 加入后可发布帖子</span>
+                </div>
+            </div>
+            <div class="circle-directory-summary" aria-label="同好圈概览">
+                <span>兴趣社区</span>
+                <strong>{{ circles | length }}</strong>
+                <p>围绕线下活动与真实交流持续生长。</p>
+            </div>
         </div>
 
         {% if circles %}
+        <div class="circle-directory-heading">
+            <div>
+                <p class="eyebrow">Discover Communities</p>
+                <h2>浏览社区</h2>
+            </div>
+            <p>精选与热门圈子会优先展示。</p>
+        </div>
         <div class="card-grid circle-grid">
             {% for circle in circles %}
             <article class="activity-card circle-card">
@@ -80,22 +99,26 @@
                     <span class="circle-card-cover-overlay"></span>
                     <span class="circle-card-cover-content">
                         <span class="card-tags">
-                            <span class="tag">{{ circle.tag or "同好圈" }}</span>
-                            <span class="tag circle-active-tag">{{ circle.active_level }}</span>
-                            {% if circle.is_pinned %}<span class="tag circle-featured-tag">精选圈子</span>{% endif %}
-                            {% if circle.is_hot %}<span class="tag circle-hot-tag">热门圈子</span>{% endif %}
+                            {% if circle.is_pinned %}<span class="tag circle-featured-tag">精选</span>{% endif %}
+                            {% if circle.is_hot %}<span class="tag circle-hot-tag">热门</span>{% endif %}
                         </span>
-                        <strong>{{ circle.name }}</strong>
                     </span>
                 </a>
                 <div class="card-body">
+                    <div class="circle-card-kicker">
+                        <span class="tag">{{ circle.tag or "同好圈" }}</span>
+                        <span>{{ circle.active_level }}</span>
+                    </div>
+                    <h2 class="circle-card-title">
+                        <a href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">{{ circle.name }}</a>
+                    </h2>
                     <p class="circle-description">{{ circle.description }}</p>
                     <div class="card-meta circle-meta">
-                        <p>{{ circle.member_count }} 位成员</p>
-                        <p>{{ circle.post_count | default(0) }} 篇帖子</p>
+                        <p><strong>{{ circle.member_count }}</strong><span>成员</span></p>
+                        <p><strong>{{ circle.post_count | default(0) }}</strong><span>帖子</span></p>
                     </div>
                     <a class="button button-small circle-action" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">
-                        进入圈子
+                        查看圈子
                     </a>
                 </div>
             </article>

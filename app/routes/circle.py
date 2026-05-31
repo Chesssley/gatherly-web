@@ -660,10 +660,16 @@ def circle_detail(circle_id):
             .order_by(Comment.created_at.asc())
             .all()
         )
+        visible_comment_count = sum(
+            comment.status == "published"
+            or (_is_admin(current_user) and comment.status == "hidden")
+            for comment in comments
+        )
         post_items.append(
             {
                 "post": post,
                 "is_pinned": post.id == circle.pinned_post_id,
+                "comment_count": visible_comment_count,
                 "counts": _interaction_counts("post", post.id),
                 "states": _user_interaction_states(
                     current_user.id if current_user else None,
