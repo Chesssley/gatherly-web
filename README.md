@@ -220,6 +220,25 @@ Then open the application in your browser:
 http://127.0.0.1:5000
 ```
 
+### SMTP email verification
+
+Registration, email changes, and password changes require a 6-digit email verification code. Configure SMTP with environment variables:
+
+```text
+MAIL_SERVER=smtp.example.com
+MAIL_PORT=587
+MAIL_USERNAME=your_smtp_username
+MAIL_PASSWORD=your_smtp_password
+MAIL_USE_TLS=true
+MAIL_DEFAULT_SENDER=Gatherly <no-reply@example.com>
+```
+
+Codes expire after 10 minutes. The application stores a hash of the code instead of keeping the plain code long-term.
+
+For local development, if SMTP is not configured, Gatherly prints the verification code to the console so registration and account testing are not blocked.
+
+PythonAnywhere free accounts do not automatically inherit environment variables from your local PowerShell session. Configure these values separately in PythonAnywhere Web app settings or in the PythonAnywhere console before running the app there.
+
 ## Main Routes
 
 | Route                     | Description            |

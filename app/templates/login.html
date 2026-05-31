@@ -69,6 +69,8 @@
         </form>
 
         <p style="margin-top: 16px; color: var(--color-muted); font-size: 14px; text-align: center;">
+            <a href="{{ url_for('auth.forgot_password') }}" class="text-link">忘记密码？</a>
+            <span style="margin: 0 8px;">·</span>
             还没有账号？<a href="{{ url_for('auth.register') }}" class="text-link">立即注册</a>
         </p>
     </div>

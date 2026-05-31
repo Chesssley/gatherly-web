@@ -6,7 +6,6 @@ from uuid import uuid4
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import and_, or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
-from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.models import (
     Activity,
@@ -976,19 +975,12 @@ def edit_profile():
         form_type = request.form.get("form_type")
         if form_type == "profile":
             nickname = request.form.get("nickname", "").strip() or user.username
-            email = request.form.get("email", "").strip()
             city = request.form.get("city", "").strip() or None
             bio = request.form.get("bio", "").strip() or None
             interests = _normalize_interests(request.form.get("interests", "")) or None
 
             if len(nickname) > 80:
                 flash("昵称不能超过 80 个字符。", "error")
-                return render_template("edit_profile.html", user=user, visibility=visibility)
-            if not email:
-                flash("邮箱不能为空。", "error")
-                return render_template("edit_profile.html", user=user, visibility=visibility)
-            if len(email) > 120:
-                flash("邮箱不能超过 120 个字符。", "error")
                 return render_template("edit_profile.html", user=user, visibility=visibility)
             if city and len(city) > 80:
                 flash("城市不能超过 80 个字符。", "error")
@@ -1000,21 +992,6 @@ def edit_profile():
                 flash(f"兴趣标签总长度不能超过 {INTERESTS_MAX_LENGTH} 个字符。", "error")
                 return render_template("edit_profile.html", user=user, visibility=visibility)
 
-            current_password = request.form.get("current_password", "")
-            new_password = request.form.get("new_password", "")
-            confirm_password = request.form.get("confirm_password", "")
-            if new_password or confirm_password:
-                if not current_password or not check_password_hash(user.password, current_password):
-                    flash("修改密码前必须先校验原密码。", "error")
-                    return render_template("edit_profile.html", user=user, visibility=visibility)
-                if new_password != confirm_password:
-                    flash("两次输入的新密码不一致。", "error")
-                    return render_template("edit_profile.html", user=user, visibility=visibility)
-                if len(new_password) < 6:
-                    flash("新密码至少需要 6 个字符。", "error")
-                    return render_template("edit_profile.html", user=user, visibility=visibility)
-                user.password = generate_password_hash(new_password)
-
             old_avatar = user.avatar
             new_avatar = None
             try:
@@ -1024,7 +1001,6 @@ def edit_profile():
                 return render_template("edit_profile.html", user=user, visibility=visibility)
 
             user.nickname = nickname
-            user.email = email
             user.city = city
             user.nearby_enabled = bool(request.form.get("nearby_enabled"))
             if new_avatar:

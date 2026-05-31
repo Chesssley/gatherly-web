@@ -14,6 +14,7 @@ from app.models import (
     ensure_user_account_schema,
 )
 from app.forms import RegistrationForm
+from app.utils.email_verification import send_verification_code, verify_email_code
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
 auth_bp = Blueprint("auth", __name__)
@@ -37,6 +38,103 @@ def _merchant_verification_redirect():
     if request.form.get("return_to") == "profile":
         return redirect(url_for("profile.my_profile"))
     return redirect(url_for("auth.account_settings"))
+
+
+def _redirect_after_code_send():
+    next_url = request.form.get("next", "").strip()
+    if next_url:
+        return redirect(next_url)
+    if request.form.get("return_to") == "admin_account":
+        return redirect(url_for("admin.admin_account"))
+    return redirect(url_for("auth.account_settings"))
+
+
+@auth_bp.route("/register/send-code", methods=["POST"])
+def send_register_code():
+    form = RegistrationForm()
+    email = (request.form.get("email") or "").strip()
+    if not email:
+        flash("请先填写邮箱。", "error")
+        return render_template("register.html", form=form)
+    if len(email) > 120:
+        flash("邮箱不能超过 120 个字符。", "error")
+        return render_template("register.html", form=form)
+    if User.query.filter_by(email=email).first():
+        flash("该邮箱已被注册，请使用其他邮箱或直接登录", "error")
+        return render_template("register.html", form=form)
+
+    try:
+        smtp_sent = send_verification_code(email, "register")
+    except Exception:
+        db.session.rollback()
+        flash("验证码发送失败，请稍后重试。", "error")
+    else:
+        if smtp_sent:
+            flash("验证码已发送，请查收邮箱。", "success")
+        else:
+            flash("本地未配置 SMTP，验证码已打印到控制台。", "info")
+    return render_template("register.html", form=form)
+
+
+@auth_bp.route("/account/email-code", methods=["POST"])
+def send_account_email_code():
+    user = _get_session_user()
+    if user is None:
+        return redirect(url_for("auth.login", next=request.form.get("next") or request.referrer or request.url))
+
+    purpose = request.form.get("purpose", "").strip()
+    if purpose == "change_password":
+        email = user.email
+    elif purpose == "change_email":
+        email = request.form.get("email", "").strip()
+        if not email:
+            flash("请先填写新邮箱。", "error")
+            return _redirect_after_code_send()
+        if len(email) > 120:
+            flash("邮箱不能超过 120 个字符。", "error")
+            return _redirect_after_code_send()
+        if User.query.filter(User.email == email, User.id != user.id).first():
+            flash("该邮箱已被其他用户占用，请更换后重试。", "error")
+            return _redirect_after_code_send()
+    else:
+        flash("无效的验证码用途。", "error")
+        return _redirect_after_code_send()
+
+    try:
+        smtp_sent = send_verification_code(email, purpose, user=user)
+    except Exception:
+        db.session.rollback()
+        flash("验证码发送失败，请稍后重试。", "error")
+    else:
+        if smtp_sent:
+            flash("验证码已发送，请查收邮箱。", "success")
+        else:
+            flash("本地未配置 SMTP，验证码已打印到控制台。", "info")
+    return _redirect_after_code_send()
+
+
+@auth_bp.route("/forgot-password/send-code", methods=["POST"])
+def send_reset_password_code():
+    email = request.form.get("email", "").strip()
+    if not email:
+        flash("请先填写注册邮箱。", "error")
+        return render_template("forgot_password.html")
+
+    user = User.query.filter_by(email=email, status="active").first()
+    try:
+        if user:
+            smtp_sent = send_verification_code(email, "reset_password")
+        else:
+            smtp_sent = True
+    except Exception:
+        db.session.rollback()
+        flash("验证码发送失败，请稍后重试。", "error")
+    else:
+        if user and not smtp_sent:
+            flash("本地未配置 SMTP，验证码已打印到控制台。", "info")
+        else:
+            flash("如果该邮箱已注册，验证码将发送到对应邮箱。", "success")
+    return render_template("forgot_password.html")
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -219,6 +317,107 @@ def delete_account():
     return redirect(url_for("activity.index"))
 
 
+@auth_bp.route("/account/change-email", methods=["POST"])
+def change_email():
+    user = _get_session_user()
+    if user is None:
+        return redirect(url_for("auth.login", next=url_for("auth.account_settings")))
+    if user.status == "deleted":
+        session.clear()
+        flash("该账号已注销", "error")
+        return redirect(url_for("activity.index"))
+
+    new_email = request.form.get("email", "").strip()
+    current_password = request.form.get("current_password", "")
+    email_code = request.form.get("email_verification_code", "")
+
+    if not new_email:
+        flash("新邮箱不能为空。", "error")
+    elif len(new_email) > 120:
+        flash("邮箱不能超过 120 个字符。", "error")
+    elif new_email.lower() == (user.email or "").lower():
+        flash("新邮箱与当前邮箱相同，无需修改。", "info")
+    elif not current_password or not check_password_hash(user.password, current_password):
+        flash("当前密码错误，无法修改邮箱。", "error")
+    elif User.query.filter(User.email == new_email, User.id != user.id).first():
+        flash("该邮箱已被其他用户占用，请更换后重试。", "error")
+    elif not verify_email_code(new_email, "change_email", email_code, user=user):
+        flash("新邮箱验证码错误或已过期，请重新获取。", "error")
+    else:
+        user.email = new_email
+        user.email_verified_at = datetime.utcnow()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            flash("邮箱修改失败，请稍后重试。", "error")
+        else:
+            flash("邮箱已更新。", "success")
+    return redirect(url_for("auth.account_settings"))
+
+
+@auth_bp.route("/account/change-password", methods=["POST"])
+def change_password():
+    user = _get_session_user()
+    if user is None:
+        return redirect(url_for("auth.login", next=url_for("auth.account_settings")))
+    if user.status == "deleted":
+        session.clear()
+        flash("该账号已注销", "error")
+        return redirect(url_for("activity.index"))
+
+    current_password = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    confirm_password = request.form.get("confirm_password", "")
+    password_code = request.form.get("password_verification_code", "")
+
+    if not current_password or not check_password_hash(user.password, current_password):
+        flash("当前密码错误，无法修改密码。", "error")
+    elif not new_password:
+        flash("请输入新密码。", "error")
+    elif new_password != confirm_password:
+        flash("新密码和确认新密码不一致。", "error")
+    elif len(new_password) < 6:
+        flash("新密码至少需要 6 个字符。", "error")
+    elif not verify_email_code(user.email, "change_password", password_code, user=user):
+        flash("改密验证码错误或已过期，请重新获取。", "error")
+    else:
+        user.password = generate_password_hash(new_password)
+        db.session.commit()
+        flash("密码已更新，请使用新密码登录。", "success")
+    return redirect(url_for("auth.account_settings"))
+
+
+@auth_bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        email_code = request.form.get("email_code", "")
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+        user = User.query.filter_by(email=email, status="active").first()
+
+        if not email:
+            flash("请填写注册邮箱。", "error")
+        elif not user:
+            flash("邮箱、验证码或新密码无效。", "error")
+        elif not new_password:
+            flash("请输入新密码。", "error")
+        elif new_password != confirm_password:
+            flash("新密码和确认新密码不一致。", "error")
+        elif len(new_password) < 6:
+            flash("新密码至少需要 6 个字符。", "error")
+        elif not verify_email_code(email, "reset_password", email_code):
+            flash("邮箱、验证码或新密码无效。", "error")
+        else:
+            user.password = generate_password_hash(new_password)
+            db.session.commit()
+            flash("密码已重置，请使用新密码登录。", "success")
+            return redirect(url_for("auth.login"))
+
+    return render_template("forgot_password.html")
+
+
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
     """
@@ -244,6 +443,11 @@ def register():
             flash("该邮箱已被注册，请使用其他邮箱或直接登录", "error")
             return render_template("register.html", form=form)
 
+        email_code = request.form.get("email_code", "").strip()
+        if not verify_email_code(email, "register", email_code):
+            flash("邮箱验证码错误或已过期，请重新获取。", "error")
+            return render_template("register.html", form=form)
+
         hashed_password = generate_password_hash(form.password.data)
 
         new_user = User(
@@ -251,6 +455,7 @@ def register():
             nickname=nickname,
             email=email,
             city=city,
+            email_verified_at=datetime.utcnow(),
             password=hashed_password,
             role="user",
             trust_score=100,
