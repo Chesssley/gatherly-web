@@ -67,7 +67,8 @@
             </div>
         </div>
         <div class="card-activity-badges">
-            {% if activity.is_featured %}<span class="activity-badge is-featured">精选活动</span>{% endif %}
+            {% if activity.organizer_is_verified %}<span class="activity-badge is-official">官方认证</span>{% endif %}
+            {% if activity.is_featured %}<span class="activity-badge is-featured">优质活动</span>{% endif %}
             {% if activity.is_hot %}<span class="activity-badge is-hot">热门活动</span>{% endif %}
         </div>
     </div>
@@ -103,7 +104,7 @@
                          alt="{{ activity.title }}"
                          onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
                     <div class="featured-card-overlay">
-                        <span class="featured-label">精选活动</span>
+                        <span class="featured-label">优质活动</span>
                         <h3>{{ activity.title }}</h3>
                         <p>{{ activity.time }} · {{ activity.location }}</p>
                     </div>

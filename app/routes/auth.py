@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """认证相关路由（登录 / 注册 / 登出）"""
 
+import os
 from datetime import datetime
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
@@ -13,8 +14,11 @@ from app.models import (
     ensure_user_account_schema,
 )
 from app.forms import RegistrationForm
+from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
 auth_bp = Blueprint("auth", __name__)
+MERCHANT_DOCUMENT_MAX_BYTES = 800 * 1024
+MERCHANT_DOCUMENT_UPLOAD_SUBDIR = os.path.join("uploads", "merchant-verifications")
 
 
 @auth_bp.before_app_request
@@ -27,6 +31,12 @@ def _get_session_user():
     if not user_id:
         return None
     return User.query.get(user_id)
+
+
+def _merchant_verification_redirect():
+    if request.form.get("return_to") == "profile":
+        return redirect(url_for("profile.my_profile"))
+    return redirect(url_for("auth.account_settings"))
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -120,33 +130,60 @@ def apply_merchant_verification():
         return redirect(url_for("auth.login", next=url_for("auth.account_settings")))
 
     business_name = request.form.get("business_name", "").strip()
-    license_number = request.form.get("license_number", "").strip()
+    reason = request.form.get("reason", "").strip()
+    contact = request.form.get("contact", "").strip()
     if not business_name:
         flash("请填写商家名称。", "error")
-        return redirect(url_for("auth.account_settings"))
+        return _merchant_verification_redirect()
+    if not reason:
+        flash("请填写认证理由。", "error")
+        return _merchant_verification_redirect()
     if MerchantVerification.query.filter_by(user_id=user.id, status="pending").first():
         flash("您已有待审核的商家认证申请。", "info")
-        return redirect(url_for("auth.account_settings"))
+        return _merchant_verification_redirect()
 
-    verification = MerchantVerification(
-        user_id=user.id,
-        business_name=business_name,
-        license_number=license_number or None,
-    )
-    db.session.add(verification)
-    db.session.flush()
-    for admin in User.query.filter_by(role="admin", status="active").all():
-        create_notification(
-            admin.id,
-            "merchant_verification_application",
-            "新的商家认证申请",
-            f"{user.nickname or user.username} 提交了商家“{business_name}”的认证申请。",
-            "merchant_verification",
-            verification.id,
+    try:
+        validated_documents = validate_image_files(
+            [request.files.get("document")],
+            max_count=1,
+            max_bytes=MERCHANT_DOCUMENT_MAX_BYTES,
         )
-    db.session.commit()
+        if not validated_documents:
+            raise ValueError("请上传营业执照或其他商家证明图片。")
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return _merchant_verification_redirect()
+
+    saved_paths = []
+    try:
+        saved_paths = save_image_files(validated_documents, MERCHANT_DOCUMENT_UPLOAD_SUBDIR)
+        verification = MerchantVerification(
+            user_id=user.id,
+            business_name=business_name,
+            document_path=saved_paths[0],
+            reason=reason,
+            contact=contact or None,
+        )
+        db.session.add(verification)
+        db.session.flush()
+        for admin in User.query.filter_by(role="admin", status="active").all():
+            create_notification(
+                admin.id,
+                "merchant_verification_application",
+                "新的商家认证申请",
+                f"{user.nickname or user.username} 提交了商家“{business_name}”的认证申请。",
+                "merchant_verification",
+                verification.id,
+            )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        delete_saved_images(saved_paths)
+        flash("商家认证申请提交失败，请稍后重试。", "error")
+        return _merchant_verification_redirect()
+
     flash("商家认证申请已提交。", "success")
-    return redirect(url_for("auth.account_settings"))
+    return _merchant_verification_redirect()
 
 
 @auth_bp.route("/account/delete", methods=["POST"])

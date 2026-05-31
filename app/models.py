@@ -137,6 +137,7 @@ class Activity(db.Model):
     cancel_reason = db.Column(db.Text)
     cancelled_at = db.Column(db.DateTime)
     is_featured = db.Column(db.Boolean, default=False, nullable=False)
+    is_official = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     organizer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     preparation = db.Column(db.Text)  # 活动准备事项
@@ -182,6 +183,10 @@ def ensure_activity_schema():
     if rows and "is_featured" not in existing_columns:
         statements.append(
             "ALTER TABLE activity ADD COLUMN is_featured BOOLEAN NOT NULL DEFAULT 0"
+        )
+    if rows and "is_official" not in existing_columns:
+        statements.append(
+            "ALTER TABLE activity ADD COLUMN is_official BOOLEAN NOT NULL DEFAULT 0"
         )
 
     for statement in statements:
@@ -345,6 +350,8 @@ class MerchantVerification(db.Model):
     business_name = db.Column(db.String(120), nullable=False)
     license_number = db.Column(db.String(120))
     document_path = db.Column(db.String(255))
+    reason = db.Column(db.Text)
+    contact = db.Column(db.String(160))
     status = db.Column(db.String(20), default="pending", nullable=False)
     reject_reason = db.Column(db.Text)
     reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"))
@@ -369,6 +376,33 @@ class MerchantVerification(db.Model):
     )
 
 
+def ensure_merchant_verification_schema():
+    MerchantVerification.__table__.create(db.engine, checkfirst=True)
+    if db.engine.dialect.name != "sqlite":
+        return
+
+    rows = db.session.execute(text("PRAGMA table_info(merchant_verification)")).fetchall()
+    existing_columns = {row[1] for row in rows}
+    statements = []
+    if rows and "document_path" not in existing_columns:
+        statements.append("ALTER TABLE merchant_verification ADD COLUMN document_path VARCHAR(255)")
+    if rows and "reason" not in existing_columns:
+        statements.append("ALTER TABLE merchant_verification ADD COLUMN reason TEXT")
+    if rows and "contact" not in existing_columns:
+        statements.append("ALTER TABLE merchant_verification ADD COLUMN contact VARCHAR(160)")
+
+    for statement in statements:
+        db.session.execute(text(statement))
+    if statements:
+        db.session.commit()
+
+
+def is_verified_merchant(user):
+    if not user:
+        return False
+    return any(verification.status == "approved" for verification in user.merchant_verifications)
+
+
 def ensure_task_foundation_schema():
     ensure_user_account_schema()
     ensure_activity_schema()
@@ -376,9 +410,9 @@ def ensure_task_foundation_schema():
     for model in (
         EmailVerificationCode,
         DirectMessage,
-        MerchantVerification,
     ):
         model.__table__.create(db.engine, checkfirst=True)
+    ensure_merchant_verification_schema()
     ensure_notification_schema()
 
 

@@ -1,0 +1,33 @@
+<div class="form-card merchant-verification-card">
+  <h2>商家认证</h2>
+  <p>提交营业执照或其他证明图片后，管理员会收到审核提醒。审核通过后，你创建的活动会显示“官方认证”标识。</p>
+  {% if latest_merchant_verification %}
+    <p>最近申请：{{ latest_merchant_verification.business_name }}，状态：<strong>{{ latest_merchant_verification.status }}</strong></p>
+    {% if latest_merchant_verification.reject_reason %}<p>未通过原因：{{ latest_merchant_verification.reject_reason }}</p>{% endif %}
+  {% endif %}
+  {% if not latest_merchant_verification or latest_merchant_verification.status != 'pending' %}
+  <form method="post" action="{{ url_for('auth.apply_merchant_verification') }}" enctype="multipart/form-data">
+    {% if merchant_verification_return_to %}<input type="hidden" name="return_to" value="{{ merchant_verification_return_to }}">{% endif %}
+    <div class="form-group">
+      <label class="form-label" for="{{ merchant_verification_id_prefix }}business_name">商家名称 <span class="form-required">*</span></label>
+      <input class="form-input" id="{{ merchant_verification_id_prefix }}business_name" name="business_name" maxlength="120" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="{{ merchant_verification_id_prefix }}document">营业执照 / 商家证明图片 <span class="form-required">*</span></label>
+      <input class="form-input" id="{{ merchant_verification_id_prefix }}document" name="document" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required>
+      <p class="form-hint">支持 JPG、PNG、WebP，图片必须小于 800KB。</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="{{ merchant_verification_id_prefix }}reason">认证理由 <span class="form-required">*</span></label>
+      <textarea class="form-input" id="{{ merchant_verification_id_prefix }}reason" name="reason" rows="4" required></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="{{ merchant_verification_id_prefix }}contact">联系方式（选填）</label>
+      <input class="form-input" id="{{ merchant_verification_id_prefix }}contact" name="contact" maxlength="160" placeholder="手机号、邮箱或其他联系方式">
+    </div>
+    <div class="form-actions">
+      <button class="button" type="submit">提交认证申请</button>
+    </div>
+  </form>
+  {% endif %}
+</div>

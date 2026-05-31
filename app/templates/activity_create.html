@@ -79,6 +79,22 @@
                     <p class="form-hint">支持 JPG、PNG、WebP，单张图片小于 800KB。</p>
                 </div>
 
+                <fieldset class="form-group">
+                    <legend class="form-label">活动标识</legend>
+                    {% if can_publish_verified_activity %}
+                    <label class="tag-checkbox">
+                        <input type="checkbox" name="is_official" value="1" {% if request.form.get('is_official') == '1' %}checked{% endif %}>
+                        <span>官方认证活动</span>
+                    </label>
+                    <label class="tag-checkbox">
+                        <input type="checkbox" name="is_featured" value="1" {% if request.form.get('is_featured') == '1' %}checked{% endif %}>
+                        <span>优质活动</span>
+                    </label>
+                    {% else %}
+                    <p class="form-hint">完成商家认证后，可发布“官方认证活动”或“优质活动”。普通活动不受影响。</p>
+                    {% endif %}
+                </fieldset>
+
                 <div class="form-actions">
                     <button type="submit" class="btn btn-register">发布活动</button>
                 </div>

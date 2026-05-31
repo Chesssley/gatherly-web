@@ -4,12 +4,14 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from app.models import db, ensure_task_foundation_schema
 
 
-def create_app():
+def create_app(test_config=None):
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "dev-secret-key"
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///gatherly.db"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
+    if test_config:
+        app.config.update(test_config)
 
     db.init_app(app)
     with app.app_context():

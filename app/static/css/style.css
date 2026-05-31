@@ -2437,7 +2437,8 @@ textarea.form-input {
 .admin-status.status-hidden,
 .admin-status.status-banned,
 .admin-status.status-closed,
-.admin-status.status-deleted {
+.admin-status.status-deleted,
+.admin-status.status-inactive {
   background: #f4e4df;
   color: #8b4638;
 }
@@ -2468,6 +2469,14 @@ textarea.form-input {
 
 .admin-user-actions {
   min-width: 180px;
+}
+
+.admin-user-action-menu {
+  min-width: 220px;
+}
+
+.admin-user-action-menu select {
+  min-width: 132px;
 }
 
 .admin-action-group form {
@@ -4977,6 +4986,11 @@ textarea.form-input {
 .activity-badge.is-featured {
   background: #e8f0ed;
   color: var(--color-primary-dark);
+}
+
+.activity-badge.is-official {
+  background: #e7f0ff;
+  color: #315f9f;
 }
 
 .activity-badge.is-hot {

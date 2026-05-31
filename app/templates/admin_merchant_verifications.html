@@ -19,14 +19,20 @@
     </div>
     <div class="admin-table-wrap">
       <table class="admin-table">
-        <thead><tr><th>提交时间</th><th>用户</th><th>商家名称</th><th>执照编号</th><th>状态</th><th>操作</th></tr></thead>
+        <thead><tr><th>提交时间</th><th>用户</th><th>商家名称</th><th>证明材料</th><th>理由</th><th>联系方式</th><th>状态</th><th>操作</th></tr></thead>
         <tbody>
           {% for application in applications %}
           <tr>
             <td>{{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
             <td>{{ application.user.username }}</td>
             <td>{{ application.business_name }}</td>
-            <td>{{ application.license_number or '-' }}</td>
+            <td>
+              {% if application.document_path %}
+              <a href="{{ url_for('static', filename=application.document_path) }}" target="_blank" rel="noopener">查看图片</a>
+              {% else %}-{% endif %}
+            </td>
+            <td>{{ application.reason or '-' }}</td>
+            <td>{{ application.contact or '-' }}</td>
             <td><span class="admin-status status-{{ application.status }}">{{ application.status }}</span></td>
             <td>
               {% if application.status == 'pending' %}
@@ -45,7 +51,7 @@
             </td>
           </tr>
           {% else %}
-          <tr><td class="admin-empty" colspan="6">暂无商家认证申请。</td></tr>
+          <tr><td class="admin-empty" colspan="8">暂无商家认证申请。</td></tr>
           {% endfor %}
         </tbody>
       </table>

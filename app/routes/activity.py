@@ -17,6 +17,7 @@ from app.models import (
     User,
     UserReview,
     get_user_display_name,
+    is_verified_merchant,
 )
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
@@ -227,6 +228,7 @@ def _activity_to_summary(activity, registration_count=0, favorite_count=0, atten
     heat_score = _activity_heat_score(activity, registration_count, favorite_count)
     current_people = (activity.initial_participants or 0) + registration_count
     attendee_previews = attendee_previews or []
+    organizer_is_verified = is_verified_merchant(activity.organizer)
     return {
         "id": activity.id,
         "title": activity.title,
@@ -252,6 +254,8 @@ def _activity_to_summary(activity, registration_count=0, favorite_count=0, atten
         "favorite_count": favorite_count,
         "heat_score": heat_score,
         "is_featured": activity.is_featured,
+        "is_official": activity.is_official,
+        "organizer_is_verified": organizer_is_verified,
         "is_upcoming": not activity.start_time or activity.start_time >= datetime.now(),
         "fee": activity.fee,
         "status": activity.status,
@@ -623,6 +627,10 @@ def toggle_activity_favorite(activity_id):
 @login_required  # 登录校验
 def create_activity():
     current_user = User.query.get(session["user_id"])
+    can_publish_verified_activity = bool(
+        current_user
+        and (current_user.role == "admin" or is_verified_merchant(current_user))
+    )
     if (
         current_user
         and current_user.role != "admin"
@@ -632,7 +640,11 @@ def create_activity():
         return redirect(url_for("activity.index"))
 
     if request.method == "GET":
-        return render_template("activity_create.html", interest_tags=OFFICIAL_INTEREST_TAGS)
+        return render_template(
+            "activity_create.html",
+            interest_tags=OFFICIAL_INTEREST_TAGS,
+            can_publish_verified_activity=can_publish_verified_activity,
+        )
 
     title = request.form.get("title", "").strip()
     description = request.form.get("description", "").strip()
@@ -645,6 +657,10 @@ def create_activity():
         if tag in OFFICIAL_INTEREST_TAGS
     ]
     errors = []
+    wants_official = request.form.get("is_official") == "1"
+    wants_featured = request.form.get("is_featured") == "1"
+    if (wants_official or wants_featured) and not can_publish_verified_activity:
+        errors.append("只有已通过认证的商家才能发布官方认证或优质活动。")
 
     try:
         start_time = datetime.fromisoformat(request.form.get("start_time", ""))
@@ -700,7 +716,11 @@ def create_activity():
     if errors:
         for error in errors:
             flash(error, "error")
-        return render_template("activity_create.html", interest_tags=OFFICIAL_INTEREST_TAGS), 400
+        return render_template(
+            "activity_create.html",
+            interest_tags=OFFICIAL_INTEREST_TAGS,
+            can_publish_verified_activity=can_publish_verified_activity,
+        ), 400
 
     saved_paths = []
     try:
@@ -719,6 +739,8 @@ def create_activity():
             tags=",".join(tags),
             preparation=preparation,
             organizer_id=current_user.id,
+            is_official=wants_official,
+            is_featured=wants_featured,
         )
         db.session.add(activity)
         db.session.commit()
@@ -726,7 +748,11 @@ def create_activity():
         db.session.rollback()
         delete_saved_images(saved_paths)
         flash("活动发布失败，请稍后重试。", "error")
-        return render_template("activity_create.html", interest_tags=OFFICIAL_INTEREST_TAGS), 500
+        return render_template(
+            "activity_create.html",
+            interest_tags=OFFICIAL_INTEREST_TAGS,
+            can_publish_verified_activity=can_publish_verified_activity,
+        ), 500
 
     flash("活动发布成功。", "success")
     return redirect(url_for("activity.activity_detail", activity_id=activity.id))
