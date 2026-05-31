@@ -161,6 +161,7 @@ class Activity(db.Model):
     image = db.Column(db.String(255))
     fee = db.Column(db.Float, default=0, nullable=False)
     tags = db.Column(db.Text)
+    circle_id = db.Column(db.Integer, db.ForeignKey("circle.id"), nullable=True)
     status = db.Column(db.String(20), default="open", nullable=False)
     cancel_reason = db.Column(db.Text)
     cancelled_at = db.Column(db.DateTime)
@@ -171,6 +172,7 @@ class Activity(db.Model):
     preparation = db.Column(db.Text)  # 活动准备事项
 
     organizer = db.relationship("User", back_populates="activities")
+    circle = db.relationship("Circle", back_populates="activities")
     registrations = db.relationship("Registration", back_populates="activity")
     favorites = db.relationship(
         "ActivityFavorite",
@@ -207,6 +209,8 @@ def ensure_activity_schema():
         )
     if rows and "tags" not in existing_columns:
         statements.append("ALTER TABLE activity ADD COLUMN tags TEXT")
+    if rows and "circle_id" not in existing_columns:
+        statements.append("ALTER TABLE activity ADD COLUMN circle_id INTEGER")
     if rows and "status" not in existing_columns:
         statements.append(
             "ALTER TABLE activity ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'open'"
@@ -622,6 +626,7 @@ class Circle(db.Model):
     )
 
     posts = db.relationship("Post", back_populates="circle", foreign_keys="Post.circle_id")
+    activities = db.relationship("Activity", back_populates="circle")
     members = db.relationship("CircleMember", back_populates="circle")
     owner = db.relationship("User", foreign_keys=[owner_id])
     pinned_post = db.relationship("Post", foreign_keys=[pinned_post_id], post_update=True)

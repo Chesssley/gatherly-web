@@ -267,6 +267,34 @@
         </div>
         </div>
 
+        <section class="circle-related-activities" aria-labelledby="circle-related-activities-title">
+            <div class="circle-feed-heading">
+                <div>
+                    <p class="eyebrow">Related Activities</p>
+                    <h2 id="circle-related-activities-title">相关活动</h2>
+                </div>
+                <span>{{ related_activities|length }} 场活动</span>
+            </div>
+            {% if related_activities %}
+            <div class="circle-related-activity-grid">
+                {% for activity in related_activities %}
+                <a class="circle-related-activity-card" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
+                    <span class="tag">{{ activity.category }}</span>
+                    <h3>{{ activity.title }}</h3>
+                    <p>{{ activity.time }} · {{ activity.location }}</p>
+                    <span>
+                        {{ activity.current_people }} 人已报名{% if activity.max_participants %} / 上限 {{ activity.max_participants }} 人{% endif %}
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>暂无关联活动。</p>
+            </div>
+            {% endif %}
+        </section>
+
         {% if posts %}
         <div class="circle-feed-heading">
             <div>

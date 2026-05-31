@@ -6,7 +6,7 @@ from flask import Blueprint, current_app, flash, redirect, render_template, requ
 from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from app.models import Circle, CircleMember, Comment, CommentImage, Interaction, Post, PostImage, User, db
+from app.models import Activity, Circle, CircleMember, Comment, CommentImage, Interaction, Post, PostImage, Registration, User, db
 from app.routes.activity import OFFICIAL_INTEREST_TAGS
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
@@ -691,10 +691,41 @@ def circle_detail(circle_id):
         .order_by(User.nickname.asc(), User.username.asc())
         .all()
     )
+    related_activity_rows = (
+        Activity.query.filter_by(circle_id=circle.id)
+        .order_by(Activity.start_time.asc(), Activity.id.desc())
+        .all()
+    )
+    related_activity_ids = [activity.id for activity in related_activity_rows]
+    related_registration_counts = {}
+    if related_activity_ids:
+        related_registration_counts = dict(
+            db.session.query(Registration.activity_id, func.count(Registration.id))
+            .filter(
+                Registration.activity_id.in_(related_activity_ids),
+                Registration.status != "cancelled",
+            )
+            .group_by(Registration.activity_id)
+            .all()
+        )
+    related_activities = [
+        {
+            "id": activity.id,
+            "title": activity.title,
+            "time": activity.start_time.strftime("%Y-%m-%d %H:%M") if activity.start_time else "时间待定",
+            "location": activity.location or activity.city or "地点待确认",
+            "current_people": (activity.initial_participants or 0)
+            + related_registration_counts.get(activity.id, 0),
+            "max_participants": activity.max_participants,
+            "category": (activity.tags or "").split(",")[0].strip() or "未分类",
+        }
+        for activity in related_activity_rows
+    ]
     return render_template(
         "circle_detail.html",
         circle=_decorate_circle(circle),
         posts=post_items,
+        related_activities=related_activities,
         current_user=current_user,
         is_member=_is_member(circle.id),
         can_manage_circle=_can_manage_circle(current_user, circle),

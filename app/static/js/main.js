@@ -111,6 +111,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   categoryLinks.forEach(link => {
     link.addEventListener("click", event => {
+      if (link.getAttribute("href") && link.getAttribute("href") !== "#") {
+        return;
+      }
       event.preventDefault();
       activeCategory = link.dataset.category || "all";
       categoryLinks.forEach(item => item.classList.toggle("is-active", item === link));
@@ -121,6 +124,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   timeFilters.forEach(filter => {
     filter.addEventListener("click", event => {
+      if (filter.getAttribute("href") && filter.getAttribute("href") !== "#") {
+        return;
+      }
       event.preventDefault();
       activeTime = filter.dataset.timeFilter || "any";
       timeFilters.forEach(item => item.classList.toggle("is-active", item === filter));
