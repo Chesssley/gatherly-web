@@ -13,7 +13,7 @@
         </div>
 
         <div class="form-card">
-            <form method="POST" action="{{ url_for('circle.create_circle') }}">
+            <form method="POST" action="{{ url_for('circle.create_circle') }}" enctype="multipart/form-data">
                 {% if is_admin %}
                 <div style="margin-bottom: 20px;">
                     <label class="form-label" for="circle_type">圈子类型</label>
@@ -38,6 +38,25 @@
                     <label class="form-label" for="description">圈子简介</label>
                     <textarea class="form-input" id="description" name="description" rows="6" required placeholder="说明这个圈子适合谁、主要聊什么。"></textarea>
                 </div>
+                <div style="margin-bottom: 24px;">
+                    <label class="form-label" for="cover_image">圈子封面</label>
+                    <div class="file-upload-control">
+                        <input
+                            class="circle-file-input"
+                            type="file"
+                            id="cover_image"
+                            name="cover_image"
+                            accept=".jpg,.jpeg,.png,.webp"
+                            data-file-count-target="circle-cover-count"
+                            data-image-upload
+                            data-max-count="1"
+                            data-max-bytes="819200"
+                        >
+                        <label class="file-upload-button" for="cover_image">选择封面</label>
+                        <span class="file-upload-count" id="circle-cover-count">未选择图片</span>
+                    </div>
+                    <p class="form-hint">可选。支持 jpg、jpeg、png、webp，单张图片必须小于 800KB。</p>
+                </div>
                 <button class="button" type="submit">创建同好圈</button>
                 <a class="button button-secondary" href="{{ url_for('circle.circles') }}">返回列表</a>
             </form>
@@ -56,16 +75,20 @@
         <div class="card-grid circle-grid">
             {% for circle in circles %}
             <article class="activity-card circle-card">
+                <a class="circle-card-cover" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">
+                    <img src="{{ url_for('static', filename=circle.cover_image_url) }}" alt="{{ circle.name }} cover">
+                    <span class="circle-card-cover-overlay"></span>
+                    <span class="circle-card-cover-content">
+                        <span class="card-tags">
+                            <span class="tag">{{ circle.tag or "同好圈" }}</span>
+                            <span class="tag circle-active-tag">{{ circle.active_level }}</span>
+                            {% if circle.is_pinned %}<span class="tag circle-featured-tag">精选圈子</span>{% endif %}
+                            {% if circle.is_hot %}<span class="tag circle-hot-tag">热门圈子</span>{% endif %}
+                        </span>
+                        <strong>{{ circle.name }}</strong>
+                    </span>
+                </a>
                 <div class="card-body">
-                    <div class="card-tags">
-                        <span class="tag">{{ circle.tag or "同好圈" }}</span>
-                        <span class="tag circle-active-tag">{{ circle.active_level }}</span>
-                        {% if circle.is_pinned %}<span class="tag circle-featured-tag">精选圈子</span>{% endif %}
-                        {% if circle.is_hot %}<span class="tag circle-hot-tag">热门圈子</span>{% endif %}
-                    </div>
-                    <h3 class="card-title">
-                        <a href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">{{ circle.name }}</a>
-                    </h3>
                     <p class="circle-description">{{ circle.description }}</p>
                     <div class="card-meta circle-meta">
                         <p>{{ circle.member_count }} 位成员</p>

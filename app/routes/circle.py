@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import os
 from types import SimpleNamespace
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
@@ -18,6 +18,11 @@ COMMENT_IMAGE_MAX_BYTES = 500 * 1024
 COMMENT_IMAGE_MAX_COUNT = 1
 POST_UPLOAD_SUBDIR = os.path.join("uploads", "posts")
 COMMENT_UPLOAD_SUBDIR = os.path.join("uploads", "comments")
+CIRCLE_COVER_SUBDIR = "images/circles/"
+CIRCLE_COVER_UPLOAD_SUBDIR = os.path.join("images", "circles")
+DEFAULT_CIRCLE_COVER = f"{CIRCLE_COVER_SUBDIR}circle-default.svg"
+CIRCLE_COVER_MAX_BYTES = 800 * 1024
+CIRCLE_COVER_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".svg"}
 HOT_CIRCLE_MEMBER_THRESHOLD = 200
 HOT_CIRCLE_SCORE_THRESHOLD = 260
 HOT_CIRCLE_POST_WEIGHT = 3
@@ -41,6 +46,79 @@ _CIRCLE_DESCRIPTIONS = {
 }
 
 _ACTIVE_LEVELS = ["高活跃", "稳定活跃", "新兴活跃"]
+
+
+_OFFICIAL_CIRCLE_COVERS = [
+    "circle-camera.svg",
+    "circle-cycling.svg",
+    "circle-coffee.svg",
+    "circle-reading.svg",
+    "circle-crafts.svg",
+    "circle-music.svg",
+    "circle-film.svg",
+    "circle-city.svg",
+    "circle-games.svg",
+    "circle-tech.svg",
+    "circle-food.svg",
+    "circle-volunteer.svg",
+]
+
+
+def _official_cover_image(index):
+    filename = _OFFICIAL_CIRCLE_COVERS[(index - 1) % len(_OFFICIAL_CIRCLE_COVERS)]
+    return f"{CIRCLE_COVER_SUBDIR}{filename}"
+
+
+def _circle_cover_image(circle):
+    cover_image = getattr(circle, "cover_image", None)
+    if not cover_image or not cover_image.startswith(CIRCLE_COVER_SUBDIR):
+        return DEFAULT_CIRCLE_COVER
+    if os.path.splitext(cover_image)[1].lower() not in CIRCLE_COVER_EXTENSIONS:
+        return DEFAULT_CIRCLE_COVER
+    cover_dir = os.path.abspath(os.path.join(current_app.static_folder, CIRCLE_COVER_SUBDIR))
+    cover_path = os.path.abspath(os.path.join(current_app.static_folder, cover_image))
+    if os.path.commonpath([cover_dir, cover_path]) != cover_dir:
+        return DEFAULT_CIRCLE_COVER
+    if not os.path.isfile(cover_path) or os.path.getsize(cover_path) >= CIRCLE_COVER_MAX_BYTES:
+        return DEFAULT_CIRCLE_COVER
+    return cover_image
+
+
+def _save_circle_cover(file):
+    if not file or not file.filename:
+        return None
+    content = file.stream.read(CIRCLE_COVER_MAX_BYTES)
+    file.stream.seek(0)
+    if len(content) >= CIRCLE_COVER_MAX_BYTES:
+        raise ValueError("圈子封面必须小于 800KB。")
+    validated_images = validate_image_files(
+        [file],
+        max_count=1,
+        max_bytes=CIRCLE_COVER_MAX_BYTES,
+    )
+    image_paths = save_image_files(validated_images, CIRCLE_COVER_UPLOAD_SUBDIR)
+    return image_paths[0] if image_paths else None
+
+
+def _is_uploaded_circle_cover(image_path):
+    return bool(
+        image_path
+        and image_path.startswith(CIRCLE_COVER_SUBDIR)
+        and os.path.splitext(image_path)[1].lower() in {".jpg", ".jpeg", ".png", ".webp"}
+    )
+
+
+def _delete_uploaded_circle_cover(image_path):
+    if not _is_uploaded_circle_cover(image_path):
+        return
+    cover_dir = os.path.abspath(os.path.join(current_app.static_folder, CIRCLE_COVER_SUBDIR))
+    cover_path = os.path.abspath(os.path.join(current_app.static_folder, image_path))
+    if os.path.commonpath([cover_dir, cover_path]) == cover_dir:
+        delete_saved_images([image_path])
+
+
+def _can_edit_circle_cover(user, circle):
+    return bool(user and (user.role == "admin" or circle.owner_id == user.id))
 
 
 def _official_description(tag):
@@ -84,6 +162,8 @@ def _ensure_circle_columns():
         statements.append("ALTER TABLE circle ADD COLUMN owner_id INTEGER")
     if "announcement" not in existing_columns:
         statements.append("ALTER TABLE circle ADD COLUMN announcement TEXT")
+    if "cover_image" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN cover_image VARCHAR(255)")
     if "pinned_post_id" not in existing_columns:
         statements.append("ALTER TABLE circle ADD COLUMN pinned_post_id INTEGER")
     if "is_pinned" not in existing_columns:
@@ -197,6 +277,8 @@ def _sync_system_circles():
                 circle.name = name
 
             circle.description = _official_description(tag)
+            if not circle.cover_image:
+                circle.cover_image = _official_cover_image(index)
             circle.initial_member_count = max(
                 circle.initial_member_count or 0,
                 _official_member_count(index),
@@ -218,6 +300,7 @@ def _build_mock_circles():
                 "name": _official_circle_name(tag),
                 "tag": tag,
                 "description": _official_description(tag),
+                "cover_image": _official_cover_image(index),
                 "active_level": _ACTIVE_LEVELS[index % len(_ACTIVE_LEVELS)],
                 "member_count": member_count,
                 "post_count": post_count,
@@ -310,6 +393,7 @@ def _circle_recent_post_count(circle):
 
 
 def _decorate_circle(circle):
+    circle.cover_image_url = _circle_cover_image(circle)
     circle.active_level = "官方圈子" if circle.is_system else "自定义圈子"
     circle.post_count = _circle_post_count(circle)
     circle.recent_post_count = _circle_recent_post_count(circle)
@@ -508,6 +592,12 @@ def create_circle():
             return render_template("circle.html", circles=[], create_mode=True, is_admin=is_admin)
 
         is_system = wants_system_circle and is_admin
+        try:
+            cover_image = _save_circle_cover(request.files.get("cover_image"))
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return render_template("circle.html", circles=[], create_mode=True, is_admin=is_admin)
+
         circle = Circle(
             name=_strip_official_suffix(name) if is_system else name,
             tag=tag or ("官方" if is_system else "自定义"),
@@ -516,17 +606,23 @@ def create_circle():
             is_system=is_system,
             initial_member_count=0,
             member_count=1,
+            cover_image=cover_image,
         )
-        db.session.add(circle)
-        db.session.flush()
-        db.session.add(CircleMember(circle_id=circle.id, user_id=user.id, role="owner"))
         try:
+            db.session.add(circle)
+            db.session.flush()
+            db.session.add(CircleMember(circle_id=circle.id, user_id=user.id, role="owner"))
             db.session.commit()
             flash("同好圈创建成功，你已成为圈主。", "success")
             return redirect(url_for("circle.circle_detail", circle_id=circle.id))
         except IntegrityError:
             db.session.rollback()
+            delete_saved_images([cover_image] if cover_image else [])
             flash("创建失败，请换一个圈子名称后重试。", "error")
+        except Exception:
+            db.session.rollback()
+            delete_saved_images([cover_image] if cover_image else [])
+            flash("创建失败，请稍后重试。", "error")
 
     return render_template("circle.html", circles=[], create_mode=True, is_admin=is_admin)
 
@@ -683,6 +779,40 @@ def update_announcement(circle_id):
     circle.announcement = announcement or None
     db.session.commit()
     flash("圈内公告已更新。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
+@circle_bp.route("/circle/<int:circle_id>/cover", methods=["POST"])
+def update_circle_cover(circle_id):
+    user = _current_user()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _can_edit_circle_cover(user, circle):
+        flash("只有圈主或管理员可以修改圈子封面。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    try:
+        cover_image = _save_circle_cover(request.files.get("cover_image"))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    if cover_image is None:
+        flash("请选择一张圈子封面图片。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    previous_cover = circle.cover_image
+    circle.cover_image = cover_image
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        delete_saved_images([cover_image])
+        flash("圈子封面更新失败，请稍后重试。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    if _is_uploaded_circle_cover(previous_cover):
+        _delete_uploaded_circle_cover(previous_cover)
+    flash("圈子封面已更新。", "success")
     return redirect(url_for("circle.circle_detail", circle_id=circle.id))
 
 

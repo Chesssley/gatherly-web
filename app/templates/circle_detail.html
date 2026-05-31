@@ -97,6 +97,10 @@
 
 <section class="section">
     <div class="container">
+        <div class="circle-detail-cover">
+            <img src="{{ url_for('static', filename=circle.cover_image_url) }}" alt="{{ circle.name }} cover">
+            <span class="circle-detail-cover-overlay"></span>
+        </div>
         <div class="page-title">
             <p class="eyebrow">{{ circle.tag or "Circle" }}</p>
             <div class="card-tags circle-detail-tags">
@@ -120,6 +124,33 @@
             {% if can_manage_circle %}
             <details class="circle-management-panel">
                 <summary>管理圈子</summary>
+                {% if is_circle_owner or current_user.role == 'admin' %}
+                <section class="management-card">
+                    <h2 class="circle-management-title">修改圈子封面</h2>
+                    <p class="form-hint">支持 jpg、jpeg、png、webp，单张图片必须小于 800KB。</p>
+                    <form method="POST" action="{{ url_for('circle.update_circle_cover', circle_id=circle.id) }}" enctype="multipart/form-data">
+                        <div class="file-upload-control">
+                            <input
+                                class="circle-file-input"
+                                type="file"
+                                id="circle-cover-image"
+                                name="cover_image"
+                                accept=".jpg,.jpeg,.png,.webp"
+                                required
+                                data-file-count-target="circle-cover-image-count"
+                                data-image-upload
+                                data-max-count="1"
+                                data-max-bytes="819200"
+                            >
+                            <label class="file-upload-button" for="circle-cover-image">选择封面</label>
+                            <span class="file-upload-count" id="circle-cover-image-count">未选择图片</span>
+                        </div>
+                        <div class="management-actions">
+                            <button class="button button-small management-button" type="submit">保存封面</button>
+                        </div>
+                    </form>
+                </section>
+                {% endif %}
                 <section class="management-card">
                     <h2 class="circle-management-title">编辑圈内公告</h2>
                     <form method="POST" action="{{ url_for('circle.update_announcement', circle_id=circle.id) }}">
