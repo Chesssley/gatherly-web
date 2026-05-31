@@ -1,13 +1,16 @@
 from functools import wraps
+import os
 from urllib.parse import urlencode
+from uuid import uuid4
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.models import (
     Activity,
+    ActivityFavorite,
     ActivityReview,
     Circle,
     CircleMember,
@@ -27,6 +30,14 @@ profile_bp = Blueprint("profile", __name__, url_prefix="/profile")
 PUBLIC_SCOPE = "public"
 PRIVATE_SCOPE = "private"
 SORT_OPTIONS = {"newest", "oldest"}
+BIO_MAX_LENGTH = 300
+INTERESTS_MAX_LENGTH = 500
+AVATAR_UPLOAD_SUBDIR = os.path.join("uploads", "avatars")
+AVATAR_MAX_BYTES = 700 * 1024
+AVATAR_ALLOWED_TYPES = {
+    "image/jpeg": ("jpg", b"\xff\xd8\xff"),
+    "image/webp": ("webp", b"RIFF"),
+}
 
 
 def _section_filters(prefix):
@@ -125,6 +136,52 @@ def _split_interests(interests):
     return [item.strip() for item in normalized.split(",") if item.strip()]
 
 
+def _normalize_interests(interests):
+    return ", ".join(dict.fromkeys(_split_interests(interests)))
+
+
+def _avatar_upload_dir():
+    upload_dir = os.path.join(current_app.static_folder, AVATAR_UPLOAD_SUBDIR)
+    os.makedirs(upload_dir, exist_ok=True)
+    return upload_dir
+
+
+def _save_avatar(file):
+    if not file or not file.filename:
+        return None
+
+    expected = AVATAR_ALLOWED_TYPES.get(file.mimetype)
+    if expected is None:
+        raise ValueError("头像只支持 JPEG 或 WebP 格式。")
+
+    content = file.stream.read(AVATAR_MAX_BYTES + 1)
+    if not content:
+        raise ValueError("头像文件不能为空。")
+    if len(content) > AVATAR_MAX_BYTES:
+        raise ValueError("裁剪后的头像不能超过 700KB。")
+
+    extension, signature = expected
+    if not content.startswith(signature):
+        raise ValueError("头像文件内容与格式不匹配。")
+    if extension == "webp" and (len(content) < 12 or content[8:12] != b"WEBP"):
+        raise ValueError("头像文件内容与格式不匹配。")
+
+    filename = f"{uuid4().hex}.{extension}"
+    with open(os.path.join(_avatar_upload_dir(), filename), "wb") as avatar_file:
+        avatar_file.write(content)
+    return f"/static/{AVATAR_UPLOAD_SUBDIR.replace(os.sep, '/')}/{filename}"
+
+
+def _delete_managed_avatar(avatar_url):
+    prefix = f"/static/{AVATAR_UPLOAD_SUBDIR.replace(os.sep, '/')}/"
+    if not avatar_url or not avatar_url.startswith(prefix):
+        return
+
+    avatar_path = os.path.join(_avatar_upload_dir(), os.path.basename(avatar_url))
+    if os.path.isfile(avatar_path):
+        os.remove(avatar_path)
+
+
 def _safe_all(query):
     try:
         return query.all()
@@ -137,11 +194,7 @@ def _activity_label(activity_id):
     activity = Activity.query.get(activity_id)
     if activity:
         return activity.title
-
-    from app.routes.activity import activities
-
-    mock_activity = next((item for item in activities if item.get("id") == activity_id), None)
-    return mock_activity["title"] if mock_activity else f"活动 #{activity_id}"
+    return f"活动 #{activity_id}"
 
 
 def _circle_label(circle_id):
@@ -174,17 +227,7 @@ def _registration_matches(activity_id, query):
             activity.organizer.username if activity.organizer else None,
         )
 
-    from app.routes.activity import activities
-
-    mock_activity = next((item for item in activities if item.get("id") == activity_id), {})
-    return _matches_text(
-        query,
-        mock_activity.get("title"),
-        mock_activity.get("description"),
-        mock_activity.get("detail"),
-        mock_activity.get("location"),
-        mock_activity.get("category"),
-    )
+    return False
 
 
 def _membership_matches(circle_id, query):
@@ -223,6 +266,8 @@ def _owner_profile_or_404():
 
 
 def _profile_context(user, visibility, is_owner=True):
+    circle_count = CircleMember.query.filter_by(user_id=user.id, status="active").count()
+    registration_count = Registration.query.filter_by(user_id=user.id).count()
     return {
         "user": user,
         "display_name": get_user_display_name(user),
@@ -236,6 +281,11 @@ def _profile_context(user, visibility, is_owner=True):
             "trust_score": _scope_is_visible(visibility.trust_score_scope, is_owner),
         },
         "interests": _split_interests(user.interests) if (is_owner or bool(visibility.show_interests)) else [],
+        "profile_stats": {
+            "circles": circle_count if is_owner or visibility.circle_scope == PUBLIC_SCOPE else None,
+            "interests": len(_split_interests(user.interests)) if is_owner or visibility.show_interests else None,
+            "registrations": registration_count if is_owner or visibility.activity_scope == PUBLIC_SCOPE else None,
+        },
     }
 
 
@@ -467,6 +517,7 @@ def view_profile(user_id):
     circles = _circle_items(user, default_filters)
     posts = _profile_posts(user, default_filters)
     comments = _profile_comments(user, default_filters)
+    favorite_activities_count = ActivityFavorite.query.filter_by(user_id=user.id).count()
     activity_interactions = _activity_interactions(user, default_filters)
     circle_interactions = _circle_interactions(user, default_filters)
 
@@ -483,6 +534,7 @@ def view_profile(user_id):
         profile_posts_count=len(posts),
         profile_comments_preview=_preview_items(comments),
         profile_comments_count=len(comments),
+        favorite_activities_count=favorite_activities_count,
         activity_interactions_preview=_preview_items(activity_interactions),
         activity_interactions_count=len(activity_interactions),
         circle_interactions_preview=_preview_items(circle_interactions),
@@ -626,6 +678,10 @@ def delete_post(post_id):
         flash("该帖子已经删除。", "info")
         return redirect(fallback_url)
 
+    Circle.query.filter_by(pinned_post_id=post.id).update(
+        {"pinned_post_id": None},
+        synchronize_session=False,
+    )
     post.status = "deleted"
     db.session.commit()
     flash("帖子已删除。", "success")
@@ -664,10 +720,26 @@ def edit_profile():
     if request.method == "POST":
         form_type = request.form.get("form_type")
         if form_type == "profile":
-            user.nickname = request.form.get("nickname", "").strip() or user.username
-            user.avatar = request.form.get("avatar", "").strip() or None
-            user.interests = request.form.get("interests", "").strip() or None
-            user.email = request.form.get("email", "").strip() or user.email
+            nickname = request.form.get("nickname", "").strip() or user.username
+            email = request.form.get("email", "").strip()
+            bio = request.form.get("bio", "").strip() or None
+            interests = _normalize_interests(request.form.get("interests", "")) or None
+
+            if len(nickname) > 80:
+                flash("昵称不能超过 80 个字符。", "error")
+                return render_template("edit_profile.html", user=user, visibility=visibility)
+            if not email:
+                flash("邮箱不能为空。", "error")
+                return render_template("edit_profile.html", user=user, visibility=visibility)
+            if len(email) > 120:
+                flash("邮箱不能超过 120 个字符。", "error")
+                return render_template("edit_profile.html", user=user, visibility=visibility)
+            if bio and len(bio) > BIO_MAX_LENGTH:
+                flash(f"个人简介不能超过 {BIO_MAX_LENGTH} 个字符。", "error")
+                return render_template("edit_profile.html", user=user, visibility=visibility)
+            if interests and len(interests) > INTERESTS_MAX_LENGTH:
+                flash(f"兴趣标签总长度不能超过 {INTERESTS_MAX_LENGTH} 个字符。", "error")
+                return render_template("edit_profile.html", user=user, visibility=visibility)
 
             current_password = request.form.get("current_password", "")
             new_password = request.form.get("new_password", "")
@@ -684,12 +756,32 @@ def edit_profile():
                     return render_template("edit_profile.html", user=user, visibility=visibility)
                 user.password = generate_password_hash(new_password)
 
+            old_avatar = user.avatar
+            new_avatar = None
+            try:
+                new_avatar = _save_avatar(request.files.get("avatar_file"))
+            except ValueError as error:
+                flash(str(error), "error")
+                return render_template("edit_profile.html", user=user, visibility=visibility)
+
+            user.nickname = nickname
+            user.email = email
+            if new_avatar:
+                user.avatar = new_avatar
+            elif request.form.get("remove_avatar"):
+                user.avatar = None
+            user.bio = bio
+            user.interests = interests
+
             try:
                 db.session.commit()
+                if old_avatar != user.avatar:
+                    _delete_managed_avatar(old_avatar)
                 session["nickname"] = user.nickname or user.username
                 flash("个人资料已更新。", "success")
             except IntegrityError:
                 db.session.rollback()
+                _delete_managed_avatar(new_avatar)
                 flash("用户名或邮箱已被使用，请换一个。", "error")
         elif form_type == "visibility":
             visibility.activity_scope = PUBLIC_SCOPE if request.form.get("show_activities") else PRIVATE_SCOPE

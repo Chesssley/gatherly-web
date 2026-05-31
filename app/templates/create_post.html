@@ -43,9 +43,12 @@
             type="file"
             id="images"
             name="images"
-            accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
+            accept=".jpg,.jpeg,.png,.webp"
             multiple
             data-file-count-target="post-image-count"
+            data-image-upload
+            data-max-count="3"
+            data-max-bytes="819200"
           >
           <label class="file-upload-button" for="images">选择图片</label>
           <span class="file-upload-count" id="post-image-count">未选择图片</span>

@@ -9,15 +9,16 @@
   <div class="page-title"><p class="eyebrow">Admin Circles</p><h1>同好圈管理</h1><p>查看全部同好圈，并隐藏、恢复显示或删除内容。</p></div>
   {{ list_filters('admin.admin_circles', filters, status_options, type_options) }}
   <div class="admin-table-wrap"><table class="admin-table">
-    <thead><tr><th>ID</th><th>名称</th><th>简介摘要</th><th>创建时间</th><th>帖子数</th><th>状态</th><th>操作</th></tr></thead>
+    <thead><tr><th>ID</th><th>名称</th><th>简介摘要</th><th>创建时间</th><th>帖子数</th><th>状态</th><th>置顶状态</th><th>操作</th></tr></thead>
     <tbody>{% for circle, post_count in circles %}<tr>
-      <td>{{ circle.id }}</td><td>{{ circle.name }}</td><td class="admin-summary">{{ circle.description|default('-', true)|truncate(60, true) }}</td><td>{{ circle.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ post_count }}</td><td><span class="admin-status status-{{ circle.status }}">{{ '已隐藏' if circle.status == 'hidden' else '正常' }}</span></td>
+      <td>{{ circle.id }}</td><td>{{ circle.name }}</td><td class="admin-summary">{{ circle.description|default('-', true)|truncate(60, true) }}</td><td>{{ circle.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ post_count }}</td><td><span class="admin-status status-{{ circle.status }}">{{ '已隐藏' if circle.status == 'hidden' else '正常' }}</span></td><td><span class="admin-status {{ 'status-pinned' if circle.is_pinned else 'status-unpinned' }}">{{ '已置顶' if circle.is_pinned else '未置顶' }}</span></td>
       <td><div class="admin-action-group">
         <a class="button button-small button-secondary" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">查看</a>
+        <form method="post" action="{{ url_for('admin.toggle_circle_pin', circle_id=circle.id) }}"><button class="button button-small button-secondary" type="submit">{{ '取消置顶' if circle.is_pinned else '置顶' }}</button></form>
         <form method="post" action="{{ url_for('admin.update_circle_status', circle_id=circle.id) }}"><input type="hidden" name="status" value="{{ 'active' if circle.status == 'hidden' else 'hidden' }}"><button class="button button-small button-secondary" type="submit">{{ '恢复显示' if circle.status == 'hidden' else '隐藏' }}</button></form>
         <form method="post" action="{{ url_for('admin.delete_circle', circle_id=circle.id) }}" onsubmit="return confirm('确定删除这个同好圈吗？圈内帖子和评论也会被删除。');"><button class="button button-small button-danger" type="submit">删除</button></form>
       </div></td>
-    </tr>{% else %}<tr><td class="admin-empty" colspan="7">暂无同好圈。</td></tr>{% endfor %}</tbody>
+    </tr>{% else %}<tr><td class="admin-empty" colspan="8">暂无同好圈。</td></tr>{% endfor %}</tbody>
   </table></div>
 </div></section>
 {% endblock %}

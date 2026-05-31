@@ -1,20 +1,23 @@
 from datetime import datetime
 import os
 from types import SimpleNamespace
-from uuid import uuid4
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError, OperationalError
-from werkzeug.utils import secure_filename
 
 from app.models import Circle, CircleMember, Comment, CommentImage, Interaction, Post, PostImage, User, db
 from app.routes.activity import OFFICIAL_INTEREST_TAGS
+from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
 circle_bp = Blueprint("circle", __name__)
 
-ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
-UPLOAD_SUBDIR = os.path.join("uploads", "circle")
+POST_IMAGE_MAX_BYTES = 800 * 1024
+POST_IMAGE_MAX_COUNT = 3
+COMMENT_IMAGE_MAX_BYTES = 500 * 1024
+COMMENT_IMAGE_MAX_COUNT = 1
+POST_UPLOAD_SUBDIR = os.path.join("uploads", "posts")
+COMMENT_UPLOAD_SUBDIR = os.path.join("uploads", "comments")
 OFFICIAL_CIRCLE_SUFFIX = "同好圈"
 
 _CIRCLE_DESCRIPTIONS = {
@@ -74,15 +77,68 @@ def _ensure_circle_columns():
     statements = []
     if "owner_id" not in existing_columns:
         statements.append("ALTER TABLE circle ADD COLUMN owner_id INTEGER")
+    if "announcement" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN announcement TEXT")
+    if "pinned_post_id" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN pinned_post_id INTEGER")
+    if "is_pinned" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0")
+    if "pinned_at" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN pinned_at DATETIME")
     if "is_system" not in existing_columns:
         statements.append("ALTER TABLE circle ADD COLUMN is_system BOOLEAN NOT NULL DEFAULT 0")
     if "member_count" not in existing_columns:
         statements.append("ALTER TABLE circle ADD COLUMN member_count INTEGER NOT NULL DEFAULT 0")
+    if "initial_member_count" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN initial_member_count INTEGER NOT NULL DEFAULT 0")
+    if "updated_at" not in existing_columns:
+        statements.append("ALTER TABLE circle ADD COLUMN updated_at DATETIME")
 
     for statement in statements:
         db.session.execute(text(statement))
-    if statements:
+    member_rows = db.session.execute(text("PRAGMA table_info(circle_member)")).fetchall()
+    member_columns = {row[1] for row in member_rows}
+    if member_rows and "role" not in member_columns:
+        db.session.execute(
+            text("ALTER TABLE circle_member ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'member'")
+        )
+        statements.append("ALTER TABLE circle_member ADD COLUMN role")
+    normalized_roles = 0
+    legacy_role_count = 0
+    if member_rows:
+        legacy_role_count = db.session.execute(
+            text("SELECT COUNT(*) FROM circle_member WHERE role = 'admin'")
+        ).scalar()
+    if legacy_role_count:
+        normalized_roles = db.session.execute(
+            text("UPDATE circle_member SET role = 'moderator' WHERE role = 'admin'")
+        ).rowcount
+    if rows and "initial_member_count" not in existing_columns:
+        db.session.execute(
+            text(
+                """
+                UPDATE circle
+                SET initial_member_count = MAX(
+                    member_count - (
+                        SELECT COUNT(*)
+                        FROM circle_member
+                        WHERE circle_member.circle_id = circle.id
+                          AND circle_member.status = 'active'
+                    ),
+                    0
+                )
+                """
+            )
+        )
+    if rows and "updated_at" not in existing_columns:
+        db.session.execute(text("UPDATE circle SET updated_at = created_at WHERE updated_at IS NULL"))
+    if statements or normalized_roles:
         db.session.commit()
+
+
+@circle_bp.before_app_request
+def ensure_circle_schema():
+    _ensure_circle_columns()
 
 
 def _ensure_circle_image_tables():
@@ -112,36 +168,6 @@ def _ensure_comment_parent_column():
         db.session.commit()
 
 
-def _allowed_image(filename):
-    if "." not in filename:
-        return False
-    extension = filename.rsplit(".", 1)[1].lower()
-    return extension in ALLOWED_IMAGE_EXTENSIONS
-
-
-def _circle_upload_dir():
-    upload_dir = os.path.join(current_app.static_folder, UPLOAD_SUBDIR)
-    os.makedirs(upload_dir, exist_ok=True)
-    return upload_dir
-
-
-def _save_uploaded_images(files):
-    saved_paths = []
-    upload_dir = _circle_upload_dir()
-    for file in files:
-        if not file or not file.filename:
-            continue
-        if not _allowed_image(file.filename):
-            raise ValueError("只支持 jpg、jpeg、png、webp、gif 格式的图片。")
-
-        original = secure_filename(file.filename)
-        extension = original.rsplit(".", 1)[1].lower()
-        filename = f"{uuid4().hex}.{extension}"
-        file.save(os.path.join(upload_dir, filename))
-        saved_paths.append(f"{UPLOAD_SUBDIR.replace(os.sep, '/')}/{filename}")
-    return saved_paths
-
-
 def _sync_system_circles():
     try:
         _ensure_circle_columns()
@@ -166,7 +192,11 @@ def _sync_system_circles():
                 circle.name = name
 
             circle.description = _official_description(tag)
-            circle.member_count = max(circle.member_count or 0, _official_member_count(index))
+            circle.initial_member_count = max(
+                circle.initial_member_count or 0,
+                _official_member_count(index),
+            )
+            _refresh_member_count(circle)
         db.session.commit()
     except OperationalError:
         db.session.rollback()
@@ -227,6 +257,18 @@ def _circle_member_role(circle_id, user_id):
     return member.role if member else None
 
 
+def _can_manage_circle(user, circle):
+    if user is None:
+        return False
+    if user.role == "admin" or circle.owner_id == user.id:
+        return True
+    return _circle_member_role(circle.id, user.id) in {"owner", "moderator", "admin"}
+
+
+def _is_circle_owner(user, circle):
+    return bool(user and circle.owner_id == user.id)
+
+
 def _can_manage_circle_content(user, circle, author_id):
     if user is None:
         return False
@@ -234,9 +276,7 @@ def _can_manage_circle_content(user, circle, author_id):
         return True
     if author_id == user.id:
         return True
-    if circle.owner_id == user.id:
-        return True
-    return _circle_member_role(circle.id, user.id) in {"owner", "admin"}
+    return _can_manage_circle(user, circle)
 
 
 def _can_view_circle(user, circle):
@@ -244,21 +284,11 @@ def _can_view_circle(user, circle):
 
 
 def _refresh_member_count(circle):
-    circle.member_count = CircleMember.query.filter_by(
+    active_member_count = CircleMember.query.filter_by(
         circle_id=circle.id,
         status="active",
     ).count()
-    if circle.is_system:
-        index = next(
-            (
-                idx
-                for idx, tag in enumerate(OFFICIAL_INTEREST_TAGS, start=1)
-                if circle.name in {_official_circle_name(tag), _legacy_official_circle_name(tag)}
-            ),
-            None,
-        )
-        if index:
-            circle.member_count = max(circle.member_count, _official_member_count(index))
+    circle.member_count = max(circle.initial_member_count or 0, 0) + active_member_count
 
 
 def _circle_post_count(circle):
@@ -409,7 +439,14 @@ def circles():
     _sync_system_circles()
     circle_rows = (
         Circle.query.filter_by(status="active")
-        .order_by(Circle.member_count.desc(), Circle.created_at.asc())
+        .order_by(
+            Circle.is_pinned.desc(),
+            Circle.pinned_at.desc(),
+            Circle.is_system.desc(),
+            Circle.member_count.desc(),
+            func.coalesce(Circle.updated_at, Circle.created_at).desc(),
+            Circle.created_at.desc(),
+        )
         .all()
     )
     decorated = [_decorate_circle(circle) for circle in circle_rows]
@@ -452,6 +489,7 @@ def create_circle():
             description=description,
             owner_id=user.id,
             is_system=is_system,
+            initial_member_count=0,
             member_count=1,
         )
         db.session.add(circle)
@@ -490,7 +528,10 @@ def circle_detail(circle_id):
         post_query = post_query.filter(Post.status.in_(["published", "hidden"]))
     else:
         post_query = post_query.filter_by(status="published")
-    posts = post_query.order_by(Post.created_at.desc()).all()
+    posts = post_query.order_by(
+        (Post.id == circle.pinned_post_id).desc(),
+        Post.created_at.desc(),
+    ).all()
     post_items = []
     for post in posts:
         comments = (
@@ -501,6 +542,7 @@ def circle_detail(circle_id):
         post_items.append(
             {
                 "post": post,
+                "is_pinned": post.id == circle.pinned_post_id,
                 "counts": _interaction_counts("post", post.id),
                 "states": _user_interaction_states(
                     current_user.id if current_user else None,
@@ -516,12 +558,21 @@ def circle_detail(circle_id):
                 ),
             }
         )
+    active_members = (
+        CircleMember.query.filter_by(circle_id=circle.id, status="active")
+        .join(User, CircleMember.user_id == User.id)
+        .order_by(User.nickname.asc(), User.username.asc())
+        .all()
+    )
     return render_template(
         "circle_detail.html",
         circle=_decorate_circle(circle),
         posts=post_items,
         current_user=current_user,
         is_member=_is_member(circle.id),
+        can_manage_circle=_can_manage_circle(current_user, circle),
+        is_circle_owner=_is_circle_owner(current_user, circle),
+        circle_members=active_members,
     )
 
 
@@ -529,6 +580,7 @@ def circle_detail(circle_id):
 def join_circle(circle_id):
     user = _current_user()
     if user is None:
+        flash("请先登录后再加入同好圈。", "error")
         return redirect(url_for("auth.login", next=url_for("circle.circle_detail", circle_id=circle_id)))
 
     circle = Circle.query.get_or_404(circle_id)
@@ -538,11 +590,20 @@ def join_circle(circle_id):
     member = CircleMember.query.filter_by(circle_id=circle.id, user_id=user.id).first()
     if member is None:
         db.session.add(CircleMember(circle_id=circle.id, user_id=user.id, role="member"))
-    else:
+    elif member.status != "active":
         member.status = "active"
+        member.role = "owner" if circle.owner_id == user.id else "member"
         member.updated_at = datetime.utcnow()
+    else:
+        flash("您已经加入该同好圈。", "info")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
     _refresh_member_count(circle)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("您已经加入该同好圈。", "info")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
     flash("已加入同好圈。", "success")
     return redirect(url_for("circle.circle_detail", circle_id=circle.id))
 
@@ -568,11 +629,122 @@ def leave_circle(circle_id):
         flash("您尚未加入该同好圈。", "info")
         return redirect(url_for("circle.circle_detail", circle_id=circle.id))
 
+    if circle.owner_id == user.id:
+        flash("请先将圈主身份转移给其他成员，再退出圈子。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
     member.status = "inactive"
+    member.role = "member"
     member.updated_at = datetime.utcnow()
     _refresh_member_count(circle)
     db.session.commit()
     flash("已退出同好圈。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
+@circle_bp.route("/circle/<int:circle_id>/announcement", methods=["POST"])
+def update_announcement(circle_id):
+    user = _current_user()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _can_manage_circle(user, circle):
+        flash("没有权限编辑圈内公告。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    announcement = request.form.get("announcement", "").strip()
+    if len(announcement) > 1000:
+        flash("圈内公告不能超过 1000 个字符。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    circle.announcement = announcement or None
+    db.session.commit()
+    flash("圈内公告已更新。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
+@circle_bp.route("/circle/<int:circle_id>/post/<int:post_id>/pin", methods=["POST"])
+def toggle_pin_post(circle_id, post_id):
+    user = _current_user()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _can_manage_circle(user, circle):
+        flash("没有权限置顶圈内帖子。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    post = Post.query.filter_by(id=post_id, circle_id=circle.id, status="published").first()
+    if post is None:
+        flash("只能置顶当前圈子内正常显示的帖子。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    if circle.pinned_post_id == post.id:
+        circle.pinned_post_id = None
+        message = "已取消置顶帖子。"
+    else:
+        circle.pinned_post_id = post.id
+        message = "帖子已置顶。"
+    db.session.commit()
+    flash(message, "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor=f"post-{post.id}"))
+
+
+@circle_bp.route("/circle/<int:circle_id>/member/<int:user_id>/role", methods=["POST"])
+def update_circle_member_role(circle_id, user_id):
+    user = _current_user()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _is_circle_owner(user, circle):
+        flash("只有圈主可以设置圈子管理员。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    member = CircleMember.query.filter_by(
+        circle_id=circle.id,
+        user_id=user_id,
+        status="active",
+    ).first()
+    if member is None:
+        flash("只能管理当前圈内成员。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+    if member.user_id == circle.owner_id:
+        flash("圈主身份不能通过管理员设置修改。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    role = request.form.get("role", "").strip()
+    if role not in {"moderator", "member"}:
+        flash("不支持的圈内角色。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    member.role = role
+    db.session.commit()
+    flash("圈子管理员设置已更新。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
+@circle_bp.route("/circle/<int:circle_id>/transfer-owner", methods=["POST"])
+def transfer_circle_owner(circle_id):
+    user = _current_user()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _is_circle_owner(user, circle):
+        flash("只有圈主可以转移圈主身份。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    target_user_id = request.form.get("user_id", type=int)
+    target = CircleMember.query.filter_by(
+        circle_id=circle.id,
+        user_id=target_user_id,
+        status="active",
+    ).first()
+    if target is None or target.user_id == circle.owner_id:
+        flash("请选择其他圈内成员接任圈主。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    previous_owner = CircleMember.query.filter_by(
+        circle_id=circle.id,
+        user_id=circle.owner_id,
+        status="active",
+    ).first()
+    if previous_owner is not None:
+        previous_owner.role = "member"
+    target.role = "owner"
+    circle.owner_id = target.user_id
+    db.session.commit()
+    flash("圈主身份已转移。", "success")
     return redirect(url_for("circle.circle_detail", circle_id=circle.id))
 
 
@@ -610,7 +782,12 @@ def create_post(circle_id):
         return render_template("create_post.html", circle=circle)
 
     try:
-        image_paths = _save_uploaded_images(request.files.getlist("images"))
+        validated_images = validate_image_files(
+            request.files.getlist("images"),
+            max_count=POST_IMAGE_MAX_COUNT,
+            max_bytes=POST_IMAGE_MAX_BYTES,
+        )
+        image_paths = save_image_files(validated_images, POST_UPLOAD_SUBDIR)
     except ValueError as exc:
         flash(str(exc), "error")
         return render_template("create_post.html", circle=circle)
@@ -626,6 +803,7 @@ def create_post(circle_id):
         return redirect(url_for("circle.circle_detail", circle_id=circle.id))
     except Exception:
         db.session.rollback()
+        delete_saved_images(image_paths)
         flash("发布失败，请稍后重试。", "error")
         return render_template("create_post.html", circle=circle)
 
@@ -658,7 +836,12 @@ def comment_post(circle_id, post_id):
             return redirect(url_for("circle.circle_detail", circle_id=post.circle_id, _anchor=f"post-{post.id}"))
 
     try:
-        image_paths = _save_uploaded_images(request.files.getlist("images"))
+        validated_images = validate_image_files(
+            request.files.getlist("images"),
+            max_count=COMMENT_IMAGE_MAX_COUNT,
+            max_bytes=COMMENT_IMAGE_MAX_BYTES,
+        )
+        image_paths = save_image_files(validated_images, COMMENT_UPLOAD_SUBDIR)
     except ValueError as exc:
         flash(str(exc), "error")
         return redirect(url_for("circle.circle_detail", circle_id=post.circle_id))
@@ -673,11 +856,17 @@ def comment_post(circle_id, post_id):
         parent_id=parent_comment.id if parent_comment else None,
         content=content or " ",
     )
-    db.session.add(comment)
-    db.session.flush()
-    for image_path in image_paths:
-        db.session.add(CommentImage(comment_id=comment.id, image_path=image_path))
-    db.session.commit()
+    try:
+        db.session.add(comment)
+        db.session.flush()
+        for image_path in image_paths:
+            db.session.add(CommentImage(comment_id=comment.id, image_path=image_path))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        delete_saved_images(image_paths)
+        flash("评论发布失败，请稍后重试。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=post.circle_id))
     flash("回复已发布。" if parent_comment else "评论已发布。", "success")
     return redirect(url_for("circle.circle_detail", circle_id=post.circle_id, _anchor=f"comment-{comment.id}"))
 
@@ -696,6 +885,8 @@ def delete_post(post_id):
         flash("没有权限删除该内容。", "error")
         return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor=f"post-{post.id}"))
 
+    if circle.pinned_post_id == post.id:
+        circle.pinned_post_id = None
     post.status = "deleted"
     db.session.commit()
     flash("帖子已删除。", "success")

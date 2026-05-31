@@ -420,6 +420,32 @@ def update_circle_status(circle_id):
     return _update_status(Circle, circle_id, CIRCLE_STATUSES, "同好圈", "admin.admin_circles")
 
 
+@admin_bp.route("/admin/circles/<int:circle_id>/pin", methods=["POST"])
+@admin_required
+def toggle_circle_pin(circle_id):
+    _ensure_admin_schema()
+    circle = Circle.query.get(circle_id)
+    if circle is None or circle.status == "deleted":
+        flash("同好圈不存在或已被删除。", "error")
+        return redirect(url_for("admin.admin_circles"))
+
+    circle.is_pinned = not circle.is_pinned
+    circle.pinned_at = datetime.utcnow() if circle.is_pinned else None
+    log_admin_action(
+        get_current_user().id,
+        "pin_circle" if circle.is_pinned else "unpin_circle",
+        "同好圈",
+        circle.id,
+        f"is_pinned: {not circle.is_pinned} -> {circle.is_pinned}; name: {circle.name}",
+    )
+    db.session.commit()
+    flash(
+        f"同好圈“{circle.name}”已{'置顶' if circle.is_pinned else '取消置顶'}。",
+        "success",
+    )
+    return redirect(url_for("admin.admin_circles"))
+
+
 @admin_bp.route("/admin/posts")
 @admin_required
 def admin_posts():
@@ -497,6 +523,10 @@ def _delete_post_comments(post):
 def _delete_post_record(post):
     _delete_post_comments(post)
     Interaction.query.filter_by(target_type="post", target_id=post.id).delete(
+        synchronize_session=False,
+    )
+    Circle.query.filter_by(pinned_post_id=post.id).update(
+        {"pinned_post_id": None},
         synchronize_session=False,
     )
     db.session.delete(post)
