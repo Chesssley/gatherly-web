@@ -2564,6 +2564,7 @@ textarea.form-input {
 .admin-status.status-hidden,
 .admin-status.status-banned,
 .admin-status.status-closed,
+.admin-status.status-cancelled,
 .admin-status.status-deleted,
 .admin-status.status-inactive {
   background: #f4e4df;
@@ -2604,6 +2605,10 @@ textarea.form-input {
 
 .admin-user-action-menu select {
   min-width: 132px;
+}
+
+.admin-activity-action-menu select {
+  min-width: 112px;
 }
 
 .admin-action-group form {
