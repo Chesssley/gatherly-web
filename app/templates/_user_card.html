@@ -1,0 +1,33 @@
+{% set card_name = card_user.nickname or card_user.username %}
+<article class="user-card">
+  <a class="user-card-main" href="{{ url_for('profile.view_profile', user_id=card_user.id) }}">
+    <span class="user-card-avatar">
+      {% if card_user.avatar %}
+        <img src="{{ card_user.avatar }}" alt="{{ card_name }}">
+      {% else %}
+        <span aria-hidden="true">{{ card_name[:1]|upper }}</span>
+      {% endif %}
+    </span>
+    <span class="user-card-copy">
+      <strong>{{ card_name }}</strong>
+      <span>@{{ card_user.username }}{% if card_user.city %} · {{ card_user.city }}{% endif %}</span>
+      {% if card_user.bio %}<small>{{ card_user.bio|truncate(72, True) }}</small>{% endif %}
+    </span>
+  </a>
+  {% if session.get('user_id') and card_user.id != session.get('user_id') %}
+  <div class="user-card-actions">
+    <a class="button button-small button-secondary" href="{{ url_for('messages.conversation', user_id=card_user.id) }}">私信</a>
+    {% if card_user.id in following_ids %}
+    <form method="post" action="{{ url_for('profile.unfollow_user', user_id=card_user.id) }}">
+      <input type="hidden" name="next" value="{{ request.full_path }}">
+      <button class="button button-small button-ghost" type="submit">已关注</button>
+    </form>
+    {% else %}
+    <form method="post" action="{{ url_for('profile.follow_user', user_id=card_user.id) }}">
+      <input type="hidden" name="next" value="{{ request.full_path }}">
+      <button class="button button-small" type="submit">关注</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</article>

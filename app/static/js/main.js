@@ -473,6 +473,25 @@ document.addEventListener("DOMContentLoaded", () => {
     panel.hidden = !shouldOpen;
   };
 
+  const accountActionButtons = Array.from(document.querySelectorAll("[data-account-action-toggle]"));
+  const accountActionPanels = Array.from(document.querySelectorAll("[data-account-action-panel]"));
+  accountActionButtons.forEach(button => {
+    const panel = document.getElementById(button.dataset.accountActionToggle);
+    if (!panel || !accountActionPanels.includes(panel)) {
+      return;
+    }
+
+    button.addEventListener("click", () => {
+      const shouldOpen = panel.hidden;
+      accountActionPanels.forEach(item => {
+        item.hidden = item === panel ? !shouldOpen : true;
+      });
+      accountActionButtons.forEach(item => {
+        item.setAttribute("aria-expanded", String(item === button && shouldOpen));
+      });
+    });
+  });
+
   const accountMenuButtons = Array.from(document.querySelectorAll("[data-nav-menu-toggle]"));
   const accountMenus = Array.from(document.querySelectorAll("[data-nav-menu]"));
   const mobileSearchButton = document.querySelector("[data-mobile-search-toggle]");

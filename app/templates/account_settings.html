@@ -8,25 +8,50 @@
     <a class="back-link" href="{{ url_for('profile.my_profile') }}">返回个人主页</a>
     <h1>账号设置</h1>
 
-    {% set merchant_verification_id_prefix = 'settings-' %}
-    {% include "_merchant_verification.html" %}
+    <div class="account-action-list">
+      <section class="account-action-card" aria-labelledby="merchant-verification-title">
+        <div class="account-action-copy">
+          <h2 id="merchant-verification-title">商家认证</h2>
+          <p>提交商家证明后，审核通过的活动会显示官方认证标识。</p>
+        </div>
+        <button class="button button-secondary" type="button" data-account-action-toggle="merchant-verification-panel" aria-expanded="false" aria-controls="merchant-verification-panel">
+          {% if latest_merchant_verification %}查看认证状态{% else %}申请认证{% endif %}
+        </button>
+      </section>
 
-    <div class="form-card danger-zone">
-      <h2>注销账号</h2>
-      <p>注销后无法恢复。你的帖子、评论、回复和其他历史记录会保留，并统一显示为“已注销用户”。</p>
-      <form method="post" action="{{ url_for('auth.delete_account') }}">
-        <div class="form-group">
-          <label class="form-label" for="current_password">当前密码</label>
-          <input class="form-input" id="current_password" name="current_password" type="password" autocomplete="current-password" required>
+      <div class="account-action-panel" id="merchant-verification-panel" data-account-action-panel hidden>
+        {% set merchant_verification_id_prefix = 'settings-' %}
+        {% set merchant_verification_return_to = 'settings' %}
+        {% include "_merchant_verification.html" %}
+      </div>
+
+      <section class="account-action-card account-action-card-danger" aria-labelledby="delete-account-title">
+        <div class="account-action-copy">
+          <h2 id="delete-account-title">注销账号</h2>
+          <p>账号注销后无法恢复，历史内容会统一显示为已注销用户。</p>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="confirm_text">输入“注销账户”确认操作</label>
-          <input class="form-input" id="confirm_text" name="confirm_text" required>
+        <button class="button button-danger" type="button" data-account-action-toggle="delete-account-panel" aria-expanded="false" aria-controls="delete-account-panel">继续注销</button>
+      </section>
+
+      <div class="account-action-panel" id="delete-account-panel" data-account-action-panel hidden>
+        <div class="form-card danger-zone">
+          <h2>注销账号</h2>
+          <p>注销后无法恢复。你的帖子、评论、回复和其他历史记录会保留，并统一显示为“已注销用户”。</p>
+          <form method="post" action="{{ url_for('auth.delete_account') }}">
+            <div class="form-group">
+              <label class="form-label" for="current_password">当前密码</label>
+              <input class="form-input" id="current_password" name="current_password" type="password" autocomplete="current-password" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="confirm_text">输入“注销账号”确认操作</label>
+              <input class="form-input" id="confirm_text" name="confirm_text" required>
+            </div>
+            <div class="form-actions">
+              <button class="button button-danger" type="submit">注销账号</button>
+            </div>
+          </form>
         </div>
-        <div class="form-actions">
-          <button class="button button-danger" type="submit">注销账号</button>
-        </div>
-      </form>
+      </div>
     </div>
   </div>
 </section>

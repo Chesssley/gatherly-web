@@ -30,6 +30,11 @@
         <a href="{{ url_for('activity.create_activity') }}">发布活动</a>
         <a href="{{ url_for('circle.circles') }}">同好圈</a>
         {% if session.get('user_id') %}
+          <a class="nav-notification-link" href="{{ url_for('messages.message_list') }}">
+            <span aria-hidden="true">&#128172;</span>
+            <span>私信</span>
+            {% if unread_direct_message_count %}<strong>{{ unread_direct_message_count }}</strong>{% endif %}
+          </a>
           <a class="nav-notification-link" href="{{ url_for('notifications.notification_list') }}">
             <span aria-hidden="true">&#128276;</span>
             <span>通知中心</span>
@@ -49,12 +54,10 @@
             </button>
             <div class="account-menu" id="account-menu" data-nav-menu hidden>
               <a href="{{ url_for('activity.my_events') }}">我的活动</a>
-              <a href="{{ url_for('profile.my_circles') }}">我的同好圈</a>
               <a href="{{ url_for('profile.my_profile') }}">个人主页</a>
               {% if current_user and current_user.role == 'admin' %}
                 <a href="{{ url_for('admin.admin_dashboard') }}">后台管理</a>
               {% endif %}
-              <a href="{{ url_for('notifications.notification_list') }}">通知中心{% if unread_notification_count %}（{{ unread_notification_count }} 条未读）{% endif %}</a>
               <span class="account-menu-divider" aria-hidden="true"></span>
               <a href="{{ url_for('auth.account_settings') }}">账号设置</a>
               <a href="{{ url_for('auth.logout') }}">退出登录</a>
@@ -72,6 +75,10 @@
           <span class="sr-only">搜索</span>
         </button>
         {% if session.get('user_id') %}
+          <a class="mobile-nav-button nav-notification-link" href="{{ url_for('messages.message_list') }}" aria-label="私信{% if unread_direct_message_count %}，{{ unread_direct_message_count }} 条未读{% endif %}">
+            <span aria-hidden="true">&#128172;</span>
+            {% if unread_direct_message_count %}<strong>{{ unread_direct_message_count }}</strong>{% endif %}
+          </a>
           <a class="mobile-nav-button nav-notification-link" href="{{ url_for('notifications.notification_list') }}" aria-label="通知中心{% if unread_notification_count %}，{{ unread_notification_count }} 条未读{% endif %}">
             <span aria-hidden="true">&#128276;</span>
             {% if unread_notification_count %}<strong>{{ unread_notification_count }}</strong>{% endif %}
@@ -114,9 +121,7 @@
     {% if session.get('user_id') %}
     <div class="mobile-account-menu container" id="mobile-account-menu" data-nav-menu hidden>
       <a href="{{ url_for('activity.my_events') }}">我的活动</a>
-      <a href="{{ url_for('profile.my_circles') }}">我的同好圈</a>
       <a href="{{ url_for('profile.my_profile') }}">个人主页</a>
-      <a href="{{ url_for('notifications.notification_list') }}">通知中心{% if unread_notification_count %}（{{ unread_notification_count }} 条未读）{% endif %}</a>
       <a href="{{ url_for('auth.account_settings') }}">账号设置</a>
       {% if current_user and current_user.role == 'admin' %}
         <a href="{{ url_for('admin.admin_dashboard') }}">后台管理</a>
