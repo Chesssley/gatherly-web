@@ -64,17 +64,18 @@ def _flash_email_code_send_result(sent, success_message="验证码已发送，�
 
 @auth_bp.route("/register/send-code", methods=["POST"])
 def send_register_code():
-    form = RegistrationForm()
     email = (request.form.get("email") or "").strip()
+    session["register_email_draft"] = email
+
     if not email:
         flash("请先填写邮箱。", "error")
-        return render_template("register.html", form=form)
+        return redirect(url_for("auth.register"))
     if len(email) > 120:
         flash("邮箱不能超过 120 个字符。", "error")
-        return render_template("register.html", form=form)
+        return redirect(url_for("auth.register"))
     if User.query.filter_by(email=email).first():
-        flash("该邮箱已被注册，请使用其他邮箱或直接登录", "error")
-        return render_template("register.html", form=form)
+        flash("该邮箱已被注册，请使用其他邮箱或直接登录。", "error")
+        return redirect(url_for("auth.register"))
 
     try:
         sent = send_verification_code(email, "register")
@@ -82,8 +83,11 @@ def send_register_code():
         db.session.rollback()
         flash("验证码发送失败，请稍后重试。", "error")
     else:
-        _flash_email_code_send_result(sent)
-    return render_template("register.html", form=form)
+        if sent:
+            flash("验证码已发送，请查收邮箱。", "success")
+        else:
+            flash("验证码发送失败，请稍后再试。", "error")
+    return redirect(url_for("auth.register"))
 
 
 @auth_bp.route("/account/email-code", methods=["POST"])
@@ -436,6 +440,9 @@ def register():
     POST：验证表单 → 密码加密 → 写入数据库 → 重定向到登录页
     """
     form = RegistrationForm()
+    if request.method == "POST":
+        session["register_email_draft"] = (request.form.get("email") or "").strip()
+    register_email_draft = session.get("register_email_draft", "")
 
     if form.validate_on_submit():
         username = form.username.data.strip()
@@ -446,17 +453,29 @@ def register():
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
             flash("该用户名已被注册，请选择其他用户名", "error")
-            return render_template("register.html", form=form)
+            return render_template(
+                "register.html",
+                form=form,
+                register_email_draft=register_email_draft,
+            )
 
         existing_email = User.query.filter_by(email=email).first()
         if existing_email:
             flash("该邮箱已被注册，请使用其他邮箱或直接登录", "error")
-            return render_template("register.html", form=form)
+            return render_template(
+                "register.html",
+                form=form,
+                register_email_draft=register_email_draft,
+            )
 
         email_code = request.form.get("email_code", "").strip()
         if not verify_email_code(email, "register", email_code):
             flash("邮箱验证码错误或已过期，请重新获取。", "error")
-            return render_template("register.html", form=form)
+            return render_template(
+                "register.html",
+                form=form,
+                register_email_draft=register_email_draft,
+            )
 
         hashed_password = generate_password_hash(form.password.data)
 
@@ -474,6 +493,7 @@ def register():
         try:
             db.session.add(new_user)
             db.session.commit()
+            session.pop("register_email_draft", None)
             flash("注册成功！现在可以登录了。", "success")
             return redirect(url_for("auth.login"))
         except Exception as e:
@@ -486,4 +506,8 @@ def register():
             else:
                 flash("注册失败，请稍后重试。", "error")
 
-    return render_template("register.html", form=form)
+    return render_template(
+        "register.html",
+        form=form,
+        register_email_draft=register_email_draft,
+    )

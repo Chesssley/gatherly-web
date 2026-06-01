@@ -30,7 +30,7 @@
             <!-- 邮箱 -->
             <div style="margin-bottom: 16px;">
                 {{ form.email.label(class="form-label") }}
-                {{ form.email(class="form-input", placeholder="用于接收通知和找回密码") }}
+                {{ form.email(class="form-input", placeholder="用于接收通知和找回密码", value=register_email_draft or request.form.get('email', '')) }}
                 {% for error in form.email.errors %}
                     <p class="form-error">{{ error }}</p>
                 {% endfor %}
