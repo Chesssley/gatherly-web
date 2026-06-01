@@ -262,22 +262,68 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initGlobalSearchSuggestions();
 
+  const dismissedBannerKey = "gatherlyDiscoveryBannerDismissed";
+  const isBannerDismissed = () => {
+    try {
+      if (window.localStorage?.getItem(dismissedBannerKey) === "1") {
+        return true;
+      }
+    } catch (error) {
+      // Fall through to the cookie check when localStorage is unavailable.
+    }
+    return document.cookie.split("; ").some(item => item === `${dismissedBannerKey}=1`);
+  };
+  const rememberBannerDismissed = () => {
+    try {
+      window.localStorage?.setItem(dismissedBannerKey, "1");
+    } catch (error) {
+      // Cookie fallback below keeps the dismissal persistent.
+    }
+    document.cookie = `${dismissedBannerKey}=1; max-age=31536000; path=/; SameSite=Lax`;
+  };
+
+  if (isBannerDismissed()) {
+    document.querySelectorAll(".meetup-create-banner").forEach(banner => {
+      banner.hidden = true;
+    });
+  }
+
+  document.querySelectorAll("[data-banner-dismiss]").forEach(button => {
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const banner = button.closest(".meetup-create-banner");
+      if (banner) {
+        banner.hidden = true;
+        rememberBannerDismissed();
+      }
+    });
+  });
+
   // UI-05: Meetup 风格分类导航和时间筛选。
   const discoverySection = document.querySelector(".discover-section");
   const categoryLinks = discoverySection?.querySelectorAll("[data-category]") || [];
   const timeFilters = discoverySection?.querySelectorAll("[data-time-filter]") || [];
+  const typeFilters = discoverySection?.querySelectorAll("[data-activity-type-filter]") || [];
   const discoveryCards = discoverySection?.querySelectorAll(".discover-card") || [];
   const filterParams = new URLSearchParams(window.location.search);
   const requestedCategory = filterParams.get("category") || "all";
   const requestedTime = filterParams.get("time") || "any";
+  const requestedType = filterParams.get("type") || "any";
   let activeCategory = Array.from(categoryLinks).some(link => link.dataset.category === requestedCategory)
     ? requestedCategory
     : "all";
   let activeTime = Array.from(timeFilters).some(filter => filter.dataset.timeFilter === requestedTime)
     ? requestedTime
     : "any";
+  let activeType = Array.from(typeFilters).some(filter => filter.dataset.activityTypeFilter === requestedType)
+    ? requestedType
+    : "any";
 
   const syncFilterUrl = () => {
+    if (!discoverySection) {
+      return;
+    }
     const url = new URL(window.location.href);
     if (activeCategory === "all") {
       url.searchParams.delete("category");
@@ -289,7 +335,32 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       url.searchParams.set("time", activeTime);
     }
+    if (activeType === "any") {
+      url.searchParams.delete("type");
+    } else {
+      url.searchParams.set("type", activeType);
+    }
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+
+    discoverySection?.querySelectorAll("[data-preserve-filter-link]").forEach(link => {
+      const linkUrl = new URL(link.dataset.baseHref || link.getAttribute("href") || window.location.href, window.location.origin);
+      if (activeCategory === "all") {
+        linkUrl.searchParams.delete("category");
+      } else {
+        linkUrl.searchParams.set("category", activeCategory);
+      }
+      if (activeTime === "any") {
+        linkUrl.searchParams.delete("time");
+      } else {
+        linkUrl.searchParams.set("time", activeTime);
+      }
+      if (activeType === "any") {
+        linkUrl.searchParams.delete("type");
+      } else {
+        linkUrl.searchParams.set("type", activeType);
+      }
+      link.setAttribute("href", `${linkUrl.pathname}${linkUrl.search}${linkUrl.hash}`);
+    });
   };
 
   const updateFilterStatus = () => {
@@ -297,13 +368,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!filterStatus) {
       return;
     }
-
-    const activeCategoryLink = discoverySection.querySelector(`[data-category="${activeCategory}"]`);
-    const activeTimeFilter = discoverySection.querySelector(`[data-time-filter="${activeTime}"]`);
-    const categoryLabel = activeCategoryLink?.textContent.trim() || "全部活动";
-    const timeLabel = activeTimeFilter?.textContent.trim() || "全部时间";
     filterStatus.innerHTML = "";
-    filterStatus.appendChild(document.createTextNode(`当前正在浏览：${categoryLabel} · ${timeLabel}`));
+    filterStatus.hidden = true;
 
     if (activeCategory !== "all" || activeTime !== "any") {
       const clearLink = document.createElement("a");
@@ -314,8 +380,10 @@ document.addEventListener("DOMContentLoaded", () => {
         event.preventDefault();
         activeCategory = "all";
         activeTime = "any";
+        activeType = "any";
         categoryLinks.forEach(item => item.classList.toggle("is-active", item.dataset.category === "all"));
         timeFilters.forEach(item => item.classList.toggle("is-active", item.dataset.timeFilter === "any"));
+        typeFilters.forEach(item => item.classList.toggle("is-active", item.dataset.activityTypeFilter === "any"));
         syncFilterUrl();
         applyActivityFilters();
       });
@@ -328,6 +396,7 @@ document.addEventListener("DOMContentLoaded", () => {
     discoveryCards.forEach(card => {
       const tags = (card.dataset.tags || "").split(",").map(tag => tag.trim());
       const time = card.dataset.time || "any";
+      const activityType = card.dataset.activityType || "offline";
       const categoryLink = discoverySection.querySelector(`[data-category="${activeCategory}"]`);
       const categoryTags = (categoryLink?.dataset.filterTags || "").split(",").filter(Boolean);
       const categoryMatches = activeCategory === "all"
@@ -336,7 +405,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const timeMatches = activeTime === "any"
         || time === activeTime
         || (activeTime === "week" && ["today", "tomorrow", "week", "weekend"].includes(time));
-      const isVisible = categoryMatches && timeMatches;
+      const typeMatches = activeType === "any" || activityType === activeType;
+      const isVisible = categoryMatches && timeMatches && typeMatches;
       card.style.display = isVisible ? "" : "none";
       if (isVisible) {
         visibleCount += 1;
@@ -371,6 +441,42 @@ document.addEventListener("DOMContentLoaded", () => {
       event.preventDefault();
       activeTime = filter.dataset.timeFilter || "any";
       timeFilters.forEach(item => item.classList.toggle("is-active", item === filter));
+      const filterMenu = filter.closest("[data-home-date-filter]");
+      if (filterMenu) {
+        const toggle = filterMenu.querySelector("[data-home-date-toggle]");
+        const popover = filterMenu.querySelector("[data-home-date-popover]");
+        if (toggle) {
+          const label = filter.textContent.trim();
+          toggle.firstChild.textContent = `${label} `;
+          toggle.setAttribute("aria-expanded", "false");
+        }
+        if (popover) {
+          popover.hidden = true;
+        }
+      }
+      syncFilterUrl();
+      applyActivityFilters();
+    });
+  });
+
+  typeFilters.forEach(filter => {
+    filter.addEventListener("click", event => {
+      event.preventDefault();
+      activeType = filter.dataset.activityTypeFilter || "any";
+      typeFilters.forEach(item => item.classList.toggle("is-active", item === filter));
+      const filterMenu = filter.closest(".meetup-filter-menu");
+      if (filterMenu) {
+        const toggle = filterMenu.querySelector("[data-activity-type-toggle]");
+        const popover = filterMenu.querySelector("[data-activity-type-popover]");
+        if (toggle) {
+          const label = filter.textContent.trim();
+          toggle.firstChild.textContent = `${label} `;
+          toggle.setAttribute("aria-expanded", "false");
+        }
+        if (popover) {
+          popover.hidden = true;
+        }
+      }
       syncFilterUrl();
       applyActivityFilters();
     });
@@ -378,8 +484,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
   categoryLinks.forEach(item => item.classList.toggle("is-active", item.dataset.category === activeCategory));
   timeFilters.forEach(item => item.classList.toggle("is-active", item.dataset.timeFilter === activeTime));
+  typeFilters.forEach(item => item.classList.toggle("is-active", item.dataset.activityTypeFilter === activeType));
+  const initialActiveTypeFilter = Array.from(typeFilters).find(item => item.dataset.activityTypeFilter === activeType);
+  if (initialActiveTypeFilter) {
+    const filterMenu = initialActiveTypeFilter.closest(".meetup-filter-menu");
+    const toggle = filterMenu?.querySelector("[data-activity-type-toggle]");
+    if (toggle) {
+      toggle.firstChild.textContent = `${initialActiveTypeFilter.textContent.trim()} `;
+    }
+  }
   syncFilterUrl();
   applyActivityFilters();
+
+  document.querySelectorAll("[data-activity-type-toggle]").forEach(toggle => {
+    const filterMenu = toggle.closest(".meetup-filter-menu");
+    const popover = filterMenu?.querySelector("[data-activity-type-popover]");
+    if (!popover) {
+      return;
+    }
+
+    toggle.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const willOpen = popover.hidden;
+      document.querySelectorAll("[data-activity-type-popover]").forEach(item => {
+        item.hidden = true;
+      });
+      popover.hidden = !willOpen;
+      toggle.setAttribute("aria-expanded", String(willOpen));
+    });
+
+    popover.addEventListener("click", event => {
+      event.stopPropagation();
+    });
+  });
 
   document.querySelectorAll("[data-home-date-filter]").forEach(filter => {
     const toggle = filter.querySelector("[data-home-date-toggle]");
@@ -432,6 +570,10 @@ document.addEventListener("DOMContentLoaded", () => {
         popover.hidden = true;
         toggle.setAttribute("aria-expanded", "false");
       }
+    });
+    document.querySelectorAll("[data-activity-type-popover]").forEach(popover => {
+      popover.hidden = true;
+      popover.closest(".meetup-filter-menu")?.querySelector("[data-activity-type-toggle]")?.setAttribute("aria-expanded", "false");
     });
   });
 

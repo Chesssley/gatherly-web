@@ -3820,6 +3820,285 @@ textarea.form-input {
   }
 }
 
+/* ============================================
+   Circles + activities discovery page (UI-10)
+   ============================================ */
+
+.circle-discovery-page {
+  padding: 40px 0 56px;
+  background: #ffffff;
+}
+
+.circle-discovery-hero {
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 22px;
+  margin-bottom: 22px;
+  padding: 24px 26px;
+  border: 0;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(226, 208, 255, 0.96), rgba(241, 232, 255, 0.72)),
+    #efe6ff;
+  box-shadow: none;
+}
+
+.circle-discovery-hero h1 {
+  margin: 2px 0 7px;
+  font-size: clamp(30px, 4vw, 44px);
+  letter-spacing: 0;
+}
+
+.circle-discovery-hero p {
+  max-width: 680px;
+  color: #3f334f;
+}
+
+.circle-discovery-hero .button {
+  min-height: 36px;
+  border-color: #111111;
+  border-radius: 999px;
+  background: #111111;
+  color: #ffffff;
+}
+
+.circle-discovery-hero .button:hover {
+  border-color: #333333;
+  background: #333333;
+}
+
+.circle-discovery-hero .circle-directory-actions {
+  margin-top: 16px;
+}
+
+.circle-discovery-hero .circle-directory-actions span {
+  color: #584a68;
+}
+
+.circle-discovery-hero .circle-directory-summary {
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: none;
+}
+
+.circle-discovery-hero .circle-directory-summary strong {
+  color: #111111;
+  font-size: 38px;
+  letter-spacing: 0;
+}
+
+.circle-discovery-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+}
+
+.circle-discovery-tabs span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #f4f2ee;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.circle-discovery-tabs .is-active {
+  background: #222222;
+  color: #ffffff;
+}
+
+.circle-discovery-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.circle-discovery-card {
+  border: 1px solid #e7e2da;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.circle-discovery-card:hover {
+  box-shadow: 0 8px 18px rgba(34, 34, 34, 0.1);
+  transform: translateY(-2px);
+}
+
+.circle-discovery-card .circle-card-cover {
+  height: 176px;
+  border-radius: 8px 8px 0 0;
+}
+
+.circle-discovery-card .circle-card-cover-overlay {
+  background: linear-gradient(180deg, rgba(24, 24, 24, 0.2), rgba(24, 24, 24, 0.04) 58%);
+}
+
+.circle-discovery-card .card-body {
+  gap: 10px;
+  padding: 14px;
+}
+
+.circle-discovery-card .circle-card-title {
+  font-size: 18px;
+}
+
+.circle-discovery-card .circle-description {
+  min-height: 46px;
+  margin-top: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.circle-discovery-card .circle-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding-top: 9px;
+}
+
+.circle-discovery-card .circle-meta p {
+  display: grid;
+  gap: 1px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #f7f5f1;
+}
+
+.circle-discovery-card .circle-meta strong {
+  font-size: 17px;
+  line-height: 1.1;
+}
+
+.circle-card-activity-block {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.circle-card-activity-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.circle-card-activity-heading a {
+  flex: 0 0 auto;
+  color: var(--color-primary-dark);
+}
+
+.circle-card-activity-heading a:hover {
+  color: var(--color-primary);
+}
+
+.circle-card-activity-list {
+  display: grid;
+  gap: 7px;
+}
+
+.circle-card-activity-item {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 9px;
+  border: 1px solid #ece7df;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.circle-card-activity-item:hover {
+  border-color: #d6ece5;
+  background: #f8fbfa;
+}
+
+.circle-card-activity-item .tag {
+  justify-self: start;
+  min-height: 22px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.circle-card-activity-item strong,
+.circle-card-activity-item small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.circle-card-activity-item strong {
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.circle-card-activity-item small,
+.circle-card-empty-activity {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.circle-card-empty-activity {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed #ddd5ca;
+  border-radius: 8px;
+  background: #fbfaf7;
+}
+
+.circle-card-actions {
+  margin-top: auto;
+}
+
+.circle-discovery-card .circle-action {
+  margin-top: 0;
+  border-radius: 999px;
+}
+
+@media (max-width: 1040px) {
+  .circle-discovery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .circle-discovery-hero {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+
+  .circle-discovery-hero .circle-directory-summary {
+    display: none;
+  }
+
+  .circle-discovery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .circle-discovery-card .circle-card-cover {
+    height: 168px;
+  }
+
+  .circle-discovery-card .circle-meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .circle-discovery-tabs span {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
 .account-settings-container {
   max-width: 760px;
 }
@@ -8778,5 +9057,696 @@ textarea.form-input {
   .user-card-actions form,
   .user-card-actions button {
     width: 100%;
+  }
+}
+
+/* ============================================
+   Meetup reference controls and cards (UI-10 follow-up)
+   ============================================ */
+
+.meetup-create-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 18px;
+  align-items: center;
+  min-height: 72px;
+  margin-bottom: 26px;
+  padding: 14px 18px 14px 24px;
+  border: 0;
+  border-radius: 18px;
+  background:
+    linear-gradient(90deg, rgba(222, 211, 255, 0.95), rgba(239, 232, 255, 0.9)),
+    #eee7ff;
+  color: #111111;
+}
+
+.meetup-create-banner[hidden] {
+  display: none;
+}
+
+.meetup-create-banner strong {
+  min-width: 0;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.meetup-banner-action {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: #1f1f25;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.meetup-banner-action:hover {
+  background: #000000;
+}
+
+.meetup-banner-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #67616f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 27px;
+  line-height: 1;
+}
+
+.circle-discovery-hero.meetup-create-banner {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 14px 18px 14px 24px;
+  box-shadow: none;
+}
+
+.meetup-discovery-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 0 18px;
+}
+
+.meetup-segment-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.meetup-segment-tabs a {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: #111111;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.meetup-segment-tabs a.is-active {
+  background: #ececef;
+}
+
+.meetup-filter-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.meetup-filter-actions[hidden],
+.filter-status[hidden] {
+  display: none;
+}
+
+.meetup-filter-menu {
+  position: relative;
+}
+
+.meetup-filter-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 16px;
+  border: 1px solid #dadadd;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111111;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.meetup-filter-button span {
+  display: inline-flex;
+  position: relative;
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  align-items: center;
+  justify-content: center;
+  margin-left: 1px;
+  color: currentColor;
+  font-size: 0;
+  line-height: 0;
+}
+
+.meetup-filter-button span::before {
+  position: absolute;
+  top: 43%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.7px solid currentColor;
+  border-bottom: 1.7px solid currentColor;
+  border-radius: 1px;
+  content: "";
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.meetup-filter-button:hover,
+.meetup-filter-button[aria-expanded="true"] {
+  border-color: #7d61d6;
+  background: #7657d5;
+  color: #ffffff;
+}
+
+.meetup-filter-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 90;
+  display: grid;
+  width: 236px;
+  padding: 12px;
+  border: 1px solid #dedee3;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.14);
+}
+
+.meetup-filter-popover[hidden] {
+  display: none;
+}
+
+.meetup-filter-popover a {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: #20202a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.meetup-filter-popover a:hover,
+.meetup-filter-popover a.is-active {
+  background: #f5f2ff;
+  color: #7657d5;
+}
+
+.meetup-filter-popover a.is-active::after {
+  color: #7657d5;
+  content: "•";
+  font-size: 20px;
+}
+
+.meetup-category-shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 24px;
+  border-bottom: 1px solid #e8e8eb;
+  background: #ffffff;
+}
+
+.meetup-category-rail.icon-category-nav {
+  gap: 30px;
+  min-width: 0;
+  padding: 6px 0 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.meetup-category-rail.icon-category-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.meetup-category-rail .icon-category {
+  flex: 0 0 92px;
+  min-height: 76px;
+  gap: 7px;
+  padding: 8px 0 13px;
+  color: #4b4b55;
+}
+
+.meetup-category-rail .icon-category:hover {
+  color: #111111;
+  transform: translateY(-1px);
+}
+
+.meetup-category-rail .icon-category.is-active {
+  color: #111111;
+  font-weight: 950;
+}
+
+.meetup-category-rail .icon-category.is-active::after {
+  height: 1px;
+  border-radius: 0;
+  background: #111111;
+}
+
+.meetup-category-rail .icon-category-symbol {
+  font-size: 23px;
+}
+
+.meetup-category-rail .icon-category-label {
+  max-width: 92px;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-scroll-arrow {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #24242a;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.category-scroll-arrow:hover {
+  background: #000000;
+}
+
+.home-event-card.discover-card,
+.home-group-event.discover-card {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.home-event-card.discover-card:hover,
+.home-group-event.discover-card:hover {
+  transform: none;
+}
+
+.activity-discovery-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 34px;
+}
+
+.activity-discovery-grid > .discover-card,
+.circle-discovery-grid > .circle-discovery-card {
+  display: grid;
+  grid-template-columns: minmax(180px, 44%) minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+  min-height: 164px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.activity-discovery-grid > .discover-card:hover,
+.circle-discovery-grid > .circle-discovery-card:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.activity-discovery-grid > .discover-card .card-image,
+.circle-discovery-grid > .circle-discovery-card .circle-card-cover {
+  width: 100%;
+  height: 164px;
+  min-height: 164px;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.activity-discovery-grid > .discover-card .card-body,
+.circle-discovery-grid > .circle-discovery-card .card-body {
+  min-width: 0;
+  padding: 4px 0 0;
+  background: transparent;
+}
+
+.activity-discovery-grid > .discover-card .card-title,
+.circle-discovery-grid > .circle-discovery-card .circle-card-title {
+  margin: 2px 0 5px;
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.activity-discovery-grid > .discover-card .card-meta,
+.activity-discovery-grid > .discover-card .card-tags,
+.activity-discovery-grid > .discover-card .card-activity-badges,
+.circle-discovery-grid > .circle-discovery-card .circle-card-kicker,
+.circle-discovery-grid > .circle-discovery-card .circle-card-activity-heading {
+  margin: 0;
+}
+
+.activity-discovery-grid > .discover-card .card-tags .tag,
+.circle-detail-intro .eyebrow,
+.circle-related-activity-card .tag {
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #f2f0ed;
+  color: #404047;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.activity-discovery-grid > .discover-card .card-meta p,
+.circle-discovery-grid > .circle-discovery-card .circle-description,
+.circle-card-activity-item small {
+  color: #4d5260;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.circle-discovery-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 34px;
+}
+
+.circle-discovery-grid > .circle-discovery-card .circle-meta {
+  display: flex;
+  gap: 14px;
+  padding: 0;
+  border: 0;
+}
+
+.circle-discovery-grid > .circle-discovery-card .circle-meta p {
+  padding: 0;
+  background: transparent;
+}
+
+.circle-discovery-grid > .circle-discovery-card .circle-card-activity-block {
+  display: none;
+}
+
+.circle-discovery-grid > .circle-discovery-card .circle-action {
+  width: auto;
+  min-height: 34px;
+  padding: 0 14px;
+}
+
+.meetup-category-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px 12px;
+  padding: 10px 0 2px;
+}
+
+.meetup-category-choice {
+  position: relative;
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px 4px 12px;
+  border-bottom: 1px solid transparent;
+  color: #5d5d66;
+  cursor: pointer;
+  text-align: center;
+}
+
+.meetup-category-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.meetup-category-choice:hover {
+  color: #111111;
+  background: #fafafa;
+}
+
+.meetup-category-choice:has(input:checked) {
+  border-bottom-color: #111111;
+  color: #111111;
+  font-weight: 900;
+}
+
+.meetup-category-choice .icon-category-symbol {
+  font-size: 23px;
+}
+
+.meetup-category-choice .icon-category-label {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .activity-discovery-grid,
+  .circle-discovery-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .meetup-create-banner,
+  .circle-discovery-hero.meetup-create-banner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    min-height: 64px;
+    padding: 12px 14px 12px 16px;
+    border-radius: 14px;
+  }
+
+  .meetup-banner-close {
+    display: none;
+  }
+
+  .meetup-discovery-controls {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .meetup-filter-actions {
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .meetup-filter-popover {
+    right: auto;
+    left: 0;
+  }
+
+  .meetup-category-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .category-scroll-arrow {
+    display: none;
+  }
+
+  .meetup-category-rail.icon-category-nav {
+    gap: 24px;
+    overflow-x: auto;
+  }
+
+  .meetup-category-rail .icon-category {
+    flex-basis: 84px;
+  }
+
+  .activity-discovery-grid > .discover-card,
+  .circle-discovery-grid > .circle-discovery-card {
+    grid-template-columns: minmax(132px, 42%) minmax(0, 1fr);
+    gap: 14px;
+    min-height: 130px;
+  }
+
+  .activity-discovery-grid > .discover-card .card-image,
+  .circle-discovery-grid > .circle-discovery-card .circle-card-cover {
+    height: 126px;
+    min-height: 126px;
+    border-radius: 14px;
+  }
+
+  .activity-discovery-grid > .discover-card .card-title,
+  .circle-discovery-grid > .circle-discovery-card .circle-card-title {
+    font-size: 18px;
+  }
+
+  .circle-discovery-grid > .circle-discovery-card .circle-meta {
+    display: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .activity-discovery-grid > .discover-card,
+  .circle-discovery-grid > .circle-discovery-card {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-discovery-grid > .discover-card .card-image,
+  .circle-discovery-grid > .circle-discovery-card .circle-card-cover {
+    height: 172px;
+  }
+
+  .meetup-category-picker {
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  }
+}
+
+.search-results-page.discover-section .search-results-heading {
+  margin-bottom: 22px;
+}
+
+.search-results-page.discover-section .search-results-heading h1,
+.circle-discovery-page .circle-directory-heading h1 {
+  margin: 0;
+  color: #101014;
+  font-size: clamp(28px, 4vw, 38px);
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.search-results-page.discover-section .search-result-section {
+  margin-top: 0;
+}
+
+.search-results-page.discover-section .activity-discovery-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.search-results-page.discover-section .activity-discovery-grid > .discover-card {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.search-results-page.discover-section .activity-discovery-grid > .discover-card:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.search-results-page.discover-section .activity-discovery-grid > .discover-card .card-image {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #edf2ef;
+}
+
+.search-results-page.discover-section .activity-discovery-grid > .discover-card .card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.search-results-page.discover-section .activity-discovery-grid > .discover-card .card-body {
+  gap: 6px;
+  padding: 12px 0 0;
+  background: transparent;
+}
+
+.search-results-page.discover-section .activity-discovery-grid > .discover-card .card-title {
+  margin: 0;
+  color: #101014;
+  font-size: 20px;
+  line-height: 1.22;
+  letter-spacing: 0;
+}
+
+.search-results-page.discover-section .activity-discovery-grid > .discover-card .card-meta {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  color: #4b5260;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.search-results-page.discover-section .activity-discovery-grid > .discover-card .card-meta p {
+  display: block;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-results-page.discover-section .activity-discovery-grid > .discover-card .card-tags,
+.search-results-page.discover-section .activity-discovery-grid > .discover-card .card-activity-badges {
+  display: none;
+}
+
+.search-results-page.discover-section .activity-discovery-grid > .discover-card .card-social {
+  margin-top: 4px;
+}
+
+.search-results-page.discover-section .activity-discovery-grid > .discover-card .card-attendee-summary {
+  color: #101014;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.search-results-page.discover-section .card-image-actions {
+  top: 10px;
+  right: 10px;
+  gap: 8px;
+}
+
+.search-results-page.discover-section .card-icon-button {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.94);
+  color: #111111;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  font-size: 18px;
+}
+
+.search-results-page.discover-section .favorite-button.is-active {
+  color: #e04f67;
+}
+
+@media (max-width: 980px) {
+  .search-results-page.discover-section .activity-discovery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .search-results-page.discover-section .activity-discovery-grid {
+    grid-template-columns: 1fr;
   }
 }
