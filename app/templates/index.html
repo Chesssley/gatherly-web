@@ -4,7 +4,7 @@
 
 {% block content %}
 {% macro activity_card(activity, detail_url, favorite_activity_id, demo=false) %}
-<article class="activity-card discover-card" tabindex="0" role="link" data-card-url="{{ detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
+<article class="activity-card discover-card" tabindex="0" role="link" data-card-url="{{ detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}" data-activity-type="{{ 'online' if activity.location and ('线上' in activity.location or 'Online' in activity.location or 'online' in activity.location) else 'offline' }}">
     <div class="card-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
         <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
              alt="{{ activity.title }}"
@@ -76,17 +76,82 @@
 {% endmacro %}
 
 {% if search_results_mode|default(false) %}
-<section class="section search-results-page">
+<section class="section search-results-page {% if browse_all_mode|default(false) %}circle-discovery-page discover-section{% endif %}">
     <div class="container">
+        {% if browse_all_mode|default(false) %}
+        <section class="meetup-create-banner" aria-label="创建同好圈">
+            <strong>创建你自己的同好圈，并开始组织活动吧！</strong>
+            <a class="meetup-banner-action" href="{{ url_for('circle.create_circle') if session.get('user_id') else url_for('auth.login', next=url_for('circle.create_circle')) }}">立即开始</a>
+            <button class="meetup-banner-close" type="button" aria-label="关闭提示" data-banner-dismiss>&times;</button>
+        </section>
+
+        <section class="meetup-discovery-controls" aria-label="活动筛选">
+            <div class="meetup-segment-tabs" role="tablist" aria-label="内容类型">
+                <a class="is-active" href="{{ url_for('activity.search', scope='activities') }}">活动</a>
+                <a href="{{ url_for('circle.circles') }}"
+                   data-preserve-filter-link
+                   data-base-href="{{ url_for('circle.circles') }}">同好圈</a>
+            </div>
+            <div class="meetup-filter-actions">
+                <div class="meetup-filter-menu" data-home-date-filter>
+                    <button class="meetup-filter-button" type="button" aria-expanded="false" data-home-date-toggle>
+                        {{ {'any':'任意时间','today':'今天','tomorrow':'明天','week':'本周','weekend':'本周末','month':'本月'}.get(selected_time, '任意时间') }} <span aria-hidden="true">&#8964;</span>
+                    </button>
+                    <div class="meetup-filter-popover" data-home-date-popover hidden>
+                        <a class="{% if selected_time == 'any' %}is-active{% endif %}" href="#" data-time-filter="any">任意时间</a>
+                        <a class="{% if selected_time == 'today' %}is-active{% endif %}" href="#" data-time-filter="today">今天</a>
+                        <a class="{% if selected_time == 'tomorrow' %}is-active{% endif %}" href="#" data-time-filter="tomorrow">明天</a>
+                        <a class="{% if selected_time == 'week' %}is-active{% endif %}" href="#" data-time-filter="week">本周</a>
+                        <a class="{% if selected_time == 'weekend' %}is-active{% endif %}" href="#" data-time-filter="weekend">本周末</a>
+                        <a class="{% if selected_time == 'month' %}is-active{% endif %}" href="#" data-time-filter="month">本月</a>
+                    </div>
+                </div>
+                <div class="meetup-filter-menu">
+                    <button class="meetup-filter-button" type="button" aria-expanded="false" data-activity-type-toggle>任意类型 <span aria-hidden="true">&#8964;</span></button>
+                    <div class="meetup-filter-popover" data-activity-type-popover hidden>
+                        <a class="is-active" href="#" data-activity-type-filter="any">任意类型</a>
+                        <a href="#" data-activity-type-filter="online">线上活动</a>
+                        <a href="#" data-activity-type-filter="offline">线下活动</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <nav class="meetup-category-shell" aria-label="活动分类导航">
+            <button class="category-scroll-arrow is-left" type="button" aria-label="向左滚动分类" onclick="this.parentElement.querySelector('.meetup-category-rail').scrollBy({left:-280,behavior:'smooth'})">&#8592;</button>
+            <div class="meetup-category-rail icon-category-nav">
+                <a class="icon-category {% if not selected_category %}is-active{% endif %}"
+                   href="#"
+                   data-category="all"
+                   data-filter-tags="">
+                    <span class="icon-category-symbol" aria-hidden="true">✨</span>
+                    <span class="icon-category-label">全部活动</span>
+                </a>
+                {% for category in interest_categories %}
+                <a class="icon-category {% if selected_category == category.tag %}is-active{% endif %}"
+                   href="#"
+                   data-category="{{ category.tag }}"
+                   data-filter-tags="{{ ([category.tag] + category.aliases)|join(',') }}">
+                    <span class="icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
+                    <span class="icon-category-label">{{ category.tag }}</span>
+                </a>
+                {% endfor %}
+            </div>
+            <button class="category-scroll-arrow is-right" type="button" aria-label="向右滚动分类" onclick="this.parentElement.querySelector('.meetup-category-rail').scrollBy({left:280,behavior:'smooth'})">&#8594;</button>
+        </nav>
+        {% endif %}
+
         <div class="search-results-heading">
-            <p class="eyebrow">Search</p>
-            <h1>{% if browse_all_mode|default(false) %}全部活动{% else %}搜索结果：{{ search_query }}{% endif %}</h1>
             {% if browse_all_mode|default(false) %}
-            <p>按时间顺序浏览 Gatherly 当前开放报名的活动。</p>
-            {% elif search_city %}
+            <h1>活动</h1>
+            {% else %}
+            <p class="eyebrow">Search</p>
+            <h1>搜索结果：{{ search_query }}</h1>
+            {% if search_city %}
             <p>已限定城市 / 地区：{{ search_city }}</p>
             {% else %}
             <p>活动、同好圈和公开用户中与关键词相关的内容。</p>
+            {% endif %}
             {% endif %}
         </div>
 
@@ -96,10 +161,12 @@
         {% endif %}
 
         <section class="search-result-section" aria-labelledby="search-activities-title">
+            {% if not browse_all_mode|default(false) %}
             <div class="search-result-section-heading">
                 <h2 id="search-activities-title">活动</h2>
                 <span>{{ activities|length }}</span>
             </div>
+            {% endif %}
             {% if activities %}
             <div class="card-grid activity-discovery-grid">
                 {% for activity in activities %}
@@ -109,8 +176,12 @@
             {% else %}
             <p class="search-empty-text">未找到相关内容</p>
             {% endif %}
+            {% if browse_all_mode|default(false) %}
+            <p class="no-match-tip" hidden>暂无匹配活动，试试其他分类或时间。</p>
+            {% endif %}
         </section>
 
+        {% if not browse_all_mode|default(false) %}
         <section class="search-result-section" aria-labelledby="search-circles-title">
             <div class="search-result-section-heading">
                 <h2 id="search-circles-title">同好圈</h2>
@@ -158,6 +229,7 @@
             <p class="search-empty-text">未找到相关内容</p>
             {% endif %}
         </section>
+        {% endif %}
     </div>
 </section>
 {% else %}

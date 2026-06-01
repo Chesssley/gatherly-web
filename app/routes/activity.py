@@ -73,22 +73,51 @@ USER_REVIEW_FIELDS = (
 )
 
 OFFICIAL_INTEREST_CATEGORIES = [
-    {"icon": "📷", "tag": "影像摄影"},
-    {"icon": "🏃", "tag": "运动户外"},
-    {"icon": "☕", "tag": "咖啡茶饮"},
-    {"icon": "📚", "tag": "阅读出版"},
-    {"icon": "🎨", "tag": "手作艺术"},
-    {"icon": "🎵", "tag": "音乐演出"},
-    {"icon": "🎬", "tag": "观影戏剧"},
-    {"icon": "🏙️", "tag": "城市探索"},
-    {"icon": "🎲", "tag": "游戏桌游"},
-    {"icon": "💻", "tag": "科技数码"},
-    {"icon": "🍳", "tag": "美食烘焙"},
-    {"icon": "🤝", "tag": "公益志愿"},
+    {"icon": "👥", "tag": "新同好圈", "aliases": []},
+    {"icon": "🎁", "tag": "来自我的同好圈", "aliases": []},
+    {"icon": "🎉", "tag": "社交活动", "aliases": ["咖啡茶饮", "美食烘焙"]},
+    {"icon": "🎨", "tag": "兴趣爱好", "aliases": ["影像摄影", "摄影影像", "手作艺术", "咖啡茶饮", "美食烘焙"]},
+    {"icon": "⚽", "tag": "运动健身", "aliases": ["运动户外"]},
+    {"icon": "🌲", "tag": "旅行与户外", "aliases": ["运动户外", "城市探索"]},
+    {"icon": "💼", "tag": "职业与商业", "aliases": []},
+    {"icon": "💻", "tag": "科技", "aliases": ["科技数码"]},
+    {"icon": "🏙️", "tag": "社区与环境", "aliases": ["城市探索", "公益志愿"]},
+    {"icon": "🌐", "tag": "身份与语言", "aliases": []},
+    {"icon": "🎮", "tag": "游戏", "aliases": ["游戏桌游"]},
+    {"icon": "🎶", "tag": "舞蹈", "aliases": []},
+    {"icon": "💗", "tag": "支持与辅导", "aliases": []},
+    {"icon": "🎵", "tag": "音乐", "aliases": ["音乐演出"]},
+    {"icon": "💜", "tag": "健康与身心", "aliases": []},
+    {"icon": "🎭", "tag": "艺术与文化", "aliases": ["影像摄影", "摄影影像", "手作艺术", "观影戏剧", "阅读出版"]},
+    {"icon": "🔬", "tag": "科学与教育", "aliases": []},
+    {"icon": "🐱", "tag": "宠物与动物", "aliases": []},
+    {"icon": "🙏", "tag": "宗教与修养", "aliases": []},
+    {"icon": "✍️", "tag": "写作", "aliases": ["阅读出版"]},
+    {"icon": "👨‍👩‍👧", "tag": "父母与家庭", "aliases": []},
+    {"icon": "🏛️", "tag": "社会运动与政治", "aliases": []},
 ]
 OFFICIAL_INTEREST_TAGS = [category["tag"] for category in OFFICIAL_INTEREST_CATEGORIES]
+INTEREST_CATEGORY_ALIASES = {
+    category["tag"]: [category["tag"], *category.get("aliases", [])]
+    for category in OFFICIAL_INTEREST_CATEGORIES
+}
+LEGACY_INTEREST_TAG_MAP = {
+    alias: category["tag"]
+    for category in OFFICIAL_INTEREST_CATEGORIES
+    for alias in category.get("aliases", [])
+}
 
-DEFAULT_ACTIVITY_TAG = "城市探索"
+DEFAULT_ACTIVITY_TAG = "兴趣爱好"
+
+
+def _canonical_interest_tag(tag):
+    if tag in OFFICIAL_INTEREST_TAGS:
+        return tag
+    return LEGACY_INTEREST_TAG_MAP.get(tag, tag)
+
+
+def _interest_filter_tags(tag):
+    return INTEREST_CATEGORY_ALIASES.get(tag, [tag])
 
 
 def _available_activity_circles():
@@ -111,11 +140,12 @@ def _validated_circle_id(raw_circle_id):
 
 
 def _selected_activity_tags():
-    primary_tag = request.form.get("primary_tag", "").strip()
+    primary_tag = _canonical_interest_tag(request.form.get("primary_tag", "").strip())
     selected_tags = []
     if primary_tag in OFFICIAL_INTEREST_TAGS:
         selected_tags.append(primary_tag)
     for tag in request.form.getlist("tags"):
+        tag = _canonical_interest_tag(tag)
         if tag in OFFICIAL_INTEREST_TAGS and tag not in selected_tags:
             selected_tags.append(tag)
     return selected_tags
@@ -449,8 +479,13 @@ def _activity_to_summary(
     attendee_previews=None,
     rating_stats=None,
 ):
-    tags = _split_tags(activity.tags)
-    category = tags[0] if tags else DEFAULT_ACTIVITY_TAG
+    raw_tags = _split_tags(activity.tags)
+    category = _canonical_interest_tag(raw_tags[0]) if raw_tags else DEFAULT_ACTIVITY_TAG
+    tags = []
+    for tag in raw_tags or [category]:
+        for item in (tag, _canonical_interest_tag(tag)):
+            if item and item not in tags:
+                tags.append(item)
     heat_score = _activity_heat_score(activity, registration_count, favorite_count)
     current_people = (activity.initial_participants or 0) + registration_count
     attendee_previews = attendee_previews or []
@@ -669,6 +704,12 @@ def search():
     query_text = _normalized_search_query()
     city_query = request.args.get("city", "").strip()[:SEARCH_QUERY_MAX_LENGTH]
     browse_all_mode = request.args.get("scope") == "activities"
+    selected_category = _canonical_interest_tag(request.args.get("category", "").strip())
+    if selected_category not in OFFICIAL_INTEREST_TAGS:
+        selected_category = ""
+    selected_time = request.args.get("time", "any").strip() or "any"
+    if selected_time not in {"any", "today", "tomorrow", "week", "weekend", "month"}:
+        selected_time = "any"
     if not query_text and not browse_all_mode:
         return redirect(url_for("activity.index"))
 
@@ -681,6 +722,12 @@ def search():
         activity_query = activity_query.filter(
             or_(Activity.city.ilike(city_pattern), Activity.location.ilike(city_pattern))
         )
+    if selected_category:
+        category_filters = [
+            Activity.tags.ilike(f"%{tag}%")
+            for tag in _interest_filter_tags(selected_category)
+        ]
+        activity_query = activity_query.filter(or_(*category_filters))
     db_activities = _safe_search_rows(
         activity_query.order_by(Activity.start_time.asc(), Activity.id.desc()),
         SEARCH_RESULT_ACTIVITY_LIMIT,
@@ -707,6 +754,18 @@ def search():
         )
         for activity in db_activities
     ]
+    if selected_time != "any":
+        activities = [
+            activity
+            for activity in activities
+            if (
+                activity["time_filter"] == selected_time
+                or (
+                    selected_time == "week"
+                    and activity["time_filter"] in {"today", "tomorrow", "week", "weekend"}
+                )
+            )
+        ]
 
     circles = []
     users = []
@@ -748,8 +807,8 @@ def search():
         interest_categories=OFFICIAL_INTEREST_CATEGORIES,
         interest_tags=OFFICIAL_INTEREST_TAGS,
         selected_tag="",
-        selected_category="",
-        selected_time="any",
+        selected_category=selected_category,
+        selected_time=selected_time,
         visible_tag_count=len(OFFICIAL_INTEREST_TAGS),
         favorite_activity_ids=favorite_activity_ids,
     )
@@ -762,6 +821,7 @@ def index():
         or request.args.get("tag", "").strip()
     )
     selected_time = request.args.get("time", "any").strip() or "any"
+    selected_category = _canonical_interest_tag(selected_category)
     if selected_category not in OFFICIAL_INTEREST_TAGS:
         selected_category = ""
     if selected_time not in {"any", "today", "tomorrow", "week", "weekend", "month"}:
@@ -772,7 +832,11 @@ def index():
     featured_db_activities = Activity.query.filter(Activity.status == "open").all()
     query = Activity.query
     if selected_category:
-        query = query.filter(Activity.tags.ilike(f"%{selected_category}%"))
+        category_filters = [
+            Activity.tags.ilike(f"%{tag}%")
+            for tag in _interest_filter_tags(selected_category)
+        ]
+        query = query.filter(or_(*category_filters))
     db_activities = query.all()
     reg_counts = dict(
         db.session.query(Registration.activity_id, func.count(Registration.id))

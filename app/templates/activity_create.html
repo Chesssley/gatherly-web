@@ -76,25 +76,29 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="primary_tag" class="form-label">兴趣探索分类 <span class="form-required">*</span></label>
-                    <select id="primary_tag" name="primary_tag" class="form-input" required>
-                        <option value="">请选择活动主分类</option>
-                        {% set selected_primary_tag = request.form.get('primary_tag') or (request.form.getlist('tags')[0] if request.form.getlist('tags') else '') %}
+                    <span class="form-label">兴趣探索分类 <span class="form-required">*</span></span>
+                    {% set selected_primary_tag = request.form.get('primary_tag') or (request.form.getlist('tags')[0] if request.form.getlist('tags') else '') %}
+                    <div class="meetup-category-picker" role="radiogroup" aria-label="活动主分类">
                         {% for category in interest_categories %}
-                        <option value="{{ category.tag }}" {% if selected_primary_tag == category.tag %}selected{% endif %}>{{ category.icon }} {{ category.tag }}</option>
+                        <label class="meetup-category-choice">
+                            <input type="radio" name="primary_tag" value="{{ category.tag }}" {% if selected_primary_tag == category.tag %}checked{% endif %} required>
+                            <span class="icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
+                            <span class="icon-category-label">{{ category.tag }}</span>
+                        </label>
                         {% endfor %}
-                    </select>
+                    </div>
                     <p class="form-hint">用于发现页筛选和活动卡片展示。</p>
                 </div>
 
                 <fieldset class="form-group">
                     <legend class="form-label">补充兴趣标签</legend>
                     <p class="form-hint">可选。可以补充更多相关兴趣，让用户更容易理解活动内容。</p>
-                    <div class="tags-grid">
+                    <div class="meetup-category-picker is-checkbox-list">
                         {% for category in interest_categories %}
-                        <label class="tag-checkbox activity-interest-tag">
+                        <label class="meetup-category-choice">
                             <input type="checkbox" name="tags" value="{{ category.tag }}" {% if category.tag in request.form.getlist('tags') and category.tag != selected_primary_tag %}checked{% endif %}>
-                            <span><span class="activity-interest-icon" aria-hidden="true">{{ category.icon }}</span>{{ category.tag }}</span>
+                            <span class="icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
+                            <span class="icon-category-label">{{ category.tag }}</span>
                         </label>
                         {% endfor %}
                     </div>

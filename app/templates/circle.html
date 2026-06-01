@@ -3,7 +3,7 @@
 {% block title %}{% if create_mode %}创建同好圈{% else %}同好圈{% endif %} - Gatherly{% endblock %}
 
 {% block content %}
-<section class="section">
+<section class="section {% if not create_mode %}circle-discovery-page discover-section{% endif %}">
     <div class="container">
         {% if create_mode %}
         <div class="page-title">
@@ -62,38 +62,85 @@
             </form>
         </div>
         {% else %}
-        <div class="circle-directory-hero">
-            <div>
-                <p class="eyebrow">Gatherly Circles</p>
-                <h1>找到你的同好圈</h1>
-                <p>从共同兴趣开始认识新朋友。浏览社区动态，加入讨论，也可以创建属于你的长期交流空间。</p>
-                <div class="circle-directory-actions">
-                    {% if session.get("user_id") %}
-                    <a class="button" href="{{ url_for('circle.create_circle') }}">创建同好圈</a>
-                    {% else %}
-                    <a class="button" href="{{ url_for('auth.login', next=request.url) }}">登录后加入圈子</a>
-                    {% endif %}
-                    <span>开放浏览 · 加入后可发布帖子</span>
-                </div>
-            </div>
-            <div class="circle-directory-summary" aria-label="同好圈概览">
-                <span>兴趣社区</span>
-                <strong>{{ circles | length }}</strong>
-                <p>围绕线下活动与真实交流持续生长。</p>
-            </div>
-        </div>
+        <section class="meetup-create-banner circle-directory-hero circle-discovery-hero" aria-label="创建同好圈">
+            <strong>创建你自己的同好圈，并开始组织活动吧！</strong>
+            {% if session.get("user_id") %}
+            <a class="meetup-banner-action" href="{{ url_for('circle.create_circle') }}">立即开始</a>
+            {% else %}
+            <a class="meetup-banner-action" href="{{ url_for('auth.login', next=request.url) }}">立即开始</a>
+            {% endif %}
+            <button class="meetup-banner-close" type="button" aria-label="关闭提示" data-banner-dismiss>&times;</button>
+        </section>
 
         {% if circles %}
-        <div class="circle-directory-heading">
-            <div>
-                <p class="eyebrow">Discover Communities</p>
-                <h2>浏览社区</h2>
+        {% set circle_categories = [
+            {'icon':'👥','tag':'新同好圈','aliases':'新同好圈'},
+            {'icon':'🎉','tag':'社交活动','aliases':'社交活动,咖啡茶饮,美食烘焙'},
+            {'icon':'🎨','tag':'兴趣爱好','aliases':'兴趣爱好,影像摄影,摄影影像,手作艺术,咖啡茶饮,美食烘焙'},
+            {'icon':'⚽','tag':'运动健身','aliases':'运动健身,运动户外'},
+            {'icon':'🌲','tag':'旅行与户外','aliases':'旅行与户外,运动户外,城市探索'},
+            {'icon':'💼','tag':'职业与商业','aliases':'职业与商业'},
+            {'icon':'💻','tag':'科技','aliases':'科技,科技数码'},
+            {'icon':'🏙️','tag':'社区与环境','aliases':'社区与环境,城市探索,公益志愿'},
+            {'icon':'🌐','tag':'身份与语言','aliases':'身份与语言'},
+            {'icon':'🎮','tag':'游戏','aliases':'游戏,游戏桌游'},
+            {'icon':'🎶','tag':'舞蹈','aliases':'舞蹈'},
+            {'icon':'💗','tag':'支持与辅导','aliases':'支持与辅导'},
+            {'icon':'🎵','tag':'音乐','aliases':'音乐,音乐演出'},
+            {'icon':'💜','tag':'健康与身心','aliases':'健康与身心'},
+            {'icon':'🎭','tag':'艺术与文化','aliases':'艺术与文化,影像摄影,摄影影像,手作艺术,观影戏剧,阅读出版'},
+            {'icon':'🔬','tag':'科学与教育','aliases':'科学与教育'},
+            {'icon':'🐱','tag':'宠物与动物','aliases':'宠物与动物'},
+            {'icon':'🙏','tag':'宗教与修养','aliases':'宗教与修养'},
+            {'icon':'✍️','tag':'写作','aliases':'写作,阅读出版'},
+            {'icon':'👨‍👩‍👧','tag':'父母与家庭','aliases':'父母与家庭'},
+            {'icon':'🏛️','tag':'社会运动与政治','aliases':'社会运动与政治'}
+        ] %}
+        <section class="meetup-discovery-controls" aria-label="同好圈筛选">
+            <div class="meetup-segment-tabs" role="tablist" aria-label="内容类型">
+                <a href="{{ url_for('activity.search', scope='activities') }}"
+                   data-preserve-filter-link
+                   data-base-href="{{ url_for('activity.search', scope='activities') }}">活动</a>
+                <a class="is-active" href="{{ url_for('circle.circles') }}">同好圈</a>
             </div>
-            <p>精选与热门圈子会优先展示。</p>
+            <div class="meetup-filter-actions" hidden>
+                <div class="meetup-filter-menu" data-home-date-filter>
+                    <button class="meetup-filter-button" type="button" aria-expanded="false" data-home-date-toggle>任意时间 <span aria-hidden="true">&#8964;</span></button>
+                    <div class="meetup-filter-popover" data-home-date-popover hidden>
+                        <a class="is-active" href="#" data-time-filter="any">任意时间</a>
+                        <a href="#" data-time-filter="today">今天</a>
+                        <a href="#" data-time-filter="tomorrow">明天</a>
+                        <a href="#" data-time-filter="week">本周</a>
+                        <a href="#" data-time-filter="weekend">本周末</a>
+                        <a href="#" data-time-filter="month">本月</a>
+                    </div>
+                </div>
+                <button class="meetup-filter-button" type="button">任意类型 <span aria-hidden="true">&#8964;</span></button>
+            </div>
+        </section>
+
+        <nav class="meetup-category-shell" aria-label="同好圈分类导航">
+            <button class="category-scroll-arrow is-left" type="button" aria-label="向左滚动分类" onclick="this.parentElement.querySelector('.meetup-category-rail').scrollBy({left:-280,behavior:'smooth'})">&#8592;</button>
+            <div class="meetup-category-rail icon-category-nav">
+                <a class="icon-category is-active" href="#" data-category="all" data-filter-tags="">
+                    <span class="icon-category-symbol" aria-hidden="true">✨</span>
+                    <span class="icon-category-label">全部同好圈</span>
+                </a>
+                {% for category in circle_categories %}
+                <a class="icon-category" href="#" data-category="{{ category.tag }}" data-filter-tags="{{ category.aliases }}">
+                    <span class="icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
+                    <span class="icon-category-label">{{ category.tag }}</span>
+                </a>
+                {% endfor %}
+            </div>
+            <button class="category-scroll-arrow is-right" type="button" aria-label="向右滚动分类" onclick="this.parentElement.querySelector('.meetup-category-rail').scrollBy({left:280,behavior:'smooth'})">&#8594;</button>
+        </nav>
+        <div class="circle-directory-heading">
+            <h1>同好圈</h1>
         </div>
-        <div class="card-grid circle-grid">
+        <div class="card-grid circle-grid circle-discovery-grid">
             {% for circle in circles %}
-            <article class="activity-card circle-card">
+            <article class="activity-card circle-card circle-discovery-card discover-card" data-tags="{{ circle.tag or '兴趣爱好' }},{{ circle.name }}" data-time="any">
                 <a class="circle-card-cover" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">
                     <img src="{{ url_for('static', filename=circle.cover_image_url) }}" alt="{{ circle.name }} cover">
                     <span class="circle-card-cover-overlay"></span>
@@ -116,14 +163,38 @@
                     <div class="card-meta circle-meta">
                         <p><strong>{{ circle.member_count }}</strong><span>成员</span></p>
                         <p><strong>{{ circle.post_count | default(0) }}</strong><span>帖子</span></p>
+                        <p><strong>{{ circle.recent_activity_count | default(0) }}</strong><span>近期活动</span></p>
                     </div>
-                    <a class="button button-small circle-action" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">
-                        查看圈子
-                    </a>
+                    <div class="circle-card-activity-block">
+                        <div class="circle-card-activity-heading">
+                            <span>圈内近期活动</span>
+                            <a href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}#circle-related-activities-title">查看全部</a>
+                        </div>
+                        {% if circle.recent_activities %}
+                        <div class="circle-card-activity-list">
+                            {% for activity in circle.recent_activities %}
+                            <a class="circle-card-activity-item" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
+                                <span class="tag">{{ activity.category }}</span>
+                                <strong>{{ activity.title }}</strong>
+                                <small>{{ activity.time }} · {{ activity.location }}</small>
+                                <small>{{ activity.current_people }} 人已报名{% if activity.max_participants %} / 上限 {{ activity.max_participants }} 人{% endif %}</small>
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="circle-card-empty-activity">暂无近期活动，可加入后发起活动</p>
+                        {% endif %}
+                    </div>
+                    <div class="circle-card-actions">
+                        <a class="button button-small circle-action" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">
+                            {% if circle.can_post %}进入圈内动态{% else %}先加入圈子{% endif %}
+                        </a>
+                    </div>
                 </div>
             </article>
             {% endfor %}
         </div>
+        <p class="no-match-tip" hidden>暂无匹配的同好圈，试试其他分类。</p>
         {% else %}
         <div class="empty-state">
             <p>暂时还没有同好圈，稍后再来看看。</p>

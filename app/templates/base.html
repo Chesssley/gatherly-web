@@ -33,15 +33,6 @@
           </svg>
           <span class="sr-only">发布活动</span>
         </a>
-        <a class="nav-icon-btn" href="{{ url_for('circle.circles') }}" aria-label="同好圈">
-          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"></path>
-            <path d="M16 13a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
-            <path d="M3 21a5 5 0 0 1 10 0"></path>
-            <path d="M12.5 21a4.5 4.5 0 0 1 8.5-2"></path>
-          </svg>
-          <span class="sr-only">同好圈</span>
-        </a>
         {% if session.get('user_id') %}
           <a class="nav-icon-btn nav-notification-link" href="{{ url_for('messages.message_list') }}" aria-label="私信{% if unread_direct_message_count %}，{{ unread_direct_message_count }} 条未读{% endif %}">
             <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">

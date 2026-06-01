@@ -410,6 +410,68 @@ def _decorate_circle(circle):
     return circle
 
 
+def _activity_category(activity):
+    tags = [tag.strip() for tag in (activity.tags or "").split(",") if tag.strip()]
+    return tags[0] if tags else "圈内活动"
+
+
+def _activity_time_label(activity):
+    return activity.start_time.strftime("%m月%d日 %H:%M") if activity.start_time else "时间待定"
+
+
+def _activity_place_label(activity):
+    return activity.location or activity.city or "地点待确认"
+
+
+def _build_circle_activity_summaries(circle_ids, per_circle_limit=3):
+    if not circle_ids:
+        return {}, {}
+
+    now = datetime.utcnow()
+    activity_rows = (
+        Activity.query.filter(
+            Activity.status == "open",
+            Activity.circle_id.in_(circle_ids),
+            (Activity.start_time.is_(None)) | (Activity.start_time >= now),
+        )
+        .order_by(Activity.start_time.asc(), Activity.id.desc())
+        .all()
+    )
+    activity_ids = [activity.id for activity in activity_rows]
+    registration_counts = {}
+    if activity_ids:
+        registration_counts = dict(
+            db.session.query(Registration.activity_id, func.count(Registration.id))
+            .filter(
+                Registration.activity_id.in_(activity_ids),
+                Registration.status != "cancelled",
+            )
+            .group_by(Registration.activity_id)
+            .all()
+        )
+
+    summaries_by_circle = {circle_id: [] for circle_id in circle_ids}
+    counts_by_circle = {circle_id: 0 for circle_id in circle_ids}
+    for activity in activity_rows:
+        counts_by_circle[activity.circle_id] = counts_by_circle.get(activity.circle_id, 0) + 1
+        if len(summaries_by_circle.setdefault(activity.circle_id, [])) >= per_circle_limit:
+            continue
+        current_people = (activity.initial_participants or 0) + registration_counts.get(activity.id, 0)
+        summaries_by_circle[activity.circle_id].append(
+            {
+                "id": activity.id,
+                "title": activity.title,
+                "time": _activity_time_label(activity),
+                "location": _activity_place_label(activity),
+                "category": _activity_category(activity),
+                "current_people": current_people,
+                "max_participants": activity.max_participants,
+            }
+        )
+
+    return summaries_by_circle, counts_by_circle
+
+
 def _get_circle(circle_id):
     _sync_system_circles()
     circle = Circle.query.get(circle_id)
@@ -547,10 +609,16 @@ def circles():
     _sync_system_circles()
     circle_rows = Circle.query.filter_by(status="active").all()
     decorated = [_decorate_circle(circle) for circle in circle_rows]
+    circle_ids = [circle.id for circle in decorated]
+    activities_by_circle, activity_counts_by_circle = _build_circle_activity_summaries(circle_ids)
+    for circle in decorated:
+        circle.recent_activities = activities_by_circle.get(circle.id, [])
+        circle.recent_activity_count = activity_counts_by_circle.get(circle.id, 0)
     decorated.sort(
         key=lambda circle: (
             circle.is_pinned,
             circle.pinned_at or datetime.min,
+            circle.recent_activity_count,
             circle.heat_score,
             circle.member_count,
             circle.post_count,
