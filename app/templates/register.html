@@ -11,11 +11,12 @@
     <div class="form-card" style="margin-top: 24px;">
         <form method="POST">
             {{ form.hidden_tag() }}
+            {% set draft = register_form_draft or {} %}
 
             <!-- 账号 ID / 登录账号 -->
             <div style="margin-bottom: 16px;">
                 <label for="{{ form.username.id }}" class="form-label">账号 ID / 登录账号</label>
-                {{ form.username(class="form-input", placeholder="用于登录的唯一用户名") }}
+                {{ form.username(class="form-input", placeholder="用于登录的唯一用户名", value=draft.get('username', request.form.get('username', ''))) }}
                 {% for error in form.username.errors %}
                     <p class="form-error">{{ error }}</p>
                 {% endfor %}
@@ -24,13 +25,13 @@
             <!-- 昵称 -->
             <div style="margin-bottom: 16px;">
                 <label for="nickname" class="form-label">昵称</label>
-                <input type="text" id="nickname" name="nickname" class="form-input" placeholder="用于页面展示，可与登录账号不同">
+                <input type="text" id="nickname" name="nickname" class="form-input" value="{{ draft.get('nickname', request.form.get('nickname', '')) }}" placeholder="用于页面展示，可与登录账号不同">
             </div>
 
             <!-- 邮箱 -->
             <div style="margin-bottom: 16px;">
                 {{ form.email.label(class="form-label") }}
-                {{ form.email(class="form-input", placeholder="用于接收通知和找回密码", value=register_email_draft or request.form.get('email', '')) }}
+                {{ form.email(class="form-input", placeholder="用于接收通知和找回密码", value=draft.get('email', request.form.get('email', ''))) }}
                 {% for error in form.email.errors %}
                     <p class="form-error">{{ error }}</p>
                 {% endfor %}
@@ -39,7 +40,7 @@
             <!-- 城市 -->
             <div style="margin-bottom: 16px;">
                 <label for="city" class="form-label">城市</label>
-                <input type="text" id="city" name="city" class="form-input" maxlength="80" value="{{ request.form.get('city', '') }}" placeholder="可选，例如：上海">
+                <input type="text" id="city" name="city" class="form-input" maxlength="80" value="{{ draft.get('city', request.form.get('city', '')) }}" placeholder="可选，例如：上海">
                 <p class="form-hint">城市可稍后在个人主页修改，不会自动开启“附近的人”。</p>
             </div>
 

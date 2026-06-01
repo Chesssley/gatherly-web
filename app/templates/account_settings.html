@@ -5,6 +5,9 @@
 {% block content %}
 <section class="section">
   <div class="container account-settings-container">
+    {% set active_panel = account_settings_active_panel %}
+    {% set change_email_open = active_panel == 'change-email-panel' %}
+    {% set change_password_open = active_panel == 'change-password-panel' %}
     <a class="back-link" href="{{ url_for('profile.my_profile') }}">返回个人主页</a>
     <h1>账号设置</h1>
 
@@ -14,17 +17,17 @@
           <h2 id="change-email-title">更改邮箱</h2>
           <p>当前邮箱：{{ user.email }}。修改邮箱前需要验证新邮箱和当前密码。</p>
         </div>
-        <button class="button button-secondary" type="button" data-account-action-toggle="change-email-panel" aria-expanded="false" aria-controls="change-email-panel">更改邮箱</button>
+        <button class="button button-secondary" type="button" data-account-action-toggle="change-email-panel" aria-expanded="{{ 'true' if change_email_open else 'false' }}" aria-controls="change-email-panel">更改邮箱</button>
       </section>
 
-      <div class="account-action-panel" id="change-email-panel" data-account-action-panel hidden>
+      <div class="account-action-panel" id="change-email-panel" data-account-action-panel {% if not change_email_open %}hidden{% endif %}>
         <div class="form-card">
           <h2>更改邮箱</h2>
           <form method="post" action="{{ url_for('auth.change_email') }}">
             <input type="hidden" name="next" value="{{ url_for('auth.account_settings') }}">
             <div class="form-group">
               <label class="form-label" for="email">新邮箱</label>
-              <input class="form-input" id="email" name="email" type="email" maxlength="120" autocomplete="email" required>
+              <input class="form-input" id="email" name="email" type="email" maxlength="120" autocomplete="email" value="{{ account_change_email_draft or '' }}" required>
             </div>
             <div class="form-group">
               <label class="form-label" for="email_verification_code">新邮箱验证码</label>
@@ -47,10 +50,10 @@
           <h2 id="change-password-title">更改密码</h2>
           <p>修改密码需要当前密码，并通过当前邮箱接收验证码。</p>
         </div>
-        <button class="button button-secondary" type="button" data-account-action-toggle="change-password-panel" aria-expanded="false" aria-controls="change-password-panel">更改密码</button>
+        <button class="button button-secondary" type="button" data-account-action-toggle="change-password-panel" aria-expanded="{{ 'true' if change_password_open else 'false' }}" aria-controls="change-password-panel">更改密码</button>
       </section>
 
-      <div class="account-action-panel" id="change-password-panel" data-account-action-panel hidden>
+      <div class="account-action-panel" id="change-password-panel" data-account-action-panel {% if not change_password_open %}hidden{% endif %}>
         <div class="form-card">
           <h2>更改密码</h2>
           <form method="post" action="{{ url_for('auth.change_password') }}">
