@@ -1941,7 +1941,29 @@ img {
 }
 
 .form-input[type="datetime-local"] {
-    font-family: inherit;
+    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    font-size: 0.95rem;
+    color: #333;
+    letter-spacing: 0.02em;
+}
+
+.form-input[type="datetime-local"]::-webkit-datetime-edit {
+    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    color: #555;
+}
+
+.form-input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper {
+    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+}
+
+.form-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.form-input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
+    opacity: 1;
 }
 
 .form-input[type="number"] {
