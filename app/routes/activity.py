@@ -1,4 +1,5 @@
 import os
+import calendar
 from collections import defaultdict
 
 from flask import Blueprint, abort, jsonify, render_template, request, session, redirect, url_for, flash
@@ -14,6 +15,7 @@ from app.models import (
     ActivityFavorite,
     ActivityReview,
     Circle,
+    CircleMember,
     Comment,
     ProfileVisibility,
     Registration,
@@ -176,6 +178,48 @@ def _gmt_offset_label(activity):
 
 def _format_activity_date_label(value):
     return f"{CHINESE_WEEKDAYS[value.weekday()]}, {value.month}月 {value.day}"
+
+
+def _format_home_feed_date_label(value):
+    if not value:
+        return "时间待定"
+    today = datetime.now().date()
+    activity_date = value.date()
+    if activity_date == today:
+        return "今天"
+    if activity_date == today + timedelta(days=1):
+        return "明天"
+    return f"{value.month}月{value.day}日"
+
+
+def _home_calendar_payload(today=None):
+    today = today or datetime.now().date()
+    month_days = calendar.Calendar(firstweekday=6).monthdatescalendar(today.year, today.month)
+    tomorrow = today + timedelta(days=1)
+    return {
+        "label": f"{calendar.month_name[today.month]} {today.year}",
+        "today": today.day,
+        "weekdays": ("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"),
+        "weeks": [
+            [
+                {
+                    "day": day.day,
+                    "is_current_month": day.month == today.month,
+                    "is_today": day == today,
+                    "is_past": day < today,
+                    "display_label": (
+                        "今天"
+                        if day == today
+                        else "明天"
+                        if day == tomorrow
+                        else f"From {calendar.month_abbr[day.month]} {day.day}"
+                    ),
+                }
+                for day in week
+            ]
+            for week in month_days
+        ],
+    }
 
 
 def _format_activity_sidebar_time(activity):
@@ -424,6 +468,7 @@ def _activity_to_summary(
         "city": activity.city,
         "location": activity.location,
         "time": activity.start_time.strftime("%Y-%m-%d %H:%M") if activity.start_time else "时间待定",
+        "home_date_label": _format_home_feed_date_label(activity.start_time),
         "end_time": activity.end_time.strftime("%Y-%m-%d %H:%M") if activity.end_time else None,
         "timezone": activity.timezone or DEFAULT_ACTIVITY_TIMEZONE,
         "gmt_offset": _gmt_offset_label(activity) if activity.start_time else "",
@@ -623,10 +668,14 @@ def search_suggestions():
 def search():
     query_text = _normalized_search_query()
     city_query = request.args.get("city", "").strip()[:SEARCH_QUERY_MAX_LENGTH]
-    if not query_text:
+    browse_all_mode = request.args.get("scope") == "activities"
+    if not query_text and not browse_all_mode:
         return redirect(url_for("activity.index"))
 
-    activity_query = _activity_search_query(query_text)
+    if browse_all_mode and not query_text:
+        activity_query = Activity.query.filter(Activity.status == "open")
+    else:
+        activity_query = _activity_search_query(query_text)
     if city_query:
         city_pattern = _search_pattern(city_query)
         activity_query = activity_query.filter(
@@ -659,20 +708,23 @@ def search():
         for activity in db_activities
     ]
 
-    circles = [
-        _circle_result_item(circle)
-        for circle in _safe_search_rows(
-            _circle_search_query(query_text).order_by(Circle.is_pinned.desc(), Circle.updated_at.desc()),
-            SEARCH_RESULT_LIST_LIMIT,
-        )
-    ]
-    users = [
-        _user_suggestion_item(user)
-        for user in _safe_search_rows(
-            _public_user_search_query(query_text).order_by(User.created_at.desc(), User.id.desc()),
-            SEARCH_RESULT_LIST_LIMIT,
-        )
-    ]
+    circles = []
+    users = []
+    if query_text:
+        circles = [
+            _circle_result_item(circle)
+            for circle in _safe_search_rows(
+                _circle_search_query(query_text).order_by(Circle.is_pinned.desc(), Circle.updated_at.desc()),
+                SEARCH_RESULT_LIST_LIMIT,
+            )
+        ]
+        users = [
+            _user_suggestion_item(user)
+            for user in _safe_search_rows(
+                _public_user_search_query(query_text).order_by(User.created_at.desc(), User.id.desc()),
+                SEARCH_RESULT_LIST_LIMIT,
+            )
+        ]
 
     favorite_activity_ids = set()
     if "user_id" in session:
@@ -684,6 +736,7 @@ def search():
     return render_template(
         "index.html",
         search_results_mode=True,
+        browse_all_mode=browse_all_mode,
         search_query=query_text,
         search_city=city_query,
         activities=activities,
@@ -842,8 +895,13 @@ def index():
 
     favorite_activity_ids = set()
     registered_activity_ids = set()
+    current_user = None
+    joined_circle_ids = []
+    favorite_rows = []
+    registered_rows = []
     if "user_id" in session:
         user_id = session["user_id"]
+        current_user = User.query.get(user_id)
         favorite_rows = (
             ActivityFavorite.query.filter_by(user_id=user_id)
             .order_by(ActivityFavorite.created_at.desc())
@@ -854,16 +912,130 @@ def index():
                 Registration.user_id == user_id,
                 Registration.status != "cancelled",
             )
+            .order_by(Registration.register_time.desc())
             .all()
         )
 
         favorite_activity_ids = {favorite.activity_id for favorite in favorite_rows}
         registered_activity_ids = {registration.activity_id for registration in registered_rows}
+        joined_circle_ids = [
+            row.circle_id
+            for row in CircleMember.query.filter_by(user_id=user_id, status="active").all()
+        ]
+
+    circle_activity_counts = dict(
+        db.session.query(Activity.circle_id, func.count(Activity.id))
+        .filter(Activity.status == "open", Activity.circle_id.isnot(None))
+        .group_by(Activity.circle_id)
+        .all()
+    )
+    circle_query = Circle.query.filter_by(status="active")
+    if joined_circle_ids:
+        joined_circles = circle_query.filter(Circle.id.in_(joined_circle_ids)).all()
+    else:
+        joined_circles = []
+    recommended_circles = (
+        Circle.query.filter_by(status="active")
+        .order_by(Circle.is_pinned.desc(), Circle.member_count.desc(), Circle.updated_at.desc())
+        .limit(6)
+        .all()
+    )
+    circle_rows = []
+    seen_circle_ids = set()
+    for circle in joined_circles + recommended_circles:
+        if circle.id in seen_circle_ids:
+            continue
+        seen_circle_ids.add(circle.id)
+        circle_rows.append(circle)
+        if len(circle_rows) >= 4:
+            break
+    home_circles = [
+        {
+            "id": circle.id,
+            "name": circle.name,
+            "tag": circle.tag,
+            "description": _truncate_text(circle.description, 54),
+            "cover_url": url_for(
+                "static",
+                filename=(
+                    circle.cover_image
+                    if circle.cover_image and circle.cover_image.startswith("images/circles/")
+                    else "images/circles/circle-default.svg"
+                ),
+            ),
+            "member_count": circle.member_count,
+            "activity_count": circle_activity_counts.get(circle.id, 0),
+            "is_joined": circle.id in joined_circle_ids,
+            "url": url_for("circle.circle_detail", circle_id=circle.id),
+        }
+        for circle in circle_rows
+    ]
+
+    group_db_activities = []
+    if joined_circle_ids:
+        group_db_activities = (
+            Activity.query.filter(
+                Activity.status == "open",
+                Activity.circle_id.in_(joined_circle_ids),
+            )
+            .order_by(Activity.start_time.asc(), Activity.id.desc())
+            .limit(8)
+            .all()
+        )
+    if not group_db_activities:
+        recommended_circle_ids = [circle.id for circle in recommended_circles[:4]]
+        if recommended_circle_ids:
+            group_db_activities = (
+                Activity.query.filter(
+                    Activity.status == "open",
+                    Activity.circle_id.in_(recommended_circle_ids),
+                )
+                .order_by(Activity.is_featured.desc(), Activity.start_time.asc(), Activity.id.desc())
+                .limit(8)
+                .all()
+            )
+    normalized_by_id = {activity["id"]: activity for activity in featured_normalized_activities}
+    group_activities = [
+        normalized_by_id[activity.id]
+        for activity in group_db_activities
+        if activity.id in normalized_by_id
+        and normalized_by_id[activity.id]["phase"] in {"upcoming", "ongoing"}
+    ]
+    if not group_activities:
+        group_activities = featured_activities[:6] or filtered_activities[:6]
+    sidebar_activity_lookup = {
+        activity["id"]: activity for activity in featured_normalized_activities + normalized_activities
+    }
+    sidebar_going_activity = next(
+        (sidebar_activity_lookup.get(registration.activity_id) for registration in registered_rows),
+        None,
+    )
+    sidebar_saved_activity = next(
+        (sidebar_activity_lookup.get(favorite.activity_id) for favorite in favorite_rows),
+        None,
+    )
+    if sidebar_going_activity is None:
+        sidebar_going_activity = featured_activities[0] if featured_activities else None
+    if sidebar_saved_activity is None:
+        sidebar_saved_activity = featured_activities[1] if len(featured_activities) > 1 else sidebar_going_activity
+    user_display_name = get_user_display_name(current_user).strip() if current_user else "访客"
+    home_user_card = {
+        "display_name": user_display_name or (current_user.username if current_user else "访客"),
+        "location": current_user.city if current_user and current_user.city else "选择城市 / 地区",
+        "avatar": current_user.avatar if current_user else "",
+        "initial": (user_display_name or "访")[:1].upper(),
+    }
 
     return render_template(
         "index.html",
         activities=filtered_activities,
         featured_activities=featured_activities,
+        group_activities=group_activities,
+        home_circles=home_circles,
+        home_user_card=home_user_card,
+        home_calendar=_home_calendar_payload(),
+        sidebar_going_activity=sidebar_going_activity,
+        sidebar_saved_activity=sidebar_saved_activity,
         categories=categories,
         expand_tags_by_default=expand_tags_by_default,
         interest_categories=OFFICIAL_INTEREST_CATEGORIES,
