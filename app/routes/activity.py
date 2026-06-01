@@ -1,4 +1,5 @@
 import os
+import calendar
 from collections import defaultdict
 
 from flask import Blueprint, abort, jsonify, render_template, request, session, redirect, url_for, flash
@@ -189,6 +190,36 @@ def _format_home_feed_date_label(value):
     if activity_date == today + timedelta(days=1):
         return "明天"
     return f"{value.month}月{value.day}日"
+
+
+def _home_calendar_payload(today=None):
+    today = today or datetime.now().date()
+    month_days = calendar.Calendar(firstweekday=6).monthdatescalendar(today.year, today.month)
+    tomorrow = today + timedelta(days=1)
+    return {
+        "label": f"{calendar.month_name[today.month]} {today.year}",
+        "today": today.day,
+        "weekdays": ("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"),
+        "weeks": [
+            [
+                {
+                    "day": day.day,
+                    "is_current_month": day.month == today.month,
+                    "is_today": day == today,
+                    "is_past": day < today,
+                    "display_label": (
+                        "今天"
+                        if day == today
+                        else "明天"
+                        if day == tomorrow
+                        else f"From {calendar.month_abbr[day.month]} {day.day}"
+                    ),
+                }
+                for day in week
+            ]
+            for week in month_days
+        ],
+    }
 
 
 def _format_activity_sidebar_time(activity):
@@ -924,6 +955,14 @@ def index():
             "name": circle.name,
             "tag": circle.tag,
             "description": _truncate_text(circle.description, 54),
+            "cover_url": url_for(
+                "static",
+                filename=(
+                    circle.cover_image
+                    if circle.cover_image and circle.cover_image.startswith("images/circles/")
+                    else "images/circles/circle-default.svg"
+                ),
+            ),
             "member_count": circle.member_count,
             "activity_count": circle_activity_counts.get(circle.id, 0),
             "is_joined": circle.id in joined_circle_ids,
@@ -994,6 +1033,7 @@ def index():
         group_activities=group_activities,
         home_circles=home_circles,
         home_user_card=home_user_card,
+        home_calendar=_home_calendar_payload(),
         sidebar_going_activity=sidebar_going_activity,
         sidebar_saved_activity=sidebar_saved_activity,
         categories=categories,

@@ -381,6 +381,60 @@ document.addEventListener("DOMContentLoaded", () => {
   syncFilterUrl();
   applyActivityFilters();
 
+  document.querySelectorAll("[data-home-date-filter]").forEach(filter => {
+    const toggle = filter.querySelector("[data-home-date-toggle]");
+    const popover = filter.querySelector("[data-home-date-popover]");
+    if (!toggle || !popover) {
+      return;
+    }
+
+    toggle.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const willOpen = popover.hidden;
+      document.querySelectorAll("[data-home-date-popover]").forEach(item => {
+        item.hidden = true;
+      });
+      popover.hidden = !willOpen;
+      toggle.setAttribute("aria-expanded", String(willOpen));
+    });
+
+    popover.addEventListener("click", event => {
+      event.stopPropagation();
+    });
+
+    popover.querySelectorAll("[data-home-date-day]").forEach(dayButton => {
+      dayButton.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (dayButton.disabled) {
+          return;
+        }
+        popover.querySelectorAll("[data-home-date-day]").forEach(item => {
+          item.classList.remove("is-selected");
+          item.setAttribute("aria-pressed", "false");
+        });
+        dayButton.classList.add("is-selected");
+        dayButton.setAttribute("aria-pressed", "true");
+        const label = dayButton.dataset.homeDateLabel || dayButton.textContent.trim();
+        toggle.firstChild.textContent = `${label} `;
+        popover.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+      });
+    });
+  });
+
+  document.addEventListener("click", () => {
+    document.querySelectorAll("[data-home-date-filter]").forEach(filter => {
+      const toggle = filter.querySelector("[data-home-date-toggle]");
+      const popover = filter.querySelector("[data-home-date-popover]");
+      if (toggle && popover) {
+        popover.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  });
+
   const showShareToast = (message) => {
     let toast = document.querySelector(".share-toast");
     if (!toast) {
