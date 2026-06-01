@@ -18,6 +18,11 @@ from app.models import EmailVerificationCode, db
 
 
 EMAIL_CODE_TTL_MINUTES = 10
+EMAIL_CODE_RATE_LIMIT_RULES = (
+    (timedelta(seconds=60), 1),
+    (timedelta(hours=1), 5),
+    (timedelta(hours=24), 10),
+)
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 PURPOSE_LABELS = {
     "register": "注册账号",
@@ -48,6 +53,25 @@ def _email_provider():
 
 def is_console_email_provider():
     return _email_provider() == "console"
+
+
+def is_email_code_rate_limited(email, purpose):
+    """Return True when an email+purpose has too many recent code sends."""
+    email = _normalized_email(email)
+    purpose = (purpose or "").strip()
+    if not email or not purpose:
+        return False
+
+    now = datetime.utcnow()
+    for window, max_attempts in EMAIL_CODE_RATE_LIMIT_RULES:
+        recent_count = EmailVerificationCode.query.filter(
+            EmailVerificationCode.email == email,
+            EmailVerificationCode.purpose == purpose,
+            EmailVerificationCode.created_at >= now - window,
+        ).count()
+        if recent_count >= max_attempts:
+            return True
+    return False
 
 
 def _email_api_timeout():

@@ -2,6 +2,7 @@
 """认证相关路由（登录 / 注册 / 登出）"""
 
 import os
+import time
 from datetime import datetime
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
@@ -15,6 +16,7 @@ from app.models import (
 )
 from app.forms import RegistrationForm
 from app.utils.email_verification import (
+    is_email_code_rate_limited,
     is_console_email_provider,
     send_verification_code,
     verify_email_code,
@@ -24,6 +26,10 @@ from app.utils.upload_utils import delete_saved_images, save_image_files, valida
 auth_bp = Blueprint("auth", __name__)
 MERCHANT_DOCUMENT_MAX_BYTES = 800 * 1024
 MERCHANT_DOCUMENT_UPLOAD_SUBDIR = os.path.join("uploads", "merchant-verifications")
+REGISTER_FORM_DRAFT_FIELDS = ("username", "email", "nickname", "city")
+EMAIL_CODE_SESSION_LIMIT_SECONDS = 60 * 60
+EMAIL_CODE_SESSION_LIMIT_MAX = 10
+EMAIL_CODE_RATE_LIMIT_MESSAGE = "验证码发送过于频繁，请稍后再试。"
 
 
 @auth_bp.before_app_request
@@ -53,6 +59,56 @@ def _redirect_after_code_send():
     return redirect(url_for("auth.account_settings"))
 
 
+def _store_register_form_draft():
+    session["register_form_draft"] = {
+        field: (request.form.get(field) or "").strip()
+        for field in REGISTER_FORM_DRAFT_FIELDS
+    }
+
+
+def _get_register_form_draft():
+    return session.get("register_form_draft", {})
+
+
+def _clear_register_form_draft():
+    session.pop("register_form_draft", None)
+    session.pop("register_email_draft", None)
+
+
+def _is_session_email_code_rate_limited():
+    now = time.time()
+    recent_attempts = []
+    for value in session.get("email_code_send_attempts", []):
+        try:
+            timestamp = float(value)
+        except (TypeError, ValueError):
+            continue
+        if now - timestamp < EMAIL_CODE_SESSION_LIMIT_SECONDS:
+            recent_attempts.append(timestamp)
+    session["email_code_send_attempts"] = recent_attempts
+    return len(recent_attempts) >= EMAIL_CODE_SESSION_LIMIT_MAX
+
+
+def _record_session_email_code_attempt():
+    now = time.time()
+    recent_attempts = []
+    for value in session.get("email_code_send_attempts", []):
+        try:
+            timestamp = float(value)
+        except (TypeError, ValueError):
+            continue
+        if now - timestamp < EMAIL_CODE_SESSION_LIMIT_SECONDS:
+            recent_attempts.append(timestamp)
+    recent_attempts.append(now)
+    session["email_code_send_attempts"] = recent_attempts
+
+
+def _is_email_code_send_rate_limited(email, purpose):
+    return _is_session_email_code_rate_limited() or is_email_code_rate_limited(
+        email, purpose
+    )
+
+
 def _flash_email_code_send_result(sent, success_message="验证码已发送，请查收邮箱。"):
     if sent:
         flash(success_message, "success")
@@ -64,8 +120,8 @@ def _flash_email_code_send_result(sent, success_message="验证码已发送，�
 
 @auth_bp.route("/register/send-code", methods=["POST"])
 def send_register_code():
+    _store_register_form_draft()
     email = (request.form.get("email") or "").strip()
-    session["register_email_draft"] = email
 
     if not email:
         flash("请先填写邮箱。", "error")
@@ -76,12 +132,16 @@ def send_register_code():
     if User.query.filter_by(email=email).first():
         flash("该邮箱已被注册，请使用其他邮箱或直接登录。", "error")
         return redirect(url_for("auth.register"))
+    if _is_email_code_send_rate_limited(email, "register"):
+        flash(EMAIL_CODE_RATE_LIMIT_MESSAGE, "error")
+        return redirect(url_for("auth.register"))
 
     try:
+        _record_session_email_code_attempt()
         sent = send_verification_code(email, "register")
     except Exception:
         db.session.rollback()
-        flash("验证码发送失败，请稍后重试。", "error")
+        flash("验证码发送失败，请稍后再试。", "error")
     else:
         if sent:
             flash("验证码已发送，请查收邮箱。", "success")
@@ -98,9 +158,12 @@ def send_account_email_code():
 
     purpose = request.form.get("purpose", "").strip()
     if purpose == "change_password":
+        session["account_settings_active_panel"] = "change-password-panel"
         email = user.email
     elif purpose == "change_email":
+        session["account_settings_active_panel"] = "change-email-panel"
         email = request.form.get("email", "").strip()
+        session["account_change_email_draft"] = email
         if not email:
             flash("请先填写新邮箱。", "error")
             return _redirect_after_code_send()
@@ -114,11 +177,16 @@ def send_account_email_code():
         flash("无效的验证码用途。", "error")
         return _redirect_after_code_send()
 
+    if _is_email_code_send_rate_limited(email, purpose):
+        flash(EMAIL_CODE_RATE_LIMIT_MESSAGE, "error")
+        return _redirect_after_code_send()
+
     try:
+        _record_session_email_code_attempt()
         sent = send_verification_code(email, purpose, user=user)
     except Exception:
         db.session.rollback()
-        flash("验证码发送失败，请稍后重试。", "error")
+        flash("验证码发送失败，请稍后再试。", "error")
     else:
         _flash_email_code_send_result(sent)
     return _redirect_after_code_send()
@@ -127,11 +195,23 @@ def send_account_email_code():
 @auth_bp.route("/forgot-password/send-code", methods=["POST"])
 def send_reset_password_code():
     email = request.form.get("email", "").strip()
+    session["forgot_password_email_draft"] = email
     if not email:
         flash("请先填写注册邮箱。", "error")
-        return render_template("forgot_password.html")
+        return redirect(url_for("auth.forgot_password"))
+    if len(email) > 120:
+        flash("邮箱不能超过 120 个字符。", "error")
+        return redirect(url_for("auth.forgot_password"))
+    if _is_session_email_code_rate_limited():
+        flash(EMAIL_CODE_RATE_LIMIT_MESSAGE, "error")
+        return redirect(url_for("auth.forgot_password"))
 
     user = User.query.filter_by(email=email, status="active").first()
+    if user and is_email_code_rate_limited(email, "reset_password"):
+        flash(EMAIL_CODE_RATE_LIMIT_MESSAGE, "error")
+        return redirect(url_for("auth.forgot_password"))
+
+    _record_session_email_code_attempt()
     try:
         if user:
             sent = send_verification_code(email, "reset_password")
@@ -139,7 +219,7 @@ def send_reset_password_code():
             sent = True
     except Exception:
         db.session.rollback()
-        flash("验证码发送失败，请稍后重试。", "error")
+        flash("验证码发送失败，请稍后再试。", "error")
     else:
         if user:
             _flash_email_code_send_result(
@@ -148,7 +228,7 @@ def send_reset_password_code():
             )
         else:
             flash("如果该邮箱已注册，验证码将发送到对应邮箱。", "success")
-    return render_template("forgot_password.html")
+    return redirect(url_for("auth.forgot_password"))
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -228,10 +308,16 @@ def account_settings():
         .order_by(MerchantVerification.created_at.desc())
         .first()
     )
+    account_change_email_draft = session.get("account_change_email_draft", "")
+    account_settings_active_panel = session.pop("account_settings_active_panel", None)
+    if not account_settings_active_panel and account_change_email_draft:
+        account_settings_active_panel = "change-email-panel"
     return render_template(
         "account_settings.html",
         user=user,
         latest_merchant_verification=latest_merchant_verification,
+        account_change_email_draft=account_change_email_draft,
+        account_settings_active_panel=account_settings_active_panel,
     )
 
 
@@ -344,6 +430,8 @@ def change_email():
     new_email = request.form.get("email", "").strip()
     current_password = request.form.get("current_password", "")
     email_code = request.form.get("email_verification_code", "")
+    session["account_settings_active_panel"] = "change-email-panel"
+    session["account_change_email_draft"] = new_email
 
     if not new_email:
         flash("新邮箱不能为空。", "error")
@@ -366,6 +454,8 @@ def change_email():
             db.session.rollback()
             flash("邮箱修改失败，请稍后重试。", "error")
         else:
+            session.pop("account_change_email_draft", None)
+            session.pop("account_settings_active_panel", None)
             flash("邮箱已更新。", "success")
     return redirect(url_for("auth.account_settings"))
 
@@ -384,6 +474,7 @@ def change_password():
     new_password = request.form.get("new_password", "")
     confirm_password = request.form.get("confirm_password", "")
     password_code = request.form.get("password_verification_code", "")
+    session["account_settings_active_panel"] = "change-password-panel"
 
     if not current_password or not check_password_hash(user.password, current_password):
         flash("当前密码错误，无法修改密码。", "error")
@@ -398,6 +489,7 @@ def change_password():
     else:
         user.password = generate_password_hash(new_password)
         db.session.commit()
+        session.pop("account_settings_active_panel", None)
         flash("密码已更新，请使用新密码登录。", "success")
     return redirect(url_for("auth.account_settings"))
 
@@ -406,6 +498,7 @@ def change_password():
 def forgot_password():
     if request.method == "POST":
         email = request.form.get("email", "").strip()
+        session["forgot_password_email_draft"] = email
         email_code = request.form.get("email_code", "")
         new_password = request.form.get("new_password", "")
         confirm_password = request.form.get("confirm_password", "")
@@ -426,10 +519,14 @@ def forgot_password():
         else:
             user.password = generate_password_hash(new_password)
             db.session.commit()
+            session.pop("forgot_password_email_draft", None)
             flash("密码已重置，请使用新密码登录。", "success")
             return redirect(url_for("auth.login"))
 
-    return render_template("forgot_password.html")
+    return render_template(
+        "forgot_password.html",
+        forgot_password_email_draft=session.get("forgot_password_email_draft", ""),
+    )
 
 
 @auth_bp.route("/register", methods=["GET", "POST"])
@@ -441,8 +538,8 @@ def register():
     """
     form = RegistrationForm()
     if request.method == "POST":
-        session["register_email_draft"] = (request.form.get("email") or "").strip()
-    register_email_draft = session.get("register_email_draft", "")
+        _store_register_form_draft()
+    register_form_draft = _get_register_form_draft()
 
     if form.validate_on_submit():
         username = form.username.data.strip()
@@ -456,7 +553,7 @@ def register():
             return render_template(
                 "register.html",
                 form=form,
-                register_email_draft=register_email_draft,
+                register_form_draft=register_form_draft,
             )
 
         existing_email = User.query.filter_by(email=email).first()
@@ -465,7 +562,7 @@ def register():
             return render_template(
                 "register.html",
                 form=form,
-                register_email_draft=register_email_draft,
+                register_form_draft=register_form_draft,
             )
 
         email_code = request.form.get("email_code", "").strip()
@@ -474,7 +571,7 @@ def register():
             return render_template(
                 "register.html",
                 form=form,
-                register_email_draft=register_email_draft,
+                register_form_draft=register_form_draft,
             )
 
         hashed_password = generate_password_hash(form.password.data)
@@ -493,7 +590,7 @@ def register():
         try:
             db.session.add(new_user)
             db.session.commit()
-            session.pop("register_email_draft", None)
+            _clear_register_form_draft()
             flash("注册成功！现在可以登录了。", "success")
             return redirect(url_for("auth.login"))
         except Exception as e:
@@ -509,5 +606,5 @@ def register():
     return render_template(
         "register.html",
         form=form,
-        register_email_draft=register_email_draft,
+        register_form_draft=register_form_draft,
     )
