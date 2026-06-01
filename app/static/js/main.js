@@ -542,7 +542,7 @@ document.addEventListener("DOMContentLoaded", () => {
     trackSelector: "[data-recommended-track]",
     previousSelector: "[data-recommended-previous]",
     nextSelector: "[data-recommended-next]",
-    cardSelector: ".recommended-card",
+    cardSelector: ".recommended-card, .home-event-card",
   });
 
   initHorizontalCardScroller({

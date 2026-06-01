@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{% if search_results_mode|default(false) %}搜索结果 - Gatherly{% else %}首页 - Gatherly{% endif %}{% endblock %}
+{% block title %}{% if browse_all_mode|default(false) %}全部活动 - Gatherly{% elif search_results_mode|default(false) %}搜索结果 - Gatherly{% else %}首页 - Gatherly{% endif %}{% endblock %}
 
 {% block content %}
 {% macro activity_card(activity, detail_url, favorite_activity_id, demo=false) %}
@@ -80,8 +80,10 @@
     <div class="container">
         <div class="search-results-heading">
             <p class="eyebrow">Search</p>
-            <h1>搜索结果：{{ search_query }}</h1>
-            {% if search_city %}
+            <h1>{% if browse_all_mode|default(false) %}全部活动{% else %}搜索结果：{{ search_query }}{% endif %}</h1>
+            {% if browse_all_mode|default(false) %}
+            <p>按时间顺序浏览 Gatherly 当前开放报名的活动。</p>
+            {% elif search_city %}
             <p>已限定城市 / 地区：{{ search_city }}</p>
             {% else %}
             <p>活动、同好圈和公开用户中与关键词相关的内容。</p>
@@ -159,6 +161,185 @@
     </div>
 </section>
 {% else %}
+<section class="meetup-home">
+    <div class="container meetup-home-layout">
+        <aside class="meetup-home-sidebar" aria-label="首页信息栏">
+            <section class="meetup-sidebar-shell">
+                <a class="home-profile-row" href="{{ url_for('profile.my_profile') if session.get('user_id') else url_for('auth.login') }}">
+                    {% if home_user_card.avatar %}
+                    <img class="home-profile-avatar" src="{{ home_user_card.avatar }}" alt="">
+                    {% else %}
+                    <span class="home-profile-avatar" aria-hidden="true">{{ home_user_card.initial }}</span>
+                    {% endif %}
+                    <span class="home-profile-copy">
+                        <strong>{{ home_user_card.display_name }}</strong>
+                        <small>{{ home_user_card.location }}</small>
+                    </span>
+                    <span class="home-profile-arrow" aria-hidden="true">&#8250;</span>
+                </a>
+
+                <section class="home-sidebar-panel home-mini-events" aria-labelledby="home-mini-events-title">
+                    <div class="home-sidebar-tabs" id="home-mini-events-title">
+                        <span>报名</span>
+                        <span>收藏</span>
+                        <a href="{{ url_for('activity.my_events') if session.get('user_id') else url_for('auth.login') }}">查看全部</a>
+                    </div>
+                    {% set sidebar_event = sidebar_going_activity or sidebar_saved_activity %}
+                    {% if sidebar_event %}
+                    <article class="home-mini-event" tabindex="0" role="link" data-card-url="{{ sidebar_event.detail_url }}">
+                        <img src="{{ sidebar_event.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ sidebar_event.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                        <span>
+                            <strong>{{ sidebar_event.title }}</strong>
+                            <small>{{ sidebar_event.sidebar_time or sidebar_event.time }}</small>
+                        </span>
+                    </article>
+                    {% else %}
+                    <p class="home-sidebar-empty">暂无近期活动</p>
+                    {% endif %}
+                </section>
+
+                <section class="home-sidebar-panel home-mini-groups" aria-labelledby="home-mini-groups-title">
+                    <div class="home-sidebar-tabs" id="home-mini-groups-title">
+                        <span>你的同好圈 {{ home_circles|default([])|length }}</span>
+                        <a href="{{ url_for('circle.circles') }}">查看全部</a>
+                    </div>
+                    {% for circle in home_circles|default([]) %}
+                    {% if loop.index == 1 %}
+                    <a class="home-mini-group" href="{{ circle.url }}">
+                        <span class="home-circle-avatar" aria-hidden="true">{{ circle.name[:1]|upper }}</span>
+                        <span>
+                            <strong>{{ circle.name }}</strong>
+                            <small>{{ circle.tag or '同好圈' }}</small>
+                        </span>
+                    </a>
+                    {% endif %}
+                    {% else %}
+                    <p class="home-sidebar-empty">暂无同好圈</p>
+                    {% endfor %}
+                    <a class="home-find-groups" href="{{ url_for('circle.circles') }}">发现更多同好圈</a>
+                </section>
+            </section>
+        </aside>
+
+        <main class="meetup-home-main" aria-label="首页活动流">
+            <section class="home-feed-section recommended-section" id="for-you">
+                <div class="home-feed-heading">
+                    <h2>For you</h2>
+                    <a class="section-link" href="{{ url_for('activity.search', scope='activities') }}">浏览全部活动 <span aria-hidden="true">&#8594;</span></a>
+                </div>
+                <div class="home-for-you-wrap" data-recommended-carousel>
+                    <button class="home-scroll-button is-previous" type="button" aria-label="查看上一组推荐活动" data-recommended-previous>&#8592;</button>
+                    <div class="home-for-you-track" data-recommended-track>
+                    {% for activity in featured_activities %}
+                        <article class="home-event-card" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
+                            <div class="home-event-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
+                                <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                                <button class="card-icon-button favorite-button {% if activity.id in favorite_activity_ids %}is-active{% endif %}"
+                                        type="button"
+                                        aria-label="收藏 {{ activity.title }}"
+                                        aria-pressed="{{ 'true' if activity.id in favorite_activity_ids else 'false' }}"
+                                        data-activity-favorite
+                                        data-activity-id="{{ activity.id }}"
+                                        data-activity-title="{{ activity.title }}"
+                                        data-activity-time="{{ activity.time }}"
+                                        data-activity-location="{{ activity.location }}"
+                                        data-activity-detail-url="{{ activity.detail_url }}"
+                                        data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=activity.id) }}"
+                                        data-login-url="{{ url_for('auth.login', next=activity.detail_url) }}">
+                                    <span aria-hidden="true">{% if activity.id in favorite_activity_ids %}&#9829;{% else %}&#9825;{% endif %}</span>
+                                </button>
+                            </div>
+                            <div class="home-event-body">
+                                <h3>{{ activity.title }}</h3>
+                                <p>{{ activity.sidebar_time or activity.time }}</p>
+                                <p>{{ activity.organizer }}{% if activity.rating_average %} · {{ '%.1f'|format(activity.rating_average) }} ★{% endif %}</p>
+                                <div class="home-event-attendees">
+                                    {% if activity.attendee_previews %}
+                                    <span class="card-attendee-avatars" aria-label="已报名用户">
+                                        {% for attendee in activity.attendee_previews[:2] %}
+                                            {% if attendee.avatar %}
+                                            <img class="card-attendee-avatar" src="{{ attendee.avatar }}" alt="{{ attendee.display_name }}" title="{{ attendee.display_name }}">
+                                            {% else %}
+                                            <span class="card-attendee-avatar card-attendee-placeholder" title="{{ attendee.display_name }}" aria-label="{{ attendee.display_name }}">{{ attendee.initial }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </span>
+                                    {% endif %}
+                                    <span>{{ activity.current_people|default(0) }} attendees</span>
+                                </div>
+                            </div>
+                        </article>
+                    {% else %}
+                    <div class="recommended-empty-state">近期暂无可推荐活动。</div>
+                    {% endfor %}
+                    </div>
+                    <button class="home-scroll-button is-next" type="button" aria-label="查看下一组推荐活动" data-recommended-next>&#8594;</button>
+                </div>
+            </section>
+
+            <section class="home-feed-section groups-feed-section" id="from-your-groups">
+                <div class="home-feed-heading">
+                    <h2>From your groups</h2>
+                    <span class="home-today-filter">今天 <span aria-hidden="true">&#8964;</span></span>
+                </div>
+                <div class="home-group-feed">
+                    {% set last_date = namespace(value='') %}
+                    {% for activity in group_activities|default([]) %}
+                        {% if activity.home_date_label != last_date.value %}
+                        <p class="home-feed-date">{{ activity.home_date_label }}</p>
+                        {% set last_date.value = activity.home_date_label %}
+                        {% endif %}
+                        <article class="home-group-event" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
+                            <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                            <div class="home-group-event-body">
+                                <h3>{{ activity.title }}</h3>
+                                <p>{{ activity.sidebar_time or activity.time }}</p>
+                                <p>{{ activity.circle_name or activity.organizer }}{% if activity.rating_average %} · {{ '%.1f'|format(activity.rating_average) }} ★{% endif %}</p>
+                                <div class="home-event-attendees">
+                                    {% if activity.attendee_previews %}
+                                    <span class="card-attendee-avatars" aria-label="已报名用户">
+                                        {% for attendee in activity.attendee_previews[:2] %}
+                                            {% if attendee.avatar %}
+                                            <img class="card-attendee-avatar" src="{{ attendee.avatar }}" alt="{{ attendee.display_name }}" title="{{ attendee.display_name }}">
+                                            {% else %}
+                                            <span class="card-attendee-avatar card-attendee-placeholder" title="{{ attendee.display_name }}" aria-label="{{ attendee.display_name }}">{{ attendee.initial }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </span>
+                                    {% endif %}
+                                    <span>{{ activity.current_people|default(0) }} attendees</span>
+                                </div>
+                            </div>
+                            <div class="home-group-actions">
+                                <button class="card-icon-button" type="button" aria-label="复制 {{ activity.title }} 的链接" data-activity-share data-share-url="{{ activity.detail_url }}">
+                                    <span aria-hidden="true">&#8599;</span>
+                                </button>
+                                <button class="card-icon-button favorite-button {% if activity.id in favorite_activity_ids %}is-active{% endif %}"
+                                        type="button"
+                                        aria-label="收藏 {{ activity.title }}"
+                                        aria-pressed="{{ 'true' if activity.id in favorite_activity_ids else 'false' }}"
+                                        data-activity-favorite
+                                        data-activity-id="{{ activity.id }}"
+                                        data-activity-title="{{ activity.title }}"
+                                        data-activity-time="{{ activity.time }}"
+                                        data-activity-location="{{ activity.location }}"
+                                        data-activity-detail-url="{{ activity.detail_url }}"
+                                        data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=activity.id) }}"
+                                        data-login-url="{{ url_for('auth.login', next=activity.detail_url) }}">
+                                    <span aria-hidden="true">{% if activity.id in favorite_activity_ids %}&#9829;{% else %}&#9825;{% endif %}</span>
+                                </button>
+                            </div>
+                        </article>
+                    {% else %}
+                    <div class="recommended-empty-state">你的同好圈暂时没有近期活动。</div>
+                    {% endfor %}
+                </div>
+            </section>
+        </main>
+    </div>
+</section>
+
+{% if false %}
 <section class="home-intro">
     <div class="container home-intro-inner">
         <div>
@@ -346,5 +527,6 @@
         </div>
     </div>
 </section>
+{% endif %}
 {% endif %}
 {% endblock %}
