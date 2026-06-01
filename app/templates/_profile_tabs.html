@@ -1,9 +1,5 @@
 {% set profile_tabs = [
   ('overview', '个人概览', url_for('profile.my_profile')),
-  ('created', '我创建的活动', url_for('profile.created_activities')),
-  ('joined', '我报名的活动', url_for('profile.joined_activities')),
-  ('saved', '我收藏的活动', url_for('activity.my_events', tab='saved')),
-  ('circles', '我的同好圈', url_for('profile.my_circles')),
   ('posts', '我的帖子', url_for('profile.my_posts')),
   ('comments', '我的评论', url_for('profile.my_comments')),
   ('settings', '账号设置', url_for('auth.account_settings'))

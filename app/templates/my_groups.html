@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}我的同好圈 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="my-groups-page">
+  <div class="my-groups-shell">
+    <a class="my-groups-back" href="{{ url_for('activity.index') }}">← 返回首页</a>
+    <header class="my-groups-heading">
+      <h1>我的同好圈</h1>
+      <div class="my-groups-tabs" role="tablist" aria-label="我的同好圈分类">
+        <button class="my-groups-tab is-active" type="button" data-my-groups-tab="member">已加入</button>
+        <button class="my-groups-tab" type="button" data-my-groups-tab="pending">待审核</button>
+      </div>
+    </header>
+
+    <div class="my-groups-panel is-active" data-my-groups-panel="member">
+      {% if active_groups %}
+      <div class="my-groups-grid">
+        {% for membership in active_groups %}
+        {% set group = membership.circle %}
+        <a class="my-group-card" href="{{ url_for('circle.circle_detail', circle_id=group.id) }}">
+          <span class="my-group-cover">
+            <img src="{{ url_for('static', filename=group.cover_image_url) }}" alt="{{ group.name }}">
+          </span>
+          <span class="my-group-copy">
+            <strong>{{ group.name }}</strong>
+            <small>{{ group.member_count }} 位成员</small>
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="my-groups-empty">
+        <p>你还没有加入同好圈。</p>
+        <a class="button button-small" href="{{ url_for('circle.circles') }}">发现同好圈</a>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="my-groups-panel" data-my-groups-panel="pending">
+      {% if pending_groups %}
+      <div class="my-groups-grid">
+        {% for membership in pending_groups %}
+        {% set group = membership.circle %}
+        <a class="my-group-card" href="{{ url_for('circle.circle_detail', circle_id=group.id) }}">
+          <span class="my-group-cover">
+            <img src="{{ url_for('static', filename=group.cover_image_url) }}" alt="{{ group.name }}">
+          </span>
+          <span class="my-group-copy">
+            <strong>{{ group.name }}</strong>
+            <small>等待圈主审核</small>
+          </span>
+          <span class="my-group-status">待审核</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="my-groups-empty">
+        <p>没有待审核的加入申请。</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

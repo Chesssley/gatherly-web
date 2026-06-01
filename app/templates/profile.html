@@ -46,22 +46,6 @@
             </div>
 
             <div class="profile-summary-grid">
-              <a href="{{ url_for('profile.created_activities') }}">
-                <strong>{{ created_activities_count }}</strong>
-                <span>我创建的活动</span>
-              </a>
-              <a href="{{ url_for('profile.joined_activities') }}">
-                <strong>{{ joined_activities_count }}</strong>
-                <span>我报名的活动</span>
-              </a>
-              <a href="{{ url_for('activity.my_events', tab='saved') }}">
-                <strong>{{ favorite_activities_count }}</strong>
-                <span>我收藏的活动</span>
-              </a>
-              <a href="{{ url_for('profile.my_circles') }}">
-                <strong>{{ circle_memberships_count }}</strong>
-                <span>我的同好圈</span>
-              </a>
               <a href="{{ url_for('profile.my_posts') }}">
                 <strong>{{ profile_posts_count }}</strong>
                 <span>我的帖子</span>
@@ -70,31 +54,6 @@
                 <strong>{{ profile_comments_count }}</strong>
                 <span>我的评论</span>
               </a>
-            </div>
-          </section>
-
-          {% elif permissions.circles %}
-          <section class="profile-meetup-section" aria-labelledby="profile-member-title">
-            <div class="profile-section-title">
-              <h2 id="profile-member-title">已加入同好圈</h2>
-              <span>{{ circle_memberships_count|default(profile_stats.circles if profile_stats.circles is not none else 0) }}</span>
-            </div>
-            <div class="profile-member-strip">
-              {% for item in circle_memberships_preview %}
-              <a class="profile-member-card" href="{{ url_for('circle.circle_detail', circle_id=item.id) }}">
-                <span class="profile-member-thumb" aria-hidden="true">{{ item.name[:1]|upper }}</span>
-                <span>
-                  <strong>{{ item.name }}</strong>
-                  <small>{{ item.role }} · 查看同好圈</small>
-                </span>
-              </a>
-              {% else %}
-              <p class="profile-muted">暂未加入同好圈。</p>
-              {% endfor %}
-            </div>
-            <div class="profile-member-banner">
-              <strong>发现同频的人，加入附近的同好圈。</strong>
-              <a class="button button-small" href="{{ url_for('circle.circles') }}">发现同好圈</a>
             </div>
           </section>
           {% endif %}
