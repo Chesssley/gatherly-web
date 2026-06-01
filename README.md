@@ -220,11 +220,34 @@ Then open the application in your browser:
 http://127.0.0.1:5000
 ```
 
-### SMTP email verification
+### Email verification
 
-Registration, email changes, and password changes require a 6-digit email verification code. Configure SMTP with environment variables:
+Registration, email changes, and password changes require a 6-digit email verification code. Codes expire after 10 minutes. The application stores a hash of the code instead of keeping the plain code long-term.
+
+Choose the delivery provider with `EMAIL_PROVIDER`:
 
 ```text
+EMAIL_PROVIDER=brevo   # recommended for production
+EMAIL_PROVIDER=smtp    # legacy SMTP fallback
+EMAIL_PROVIDER=console # local development; prints code to console
+```
+
+If `EMAIL_PROVIDER` is unset, Gatherly uses `console` so local registration and account testing are not blocked.
+
+For Brevo Transactional Email API:
+
+```text
+EMAIL_PROVIDER=brevo
+BREVO_API_KEY=your_brevo_api_key
+BREVO_SENDER_EMAIL=verified-sender@example.com
+BREVO_SENDER_NAME=Gatherly
+EMAIL_API_TIMEOUT=15
+```
+
+For the legacy SMTP fallback:
+
+```text
+EMAIL_PROVIDER=smtp
 MAIL_SERVER=smtp.example.com
 MAIL_PORT=587
 MAIL_USERNAME=your_smtp_username
@@ -233,11 +256,18 @@ MAIL_USE_TLS=true
 MAIL_DEFAULT_SENDER=Gatherly <no-reply@example.com>
 ```
 
-Codes expire after 10 minutes. The application stores a hash of the code instead of keeping the plain code long-term.
+PythonAnywhere free accounts may not allow direct SMTP connections to external mail servers. Use Brevo over HTTPS instead. In the PythonAnywhere WSGI file, set environment variables before importing the Flask app:
 
-For local development, if SMTP is not configured, Gatherly prints the verification code to the console so registration and account testing are not blocked.
+```python
+import os
 
-PythonAnywhere free accounts do not automatically inherit environment variables from your local PowerShell session. Configure these values separately in PythonAnywhere Web app settings or in the PythonAnywhere console before running the app there.
+os.environ["EMAIL_PROVIDER"] = "brevo"
+os.environ["BREVO_API_KEY"] = "不要写进代码，填在 WSGI"
+os.environ["BREVO_SENDER_EMAIL"] = "你的已验证发件邮箱"
+os.environ["BREVO_SENDER_NAME"] = "Gatherly"
+```
+
+PythonAnywhere free accounts do not automatically inherit environment variables from your local PowerShell session. Configure these values separately in the WSGI file, PythonAnywhere Web app settings, or the PythonAnywhere console before running the app there.
 
 ## Main Routes
 

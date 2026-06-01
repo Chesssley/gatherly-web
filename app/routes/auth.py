@@ -14,7 +14,11 @@ from app.models import (
     ensure_user_account_schema,
 )
 from app.forms import RegistrationForm
-from app.utils.email_verification import send_verification_code, verify_email_code
+from app.utils.email_verification import (
+    is_console_email_provider,
+    send_verification_code,
+    verify_email_code,
+)
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
 auth_bp = Blueprint("auth", __name__)
@@ -49,6 +53,15 @@ def _redirect_after_code_send():
     return redirect(url_for("auth.account_settings"))
 
 
+def _flash_email_code_send_result(sent, success_message="验证码已发送，请查收邮箱。"):
+    if sent:
+        flash(success_message, "success")
+    elif is_console_email_provider():
+        flash("本地未配置邮件服务，验证码已打印到控制台。", "info")
+    else:
+        flash("验证码发送失败，请稍后再试。", "error")
+
+
 @auth_bp.route("/register/send-code", methods=["POST"])
 def send_register_code():
     form = RegistrationForm()
@@ -64,15 +77,12 @@ def send_register_code():
         return render_template("register.html", form=form)
 
     try:
-        smtp_sent = send_verification_code(email, "register")
+        sent = send_verification_code(email, "register")
     except Exception:
         db.session.rollback()
         flash("验证码发送失败，请稍后重试。", "error")
     else:
-        if smtp_sent:
-            flash("验证码已发送，请查收邮箱。", "success")
-        else:
-            flash("本地未配置 SMTP，验证码已打印到控制台。", "info")
+        _flash_email_code_send_result(sent)
     return render_template("register.html", form=form)
 
 
@@ -101,15 +111,12 @@ def send_account_email_code():
         return _redirect_after_code_send()
 
     try:
-        smtp_sent = send_verification_code(email, purpose, user=user)
+        sent = send_verification_code(email, purpose, user=user)
     except Exception:
         db.session.rollback()
         flash("验证码发送失败，请稍后重试。", "error")
     else:
-        if smtp_sent:
-            flash("验证码已发送，请查收邮箱。", "success")
-        else:
-            flash("本地未配置 SMTP，验证码已打印到控制台。", "info")
+        _flash_email_code_send_result(sent)
     return _redirect_after_code_send()
 
 
@@ -123,15 +130,18 @@ def send_reset_password_code():
     user = User.query.filter_by(email=email, status="active").first()
     try:
         if user:
-            smtp_sent = send_verification_code(email, "reset_password")
+            sent = send_verification_code(email, "reset_password")
         else:
-            smtp_sent = True
+            sent = True
     except Exception:
         db.session.rollback()
         flash("验证码发送失败，请稍后重试。", "error")
     else:
-        if user and not smtp_sent:
-            flash("本地未配置 SMTP，验证码已打印到控制台。", "info")
+        if user:
+            _flash_email_code_send_result(
+                sent,
+                success_message="如果该邮箱已注册，验证码将发送到对应邮箱。",
+            )
         else:
             flash("如果该邮箱已注册，验证码将发送到对应邮箱。", "success")
     return render_template("forgot_password.html")
