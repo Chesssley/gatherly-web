@@ -4933,6 +4933,7 @@ textarea.form-input {
   height: 40px;
   padding: 2px 6px 2px 2px;
   border-radius: 999px;
+  box-sizing: border-box;
   line-height: 1;
   transition: background-color 0.18s ease;
 }
@@ -4968,18 +4969,34 @@ textarea.form-input {
 }
 
 .nav-chevron {
-  color: var(--color-muted);
-  font-size: 16px;
-  line-height: 1;
-  transition: transform 0.2s ease;
-}
-
-.nav-dropdown-arrow {
   display: inline-flex;
+  flex: 0 0 14px;
   align-items: center;
   justify-content: center;
   width: 14px;
   height: 14px;
+  color: var(--color-muted);
+  font-size: 0;
+  line-height: 0;
+  transform: rotate(0deg);
+  transform-origin: center;
+  transition: transform 0.2s ease;
+}
+
+.nav-dropdown-arrow {
+  position: relative;
+}
+
+.nav-dropdown-arrow::before {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  box-sizing: border-box;
+  content: "";
+  transform: rotate(45deg);
+  transform-origin: center;
 }
 
 .avatar-button[aria-expanded="true"] .nav-chevron {
