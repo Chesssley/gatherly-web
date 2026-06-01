@@ -6,8 +6,10 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Logs
-*.log
+# Local Codex and runtime logs
+codex_*.log
+run-error.log
+run-output.log
 
 # Temporary files
 tmp/
