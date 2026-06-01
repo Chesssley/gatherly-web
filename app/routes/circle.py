@@ -3,11 +3,10 @@ import os
 from types import SimpleNamespace
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
-from sqlalchemy import func, text
+from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from app.models import Activity, Circle, CircleMember, Comment, CommentImage, Interaction, Post, PostImage, Registration, User, db
-from app.routes.activity import OFFICIAL_INTEREST_TAGS
+from app.models import Activity, Circle, CircleMember, Comment, CommentImage, Interaction, Post, PostImage, Registration, User, create_notification, db
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
 circle_bp = Blueprint("circle", __name__)
@@ -147,6 +146,26 @@ def _strip_official_suffix(name):
     return name
 
 
+CIRCLE_OFFICIAL_TOPIC_TAGS = [
+    "影像摄影",
+    "运动户外",
+    "咖啡茶饮",
+    "阅读出版",
+    "手作艺术",
+    "音乐演出",
+    "观影戏剧",
+    "城市探索",
+    "游戏桌游",
+    "科技数码",
+    "美食烘焙",
+    "公益志愿",
+]
+
+
+def _circle_interest_tags():
+    return list(CIRCLE_OFFICIAL_TOPIC_TAGS)
+
+
 def _is_admin(user):
     return bool(user and user.role == "admin")
 
@@ -262,7 +281,7 @@ def _sync_system_circles():
         for circle in Circle.query.filter_by(is_system=True).all():
             circle.name = _strip_official_suffix(circle.name)
 
-        for index, tag in enumerate(OFFICIAL_INTEREST_TAGS, start=1):
+        for index, tag in enumerate(_circle_interest_tags(), start=1):
             name = _official_circle_name(tag)
             circle = (
                 Circle.query.filter(
@@ -291,7 +310,7 @@ def _sync_system_circles():
 
 def _build_mock_circles():
     circles = []
-    for index, tag in enumerate(OFFICIAL_INTEREST_TAGS, start=1):
+    for index, tag in enumerate(_circle_interest_tags(), start=1):
         member_count = _official_member_count(index)
         post_count = _official_post_count(index)
         circles.append(
@@ -368,7 +387,17 @@ def _can_manage_circle_content(user, circle, author_id):
 
 
 def _can_view_circle(user, circle):
-    return circle.status != "deleted" and (circle.status == "active" or _is_admin(user))
+    if circle.status == "deleted":
+        return False
+    if circle.status == "active":
+        return True
+    if circle.status == "private":
+        return bool(_is_admin(user) or _is_circle_owner(user, circle) or _is_member(circle.id, user.id if user else None))
+    return _is_admin(user)
+
+
+def _can_set_circle_privacy(user, circle):
+    return bool(user and (user.role == "admin" or circle.owner_id == user.id))
 
 
 def _refresh_member_count(circle):
@@ -607,7 +636,7 @@ def _build_comment_threads(comments, current_user, circle, include_hidden=False)
 @circle_bp.route("/circles")
 def circles():
     _sync_system_circles()
-    circle_rows = Circle.query.filter_by(status="active").all()
+    circle_rows = Circle.query.filter(Circle.status.in_(["active", "private"])).all()
     decorated = [_decorate_circle(circle) for circle in circle_rows]
     circle_ids = [circle.id for circle in decorated]
     activities_by_circle, activity_counts_by_circle = _build_circle_activity_summaries(circle_ids)
@@ -633,6 +662,34 @@ def circles():
 @circle_bp.route("/circle")
 def circle_list():
     return circles()
+
+
+@circle_bp.route("/my-groups")
+def my_groups():
+    user = _current_user()
+    if user is None:
+        return redirect(url_for("auth.login", next=request.url))
+
+    memberships = (
+        CircleMember.query.filter(
+            CircleMember.user_id == user.id,
+            CircleMember.status.in_(["active", "pending"]),
+        )
+        .join(Circle, CircleMember.circle_id == Circle.id)
+        .filter(Circle.status != "deleted")
+        .order_by(CircleMember.joined_at.desc())
+        .all()
+    )
+    active_groups = [membership for membership in memberships if membership.status == "active"]
+    pending_groups = [membership for membership in memberships if membership.status == "pending"]
+    for membership in memberships:
+        _decorate_circle(membership.circle)
+
+    return render_template(
+        "my_groups.html",
+        active_groups=active_groups,
+        pending_groups=pending_groups,
+    )
 
 
 @circle_bp.route("/circle/create", methods=["GET", "POST"])
@@ -708,6 +765,35 @@ def circle_detail(circle_id):
 
     current_user = _current_user()
     if not _can_view_circle(current_user, circle):
+        if circle.status == "private":
+            pending_request = None
+            if current_user:
+                pending_request = CircleMember.query.filter_by(
+                    circle_id=circle.id,
+                    user_id=current_user.id,
+                    status="pending",
+                ).first()
+            return render_template(
+                "circle_detail.html",
+                circle=_decorate_circle(circle),
+                private_request_mode=True,
+                pending_request=pending_request,
+                posts=[],
+                related_activities=[],
+                upcoming_activities=[],
+                past_activities=[],
+                related_activity_count=0,
+                photo_items=[],
+                owner_membership=None,
+                moderator_memberships=[],
+                featured_member_memberships=[],
+                current_user=current_user,
+                is_member=False,
+                can_manage_circle=False,
+                is_circle_owner=False,
+                circle_members=[],
+                pending_members=[],
+            )
         flash("同好圈不存在或暂不可见。", "error")
         return redirect(url_for("circle.circles"))
 
@@ -722,6 +808,7 @@ def circle_detail(circle_id):
         Post.created_at.desc(),
     ).all()
     post_items = []
+    photo_items = []
     for post in posts:
         comments = (
             Comment.query.filter_by(post_id=post.id)
@@ -733,6 +820,7 @@ def circle_detail(circle_id):
             or (_is_admin(current_user) and comment.status == "hidden")
             for comment in comments
         )
+        can_delete_post = _can_manage_circle_content(current_user, circle, post.user_id)
         post_items.append(
             {
                 "post": post,
@@ -744,7 +832,7 @@ def circle_detail(circle_id):
                     "post",
                     post.id,
                 ),
-                "can_delete": _can_manage_circle_content(current_user, circle, post.user_id),
+                "can_delete": can_delete_post,
                 "comments": _build_comment_threads(
                     comments,
                     current_user,
@@ -753,17 +841,39 @@ def circle_detail(circle_id):
                 ),
             }
         )
+        for image in post.images:
+            photo_items.append(
+                {
+                    "image": image,
+                    "post": post,
+                    "can_delete": can_delete_post,
+                }
+            )
     active_members = (
         CircleMember.query.filter_by(circle_id=circle.id, status="active")
         .join(User, CircleMember.user_id == User.id)
         .order_by(User.nickname.asc(), User.username.asc())
         .all()
     )
-    related_activity_rows = (
+    related_activity_count = Activity.query.filter_by(circle_id=circle.id).count()
+    now = datetime.utcnow()
+    upcoming_activity_rows = (
         Activity.query.filter_by(circle_id=circle.id)
+        .filter(Activity.status != "cancelled")
+        .filter(or_(Activity.start_time.is_(None), Activity.start_time >= now))
         .order_by(Activity.start_time.asc(), Activity.id.desc())
+        .limit(6)
         .all()
     )
+    past_activity_rows = (
+        Activity.query.filter_by(circle_id=circle.id)
+        .filter(Activity.status != "cancelled")
+        .filter(Activity.start_time.is_not(None), Activity.start_time < now)
+        .order_by(Activity.start_time.desc(), Activity.id.desc())
+        .limit(6)
+        .all()
+    )
+    related_activity_rows = upcoming_activity_rows + past_activity_rows
     related_activity_ids = [activity.id for activity in related_activity_rows]
     related_registration_counts = {}
     if related_activity_ids:
@@ -776,10 +886,11 @@ def circle_detail(circle_id):
             .group_by(Registration.activity_id)
             .all()
         )
-    related_activities = [
-        {
+    def _activity_card_item(activity):
+        return {
             "id": activity.id,
             "title": activity.title,
+            "image": activity.image or _circle_cover_image(circle),
             "time": activity.start_time.strftime("%Y-%m-%d %H:%M") if activity.start_time else "时间待定",
             "location": activity.location or activity.city or "地点待确认",
             "current_people": (activity.initial_participants or 0)
@@ -787,18 +898,55 @@ def circle_detail(circle_id):
             "max_participants": activity.max_participants,
             "category": (activity.tags or "").split(",")[0].strip() or "未分类",
         }
-        for activity in related_activity_rows
+
+    upcoming_activities = [_activity_card_item(activity) for activity in upcoming_activity_rows]
+    past_activities = [_activity_card_item(activity) for activity in past_activity_rows]
+    owner_membership = next(
+        (
+            membership
+            for membership in active_members
+            if membership.user_id == circle.owner_id or membership.role == "owner"
+        ),
+        None,
+    )
+    moderator_memberships = [
+        membership
+        for membership in active_members
+        if membership.user_id != circle.owner_id and membership.role in ["moderator", "admin"]
     ]
+    featured_member_memberships = [
+        membership
+        for membership in active_members
+        if membership.user_id != circle.owner_id and membership.role not in ["moderator", "admin", "owner"]
+    ][:8]
+    pending_members = (
+        CircleMember.query.filter_by(circle_id=circle.id, status="pending")
+        .join(User, CircleMember.user_id == User.id)
+        .order_by(CircleMember.joined_at.asc())
+        .all()
+        if _can_set_circle_privacy(current_user, circle)
+        else []
+    )
     return render_template(
         "circle_detail.html",
         circle=_decorate_circle(circle),
         posts=post_items,
-        related_activities=related_activities,
+        related_activities=upcoming_activities,
+        upcoming_activities=upcoming_activities,
+        past_activities=past_activities,
+        related_activity_count=related_activity_count,
+        photo_items=photo_items,
+        owner_membership=owner_membership,
+        moderator_memberships=moderator_memberships,
+        featured_member_memberships=featured_member_memberships,
         current_user=current_user,
         is_member=_is_member(circle.id),
         can_manage_circle=_can_manage_circle(current_user, circle),
         is_circle_owner=_is_circle_owner(current_user, circle),
         circle_members=active_members,
+        pending_members=pending_members,
+        private_request_mode=False,
+        pending_request=None,
     )
 
 
@@ -831,6 +979,108 @@ def join_circle(circle_id):
         flash("您已经加入该同好圈。", "info")
         return redirect(url_for("circle.circle_detail", circle_id=circle.id))
     flash("已加入同好圈。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
+@circle_bp.route("/circle/<int:circle_id>/request-access", methods=["POST"])
+def request_circle_access(circle_id):
+    user = _current_user()
+    if user is None:
+        return redirect(url_for("auth.login", next=url_for("circle.circle_detail", circle_id=circle_id)))
+
+    circle = Circle.query.get_or_404(circle_id)
+    if circle.status != "private":
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+    if _can_view_circle(user, circle):
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    reason = request.form.get("reason", "").strip()
+    if len(reason) < 5:
+        flash("请填写至少 5 个字的申请理由。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+    if len(reason) > 300:
+        flash("申请理由不能超过 300 个字。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    member = CircleMember.query.filter_by(circle_id=circle.id, user_id=user.id).first()
+    if member is None:
+        member = CircleMember(circle_id=circle.id, user_id=user.id, role="member", status="pending")
+        db.session.add(member)
+    else:
+        member.status = "pending"
+        member.role = "member"
+        member.updated_at = datetime.utcnow()
+
+    if circle.owner_id:
+        create_notification(
+            circle.owner_id,
+            "circle_access_request",
+            f"{user.nickname or user.username} 申请加入私密同好圈",
+            f"申请圈子：{circle.name}\n申请理由：{reason}",
+            related_type="circle",
+            related_id=circle.id,
+        )
+    db.session.commit()
+    flash("申请已提交，等待圈主审核。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
+@circle_bp.route("/circle/<int:circle_id>/privacy", methods=["POST"])
+def update_circle_privacy(circle_id):
+    user = _current_user()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _can_set_circle_privacy(user, circle):
+        flash("只有系统管理员或圈主可以设置圈子隐私。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    privacy = request.form.get("privacy", "public")
+    circle.status = "private" if privacy == "private" else "active"
+    db.session.commit()
+    flash("圈子隐私设置已更新。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
+@circle_bp.route("/circle/<int:circle_id>/member/<int:user_id>/access", methods=["POST"])
+def review_circle_access(circle_id, user_id):
+    user = _current_user()
+    circle = Circle.query.get_or_404(circle_id)
+    if not _can_set_circle_privacy(user, circle):
+        flash("只有系统管理员或圈主可以审核申请。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+    member = CircleMember.query.filter_by(
+        circle_id=circle.id,
+        user_id=user_id,
+        status="pending",
+    ).first_or_404()
+    decision = request.form.get("decision", "")
+    if decision == "approve":
+        member.status = "active"
+        member.role = "member"
+        member.updated_at = datetime.utcnow()
+        _refresh_member_count(circle)
+        create_notification(
+            member.user_id,
+            "circle_access_approved",
+            "同好圈申请已通过",
+            f"你已可以进入「{circle.name}」。",
+            related_type="circle",
+            related_id=circle.id,
+        )
+        flash("已通过该成员申请。", "success")
+    else:
+        member.status = "rejected"
+        member.updated_at = datetime.utcnow()
+        create_notification(
+            member.user_id,
+            "circle_access_rejected",
+            "同好圈申请未通过",
+            f"你申请加入「{circle.name}」暂未通过。",
+            related_type="circle",
+            related_id=circle.id,
+        )
+        flash("已拒绝该成员申请。", "info")
+    db.session.commit()
     return redirect(url_for("circle.circle_detail", circle_id=circle.id))
 
 
@@ -1151,6 +1401,28 @@ def delete_post(post_id):
     db.session.commit()
     flash("帖子已删除。", "success")
     return redirect(url_for("circle.circle_detail", circle_id=circle.id))
+
+
+@circle_bp.route("/circle/post-image/<int:image_id>/delete", methods=["POST"])
+def delete_post_image(image_id):
+    user = _current_user()
+    if user is None:
+        flash("请先登录后再删除照片。", "error")
+        return redirect(url_for("auth.login"))
+
+    image = PostImage.query.get_or_404(image_id)
+    post = Post.query.get_or_404(image.post_id)
+    circle = Circle.query.get_or_404(post.circle_id)
+    if not _can_manage_circle_content(user, circle, post.user_id):
+        flash("你没有权限删除这张照片。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-photos-title"))
+
+    image_path = image.image_path
+    db.session.delete(image)
+    db.session.commit()
+    delete_saved_images([image_path])
+    flash("照片已删除。", "success")
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-photos-title"))
 
 
 @circle_bp.route("/circle/comment/<int:comment_id>/delete", methods=["POST"])

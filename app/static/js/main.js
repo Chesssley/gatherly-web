@@ -1019,6 +1019,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  const myGroupsTabs = Array.from(document.querySelectorAll("[data-my-groups-tab]"));
+  const myGroupsPanels = Array.from(document.querySelectorAll("[data-my-groups-panel]"));
+  myGroupsTabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.myGroupsTab;
+      myGroupsTabs.forEach(item => {
+        item.classList.toggle("is-active", item === tab);
+      });
+      myGroupsPanels.forEach(panel => {
+        panel.classList.toggle("is-active", panel.dataset.myGroupsPanel === target);
+      });
+    });
+  });
+
   document.addEventListener("keydown", event => {
     if (event.key === "Escape") {
       closeNavigationPanels();

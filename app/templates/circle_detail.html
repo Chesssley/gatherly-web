@@ -17,10 +17,30 @@
     <path d="m9 17-5-5 5-5"></path><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path>
     {% elif name == "users" %}
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"></path>
+    {% elif name == "calendar" %}
+    <path d="M8 2v4M16 2v4M3 10h18"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect>
     {% else %}
     <circle cx="12" cy="12" r="9"></circle>
     {% endif %}
 </svg>
+{% endmacro %}
+
+{% macro member_avatar(user, size="small") %}
+    {% if user.avatar %}
+    <img class="avatar-{{ size }}" src="{{ user.avatar }}" alt="{{ user.nickname or user.username }}">
+    {% else %}
+    <span class="avatar-{{ size }} avatar-placeholder">{{ (user.nickname or user.username)[:1] }}</span>
+    {% endif %}
+{% endmacro %}
+
+{% macro render_member_card(user, role_label) %}
+<a class="circle-member-card" href="{{ url_for('profile.view_profile', user_id=user.id) }}">
+    {{ member_avatar(user) }}
+    <span>
+        <strong>{{ user.nickname or user.username }}</strong>
+        <small>{{ role_label }}</small>
+    </span>
+</a>
 {% endmacro %}
 
 {% macro render_comment_thread(comment_item, post, circle, current_user) %}
@@ -31,15 +51,14 @@
     {% else %}
     <div class="comment-author-row">
         <a class="profile-link" href="{{ url_for('profile.view_profile', user_id=comment.author.id) }}">
-            {% if comment.author.avatar %}
-            <img class="avatar-small" src="{{ comment.author.avatar }}" alt="{{ comment.author.nickname or comment.author.username }}">
-            {% else %}
-            <span class="avatar-small avatar-placeholder">{{ (comment.author.nickname or comment.author.username)[:1] }}</span>
-            {% endif %}
+            {{ member_avatar(comment.author) }}
             <strong>{{ comment.author.nickname or comment.author.username }}</strong>
         </a>
         <time datetime="{{ comment.created_at.isoformat() }}">{{ comment.created_at.strftime("%m-%d %H:%M") }}</time>
     </div>
+    {% if comment.status == "hidden" %}
+    <span class="tag circle-hidden-tag">已隐藏</span>
+    {% endif %}
     {% if comment.content|trim %}
     <p>{{ comment.content }}</p>
     {% endif %}
@@ -116,7 +135,7 @@
         </div>
         {% endfor %}
         {% if comment_item.replies | length > 2 %}
-        <button class="reply-expand-button" type="button" data-replies-toggle aria-expanded="false">
+        <button class="reply-expand-button" type="button" data-replies-toggle data-hidden-count="{{ comment_item.replies | length - 2 }}" aria-expanded="false">
             展开更多回复（{{ comment_item.replies | length - 2 }}）
         </button>
         {% endif %}
@@ -125,316 +144,579 @@
 </div>
 {% endmacro %}
 
-<section class="section circle-detail-page">
+<section class="section circle-detail-page circle-group-home">
     <div class="container">
-        <a class="circle-detail-back" href="{{ url_for('circle.circles') }}">← 返回同好圈</a>
-        <div class="circle-detail-hero">
+        <a class="circle-detail-back" href="{{ url_for('circle.circles') }}">返回同好圈</a>
+
+        <header class="circle-detail-hero">
             <div class="circle-detail-cover">
                 <img src="{{ url_for('static', filename=circle.cover_image_url) }}" alt="{{ circle.name }} cover">
                 <span class="circle-detail-cover-overlay"></span>
                 <div class="circle-cover-badges">
+                    {% if circle.is_system %}<span class="tag circle-official-tag">官方圈子</span>{% endif %}
                     {% if circle.is_pinned %}<span class="tag circle-featured-tag">精选圈子</span>{% endif %}
-                    {% if circle.is_hot %}<span class="tag circle-hot-tag">热门圈子</span>{% endif %}
+                    {% if circle.is_hot %}<span class="tag circle-hot-tag">热门</span>{% endif %}
                 </div>
             </div>
             <div class="page-title circle-detail-profile">
                 <div class="circle-detail-intro">
-                    <p class="eyebrow">{{ circle.tag or "Circle" }}</p>
                     <h1>{{ circle.name }}</h1>
-                    <p>{{ circle.description }}</p>
+                    <p>{{ circle.description or "这个圈子还没有填写介绍。" }}</p>
                 </div>
+
+                <div class="circle-detail-tags" aria-label="圈子标签">
+                    <span class="tag">{{ circle.tag or "同好圈" }}</span>
+                    <span class="tag">{{ circle.active_level }}</span>
+                    {% if circle.status == "private" %}<span class="tag circle-private-tag">私密圈子</span>{% endif %}
+                    {% if circle.owner %}<span class="tag">圈主 {{ circle.owner.nickname or circle.owner.username }}</span>{% endif %}
+                    {% if moderator_memberships %}<span class="tag">{{ moderator_memberships|length }} 位管理员</span>{% endif %}
+                </div>
+
                 <div class="card-meta circle-meta circle-detail-stats">
                     <p>{{ circle_icon("users") }}<strong>{{ circle.member_count }}</strong><span>成员</span></p>
                     <p>{{ circle_icon("comment") }}<strong>{{ circle.post_count | default(0) }}</strong><span>帖子</span></p>
-                    <p><strong>{{ circle.active_level }}</strong><span>社区类型</span></p>
-                </div>
-                <p class="circle-detail-owner">圈主：{{ (circle.owner.nickname or circle.owner.username) if circle.owner else '暂未设置' }}</p>
-
-                <div class="circle-announcement">
-                    <strong>圈内公告</strong>
-                    <p>{{ circle.announcement or '暂无公告。' }}</p>
+                    <p>{{ circle_icon("calendar") }}<strong>{{ related_activity_count | default(0) }}</strong><span>活动</span></p>
                 </div>
 
-            {% if can_manage_circle %}
-            <details class="circle-management-panel">
-                <summary>管理圈子</summary>
-                {% if is_circle_owner or current_user.role == 'admin' %}
-                <section class="management-card">
-                    <h2 class="circle-management-title">修改圈子封面</h2>
-                    <p class="form-hint">支持 jpg、jpeg、png、webp，单张图片必须小于 800KB。</p>
-                    <form method="POST" action="{{ url_for('circle.update_circle_cover', circle_id=circle.id) }}" enctype="multipart/form-data">
-                        <div class="file-upload-control">
-                            <input
-                                class="circle-file-input"
-                                type="file"
-                                id="circle-cover-image"
-                                name="cover_image"
-                                accept=".jpg,.jpeg,.png,.webp"
-                                required
-                                data-file-count-target="circle-cover-image-count"
-                                data-image-upload
-                                data-max-count="1"
-                                data-max-bytes="819200"
-                            >
-                            <label class="file-upload-button" for="circle-cover-image">选择封面</label>
-                            <span class="file-upload-count" id="circle-cover-image-count">未选择图片</span>
-                        </div>
-                        <div class="management-actions">
-                            <button class="button button-small management-button" type="submit">保存封面</button>
-                        </div>
-                    </form>
-                </section>
-                {% endif %}
-                <section class="management-card">
-                    <h2 class="circle-management-title">编辑圈内公告</h2>
-                    <form method="POST" action="{{ url_for('circle.update_announcement', circle_id=circle.id) }}">
-                        <label class="form-label" for="announcement">公告内容</label>
-                        <textarea class="form-input" id="announcement" name="announcement" rows="4" maxlength="1000">{{ circle.announcement or '' }}</textarea>
-                        <div class="management-actions">
-                            <button class="button button-small management-button" type="submit">保存公告</button>
-                        </div>
-                    </form>
-                </section>
+                <div class="circle-share-row" aria-label="分享圈子">
+                    <span>Share</span>
+                    <button class="circle-mini-icon circle-share-button" type="button" data-share-url="{{ url_for('circle.circle_detail', circle_id=circle.id) }}" aria-label="分享圈子">{{ circle_icon("share") }}</button>
+                    <a class="circle-mini-icon" href="#circle-discussions-title" aria-label="查看讨论">{{ circle_icon("comment") }}</a>
+                    <a class="circle-mini-icon" href="#circle-members-title" aria-label="查看成员">{{ circle_icon("users") }}</a>
+                </div>
 
-                {% if is_circle_owner %}
-                <section class="management-card member-picker" data-member-picker>
-                    <h2 class="circle-management-title">设置管理员</h2>
-                    <p class="form-hint">按昵称、用户名或邮箱搜索当前圈内成员。</p>
-                    <label class="form-label" for="moderator-member-search">搜索成员</label>
-                    <input class="form-input member-picker-search" id="moderator-member-search" type="search" placeholder="输入昵称、用户名或邮箱" autocomplete="off" data-member-search>
-                    <div class="member-picker-list" data-member-list>
-                        {% for membership in circle_members %}
-                            {% if membership.user_id != circle.owner_id %}
-                            <div class="circle-member-row" data-member-item data-member-search-text="{{ membership.user.nickname or '' }} {{ membership.user.username }} {{ membership.user.email }}">
-                                <div class="circle-member-info">
-                                    <strong>{{ membership.user.nickname or membership.user.username }}</strong>
-                                    <span>@{{ membership.user.username }} · {{ membership.user.email }}</span>
-                                </div>
-                                <span class="tag">{{ '管理员' if membership.role in ['moderator', 'admin'] else '成员' }}</span>
-                                <form method="POST" action="{{ url_for('circle.update_circle_member_role', circle_id=circle.id, user_id=membership.user_id) }}">
-                                    <input type="hidden" name="role" value="{{ 'member' if membership.role in ['moderator', 'admin'] else 'moderator' }}">
-                                    <button class="button button-small management-button {{ 'button-danger' if membership.role in ['moderator', 'admin'] else 'button-secondary' }}" type="submit">
-                                        {{ '移除管理员' if membership.role in ['moderator', 'admin'] else '设为管理员' }}
-                                    </button>
-                                </form>
-                            </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                    <p class="member-picker-empty is-hidden" data-member-empty>没有匹配的圈内成员。</p>
-                </section>
+                <div class="circle-hero-actions" aria-label="圈子操作">
+                    {% if current_user %}
+                        {% if is_member %}
+                        <button class="button button-secondary" type="button" disabled>已加入</button>
+                        <a class="button" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">发布帖子</a>
+                        <form method="POST" action="{{ url_for('circle.leave_circle', circle_id=circle.id) }}" class="circle-inline-form" onsubmit="return confirm('确定退出这个同好圈吗？');">
+                            <button class="button button-danger" type="submit">退出圈子</button>
+                        </form>
+                        {% else %}
+                        {% if private_request_mode %}
+                        <a class="button" href="#circle-private-request-title">申请加入</a>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('circle.join_circle', circle_id=circle.id) }}" class="circle-inline-form">
+                            <button class="button" type="submit">加入圈子</button>
+                        </form>
+                        {% endif %}
+                        {% endif %}
+                    {% else %}
+                    <a class="button" href="{{ url_for('auth.login', next=request.url) }}">登录后加入</a>
+                    <a class="button button-secondary" href="{{ url_for('auth.register') }}">注册</a>
+                    {% endif %}
+                </div>
+            </div>
+        </header>
 
-                <section class="management-card member-picker" data-member-picker>
-                    <h2 class="circle-management-title">转移圈主</h2>
-                    <p class="form-hint">转移后你将成为普通成员，请谨慎操作。</p>
-                    <label class="form-label" for="owner-member-search">搜索接任成员</label>
-                    <input class="form-input member-picker-search" id="owner-member-search" type="search" placeholder="输入昵称、用户名或邮箱" autocomplete="off" data-member-search>
-                    <div class="member-picker-list" data-member-list>
-                        {% for membership in circle_members %}
-                            {% if membership.user_id != circle.owner_id %}
-                            <div class="circle-member-row" data-member-item data-member-search-text="{{ membership.user.nickname or '' }} {{ membership.user.username }} {{ membership.user.email }}">
-                                <div class="circle-member-info">
-                                    <strong>{{ membership.user.nickname or membership.user.username }}</strong>
-                                    <span>@{{ membership.user.username }} · {{ membership.user.email }}</span>
-                                </div>
-                                <form method="POST" action="{{ url_for('circle.transfer_circle_owner', circle_id=circle.id) }}" onsubmit="return confirm('确定将圈主身份转移给该成员吗？');">
-                                    <input type="hidden" name="user_id" value="{{ membership.user_id }}">
-                                    <button class="button button-small button-danger management-button" type="submit">转移圈主</button>
-                                </form>
-                            </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                    <p class="member-picker-empty is-hidden" data-member-empty>没有匹配的圈内成员。</p>
-                </section>
-                {% endif %}
-            </details>
-            {% endif %}
-
+        {% if private_request_mode %}
+        <section class="circle-private-request" aria-labelledby="circle-private-request-title">
+            <div>
+                <p class="eyebrow">Private Group</p>
+                <h2 id="circle-private-request-title">这是一个私密同好圈</h2>
+                <p>提交加入理由后，圈主会在通知中心收到申请。审核通过后你才能查看圈内内容。</p>
+            </div>
             {% if current_user %}
-                {% if is_member %}
-                <a class="button" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">发布帖子</a>
-                <form method="POST" action="{{ url_for('circle.leave_circle', circle_id=circle.id) }}" class="circle-inline-form" onsubmit="return confirm('确定退出这个同好圈吗？');">
-                    <button class="button button-danger" type="submit">退出圈子</button>
-                </form>
-                {% else %}
-                <form method="POST" action="{{ url_for('circle.join_circle', circle_id=circle.id) }}" class="circle-inline-form">
-                    <button class="button" type="submit">加入圈子</button>
-                </form>
-                <p class="circle-description">加入后可以发帖；未加入时仍可评论、点赞、收藏和转发。</p>
-                {% endif %}
-            {% endif %}
-        </div>
-        </div>
-
-        <section class="circle-related-activities" aria-labelledby="circle-related-activities-title">
-            <div class="circle-feed-heading">
-                <div>
-                    <p class="eyebrow">Related Activities</p>
-                    <h2 id="circle-related-activities-title">相关活动</h2>
+                {% if pending_request %}
+                <div class="empty-state">
+                    <p>你的申请正在等待圈主审核。</p>
                 </div>
-                <span>{{ related_activities|length }} 场活动</span>
-            </div>
-            {% if related_activities %}
-            <div class="circle-related-activity-grid">
-                {% for activity in related_activities %}
-                <a class="circle-related-activity-card" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
-                    <span class="tag">{{ activity.category }}</span>
-                    <h3>{{ activity.title }}</h3>
-                    <p>{{ activity.time }} · {{ activity.location }}</p>
-                    <span>
-                        {{ activity.current_people }} 人已报名{% if activity.max_participants %} / 上限 {{ activity.max_participants }} 人{% endif %}
-                    </span>
-                </a>
-                {% endfor %}
-            </div>
+                {% else %}
+                <form method="POST" action="{{ url_for('circle.request_circle_access', circle_id=circle.id) }}">
+                    <label class="form-label" for="circle-request-reason">加入理由</label>
+                    <textarea class="form-input" id="circle-request-reason" name="reason" rows="4" maxlength="300" required placeholder="说明你为什么想加入这个同好圈"></textarea>
+                    <button class="button" type="submit">提交申请</button>
+                </form>
+                {% endif %}
             {% else %}
-            <div class="empty-state">
-                <p>暂无关联活动。</p>
-            </div>
+            <a class="button" href="{{ url_for('auth.login', next=request.url) }}">登录后申请加入</a>
             {% endif %}
         </section>
-
-        {% if posts %}
-        <div class="circle-feed-heading">
-            <div>
-                <p class="eyebrow">Community Feed</p>
-                <h2>圈内动态</h2>
-            </div>
-            <span>{{ circle.post_count | default(0) }} 篇帖子</span>
-        </div>
-        <div class="post-list">
-            {% for item in posts %}
-            {% set post = item.post %}
-            <article class="activity-card circle-post" id="post-{{ post.id }}">
-                <div class="card-body">
-                    <div class="post-author">
-                        <a class="profile-link" href="{{ url_for('profile.view_profile', user_id=post.user.id) }}">
-                            {% if post.user.avatar %}
-                            <img class="avatar-small" src="{{ post.user.avatar }}" alt="{{ post.user.nickname or post.user.username }}">
-                            {% else %}
-                            <span class="avatar-small avatar-placeholder">{{ (post.user.nickname or post.user.username)[:1] }}</span>
-                            {% endif %}
-                            <span>
-                                <strong>{{ post.user.nickname or post.user.username }}</strong>
-                                <time datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime("%Y-%m-%d %H:%M") }}</time>
-                            </span>
-                        </a>
-                        <span class="post-author-tags">
-                            <span class="tag">{{ post.type }}</span>
-                            {% if item.is_pinned %}<span class="tag circle-pinned-tag">置顶</span>{% endif %}
-                        </span>
-                    </div>
-                    <h2 class="card-title">{{ post.title }}</h2>
-                    <p class="circle-description">{{ post.content }}</p>
-
-                    {% if post.images %}
-                    <div class="circle-image-grid">
-                        {% for image in post.images %}
-                        <a href="{{ url_for('static', filename=image.image_path) }}" target="_blank" rel="noopener">
-                            <img src="{{ url_for('static', filename=image.image_path) }}" alt="{{ post.title }} 图片 {{ loop.index }}">
-                        </a>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-
-                    <div class="circle-action-bar" aria-label="帖子操作">
-                        {% if current_user %}
-                        <form method="POST" action="{{ url_for('circle.interact_post', circle_id=circle.id, post_id=post.id, action='like') }}">
-                            <button class="circle-action-button {% if item.states.like %}is-active{% endif %}" type="submit">
-                                {{ circle_icon("heart") }}<span>{{ item.counts.like }}</span>
-                            </button>
-                        </form>
-                        <button class="circle-action-button" type="button" data-comment-focus="comment-{{ post.id }}">{{ circle_icon("comment") }}<span>{{ item.comment_count }}</span></button>
-                        <form method="POST" action="{{ url_for('circle.interact_post', circle_id=circle.id, post_id=post.id, action='favorite') }}">
-                            <button class="circle-action-button {% if item.states.favorite %}is-active{% endif %}" type="submit">
-                                {{ circle_icon("bookmark") }}<span>{{ item.counts.favorite }}</span>
-                            </button>
-                        </form>
-                        <button
-                            class="circle-action-button circle-share-button"
-                            type="button"
-                            data-share-url="{{ url_for('circle.circle_detail', circle_id=circle.id, _anchor='post-' ~ post.id) }}"
-                        >{{ circle_icon("share") }}<span>分享</span></button>
-                        {% if can_manage_circle %}
-                        <form method="POST" action="{{ url_for('circle.toggle_pin_post', circle_id=circle.id, post_id=post.id) }}">
-                            <button class="circle-action-button circle-management-action" type="submit">{{ '取消置顶' if item.is_pinned else '置顶' }}</button>
-                        </form>
-                        {% endif %}
-                        {% if item.can_delete %}
-                        <form method="POST" action="{{ url_for('circle.delete_post', post_id=post.id) }}" onsubmit="return confirm('确定删除这篇帖子吗？');">
-                            <button class="circle-action-button circle-delete-button" type="submit">删除</button>
-                        </form>
-                        {% endif %}
-                        {% else %}
-                        <button class="circle-action-button" type="button" data-login-required>{{ circle_icon("heart") }}<span>{{ item.counts.like }}</span></button>
-                        <button class="circle-action-button" type="button" data-login-required>{{ circle_icon("comment") }}<span>{{ item.comment_count }}</span></button>
-                        <button class="circle-action-button" type="button" data-login-required>{{ circle_icon("bookmark") }}<span>{{ item.counts.favorite }}</span></button>
-                        <button class="circle-action-button" type="button" data-login-required>{{ circle_icon("share") }}<span>分享</span></button>
-                        {% endif %}
-                    </div>
-
-                    <div class="comment-list">
-                        {% for comment_item in item.comments %}
-                        {{ render_comment_thread(comment_item, post, circle, current_user) }}
-                        {% endfor %}
-                    </div>
-
-                    {% if current_user %}
-                    <form
-                        class="circle-comment-form"
-                        method="POST"
-                        action="{{ url_for('circle.comment_post', circle_id=circle.id, post_id=post.id) }}"
-                        enctype="multipart/form-data"
-                    >
-                        <label class="form-label" for="comment-{{ post.id }}">发表评论</label>
-                        <textarea class="form-input" id="comment-{{ post.id }}" name="content" rows="3"></textarea>
-                        <label class="form-label" for="comment-images-{{ post.id }}">评论图片</label>
-                        <div class="file-upload-control">
-                            <input
-                                class="circle-file-input"
-                                type="file"
-                                id="comment-images-{{ post.id }}"
-                                name="images"
-                                accept=".jpg,.jpeg,.png,.webp"
-                                data-file-count-target="comment-image-count-{{ post.id }}"
-                                data-image-upload
-                                data-max-count="1"
-                                data-max-bytes="512000"
-                            >
-                            <label class="file-upload-button" for="comment-images-{{ post.id }}">选择图片</label>
-                            <span class="file-upload-count" id="comment-image-count-{{ post.id }}">未选择图片</span>
-                        </div>
-                        <button class="button button-small" type="submit">发布评论</button>
-                    </form>
-                    {% else %}
-                    <div class="login-prompt">
-                        <p>登录或注册后可以评论、点赞、收藏和转发。</p>
-                        <a class="button button-small" href="{{ url_for('auth.login', next=request.url) }}">登录</a>
-                        <a class="button button-small button-secondary" href="{{ url_for('auth.register') }}">注册</a>
-                    </div>
-                    {% endif %}
-                </div>
-            </article>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty-state">
-            <p>这个圈子还没有帖子。</p>
-            {% if current_user and is_member %}
-            <a class="button" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">发布第一篇帖子</a>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        {% if not current_user %}
-        <div class="login-prompt">
-            <p>登录或注册后可以参与同好圈互动。</p>
-            <a class="button button-small" href="{{ url_for('auth.login', next=request.url) }}">登录</a>
-            <a class="button button-small button-secondary" href="{{ url_for('auth.register') }}">注册</a>
-        </div>
-        {% endif %}
     </div>
 </section>
 <script src="{{ url_for('static', filename='js/circle.js') }}"></script>
+{% else %}
+
+        <nav class="circle-group-tabs" aria-label="圈子页面导航">
+            <button class="is-active" type="button" data-scroll-target="circle-about-title"><span>✦</span>关于</button>
+            <button type="button" data-scroll-target="circle-related-activities-title"><span>▣</span>活动</button>
+            <button type="button" data-member-modal-open><span>♟</span>成员</button>
+            <button type="button" data-scroll-target="circle-photos-title"><span>▤</span>照片</button>
+            <button type="button" data-scroll-target="circle-discussions-title"><span>☰</span>讨论</button>
+        </nav>
+
+        <div class="circle-group-shell">
+            <main class="circle-main-stack" aria-label="圈子主页内容">
+                <section class="circle-home-section" data-circle-panel="about" aria-labelledby="circle-about-title">
+                    <div class="circle-feed-heading">
+                        <div>
+                            <p class="eyebrow">About</p>
+                            <h2 id="circle-about-title">圈子介绍与公告</h2>
+                        </div>
+                    </div>
+                    <div class="circle-about-grid">
+                        <article class="circle-about-card">
+                            <h3>关于这个圈子</h3>
+                            <p>{{ circle.description or "圈主还没有补充详细介绍。" }}</p>
+                        </article>
+                        <article class="circle-announcement">
+                            <h3>圈内公告</h3>
+                            <p>{{ circle.announcement or "暂无公告。" }}</p>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="circle-home-section circle-related-activities" id="circle-events" aria-labelledby="circle-related-activities-title">
+                    <div class="circle-feed-heading">
+                        <div>
+                            <p class="eyebrow">Events</p>
+                            <h2 id="circle-related-activities-title">活动 <span>{{ related_activity_count | default(0) }}</span></h2>
+                        </div>
+                        <div class="circle-events-toolbar">
+                            <button class="circle-events-filter-button" type="button" data-events-filter-toggle aria-expanded="false">
+                                <span data-events-filter-label>即将开始</span><span aria-hidden="true">⌄</span>
+                            </button>
+                            <div class="circle-events-filter-menu" data-events-filter-menu hidden>
+                                <button class="is-active" type="button" data-events-filter-option="upcoming">即将开始</button>
+                                <button type="button" data-events-filter-option="past">已结束</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="circle-related-activity-grid" data-events-list="upcoming">
+                        {% for activity in upcoming_activities %}
+                        <a class="circle-related-activity-card" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
+                            <span class="circle-event-image">
+                                <img src="{{ url_for('static', filename=activity.image) }}" alt="{{ activity.title }}">
+                                <span class="circle-event-save" aria-hidden="true">♡</span>
+                            </span>
+                            <span class="tag">{{ activity.category }}</span>
+                            <strong>{{ activity.title }}</strong>
+                            <small>{{ activity.time }}</small>
+                            <p>{{ activity.location }}</p>
+                            <em>
+                                {{ activity.current_people }} 人已报名{% if activity.max_participants %} / 上限 {{ activity.max_participants }} 人{% endif %}
+                            </em>
+                        </a>
+                        {% endfor %}
+                        {% if not upcoming_activities %}
+                        <div class="empty-state">
+                            <p>暂无即将开始的圈内活动。</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="circle-related-activity-grid is-hidden" data-events-list="past">
+                        {% for activity in past_activities %}
+                        <a class="circle-related-activity-card" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
+                            <span class="circle-event-image">
+                                <img src="{{ url_for('static', filename=activity.image) }}" alt="{{ activity.title }}">
+                                <span class="circle-event-save" aria-hidden="true">♡</span>
+                            </span>
+                            <span class="tag">{{ activity.category }}</span>
+                            <strong>{{ activity.title }}</strong>
+                            <small>{{ activity.time }}</small>
+                            <p>{{ activity.location }}</p>
+                            <em>
+                                {{ activity.current_people }} 人参加{% if activity.max_participants %} / 上限 {{ activity.max_participants }} 人{% endif %}
+                            </em>
+                        </a>
+                        {% endfor %}
+                        {% if not past_activities %}
+                        <div class="empty-state">
+                            <p>暂无已结束的圈内活动。</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </section>
+
+                <section class="circle-home-section circle-photo-strip" aria-labelledby="circle-photos-title">
+                    <div class="circle-feed-heading">
+                        <div>
+                            <p class="eyebrow">Photos</p>
+                            <h2 id="circle-photos-title">照片 <span>{{ photo_items|length }}</span></h2>
+                        </div>
+                        {% if current_user and is_member %}
+                        <a class="circle-add-photo-button" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">上传照片</a>
+                        {% else %}
+                        <a class="circle-add-photo-button" href="{{ url_for('auth.login', next=request.url) }}">登录后上传照片</a>
+                        {% endif %}
+                    </div>
+                    <div class="circle-photo-grid">
+                        {% for item in photo_items %}
+                        <div class="circle-photo-item">
+                            <a href="#post-{{ item.post.id }}">
+                                <img src="{{ url_for('static', filename=item.image.image_path) }}" alt="{{ item.post.title }} 图片">
+                            </a>
+                            {% if item.can_delete %}
+                            <form method="POST" action="{{ url_for('circle.delete_post_image', image_id=item.image.id) }}" onsubmit="return confirm('确定删除这张照片吗？');">
+                                <button type="submit">删除</button>
+                            </form>
+                            {% endif %}
+                            <strong>{{ item.post.title }}</strong>
+                        </div>
+                        {% else %}
+                        <div class="empty-state">
+                            <p>暂无圈内照片。</p>
+                            {% if current_user and is_member %}
+                            <a class="button button-small" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">上传第一张照片</a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <section class="circle-home-section" aria-labelledby="circle-discussions-title">
+                    <div class="circle-feed-heading">
+                        <div>
+                            <p class="eyebrow">Discussions</p>
+                            <h2 id="circle-discussions-title">讨论</h2>
+                        </div>
+                        <span>{{ circle.post_count | default(0) }} 篇</span>
+                    </div>
+                    <p class="circle-panel-subtitle">用于圈内交流、公告更新和成员讨论。</p>
+                    {% if current_user and is_member %}
+                    <a class="circle-discussion-composer" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">
+                        {{ member_avatar(current_user) }}
+                        <span>发起讨论...</span>
+                    </a>
+                    {% else %}
+                    <a class="circle-discussion-composer" href="{{ url_for('auth.login', next=request.url) }}">
+                        <span class="avatar-small avatar-placeholder">G</span>
+                        <span>登录后发起讨论...</span>
+                    </a>
+                    {% endif %}
+
+                    {% if posts %}
+                    <div class="post-list">
+                        {% for item in posts %}
+                        {% set post = item.post %}
+                        <article class="activity-card circle-post" id="post-{{ post.id }}">
+                            <div class="card-body">
+                                <div class="post-author">
+                                    <a class="profile-link" href="{{ url_for('profile.view_profile', user_id=post.user.id) }}">
+                                        {{ member_avatar(post.user) }}
+                                        <span>
+                                            <strong>{{ post.user.nickname or post.user.username }}</strong>
+                                            <time datetime="{{ post.created_at.isoformat() }}">{{ post.created_at.strftime("%Y-%m-%d %H:%M") }}</time>
+                                        </span>
+                                    </a>
+                                    <span class="post-author-tags">
+                                        <span class="tag">{{ post.type }}</span>
+                                        {% if item.is_pinned %}<span class="tag circle-pinned-tag">置顶</span>{% endif %}
+                                        {% if post.status == "hidden" %}<span class="tag circle-hidden-tag">已隐藏</span>{% endif %}
+                                    </span>
+                                </div>
+                                <h2 class="card-title">{{ post.title }}</h2>
+                                <p class="circle-description">{{ post.content }}</p>
+
+                                {% if post.images %}
+                                <div class="circle-image-grid">
+                                    {% for image in post.images %}
+                                    <a href="{{ url_for('static', filename=image.image_path) }}" target="_blank" rel="noopener">
+                                        <img src="{{ url_for('static', filename=image.image_path) }}" alt="{{ post.title }} 图片 {{ loop.index }}">
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                <div class="circle-action-bar" aria-label="帖子操作">
+                                    {% if current_user %}
+                                    <form method="POST" action="{{ url_for('circle.interact_post', circle_id=circle.id, post_id=post.id, action='like') }}">
+                                        <button class="circle-action-button {% if item.states.like %}is-active{% endif %}" type="submit">
+                                            {{ circle_icon("heart") }}<span>{{ item.counts.like }}</span>
+                                        </button>
+                                    </form>
+                                    <button class="circle-action-button" type="button" data-comment-focus="comment-{{ post.id }}">{{ circle_icon("comment") }}<span>{{ item.comment_count }}</span></button>
+                                    <form method="POST" action="{{ url_for('circle.interact_post', circle_id=circle.id, post_id=post.id, action='favorite') }}">
+                                        <button class="circle-action-button {% if item.states.favorite %}is-active{% endif %}" type="submit">
+                                            {{ circle_icon("bookmark") }}<span>{{ item.counts.favorite }}</span>
+                                        </button>
+                                    </form>
+                                    <button
+                                        class="circle-action-button circle-share-button"
+                                        type="button"
+                                        data-share-url="{{ url_for('circle.circle_detail', circle_id=circle.id, _anchor='post-' ~ post.id) }}"
+                                    >{{ circle_icon("share") }}<span>分享</span></button>
+                                    {% if can_manage_circle %}
+                                    <form method="POST" action="{{ url_for('circle.toggle_pin_post', circle_id=circle.id, post_id=post.id) }}">
+                                        <button class="circle-action-button circle-management-action" type="submit">{{ '取消置顶' if item.is_pinned else '置顶' }}</button>
+                                    </form>
+                                    {% endif %}
+                                    {% if item.can_delete %}
+                                    <form method="POST" action="{{ url_for('circle.delete_post', post_id=post.id) }}" onsubmit="return confirm('确定删除这篇帖子吗？');">
+                                        <button class="circle-action-button circle-delete-button" type="submit">删除</button>
+                                    </form>
+                                    {% endif %}
+                                    {% else %}
+                                    <button class="circle-action-button" type="button" data-login-required>{{ circle_icon("heart") }}<span>{{ item.counts.like }}</span></button>
+                                    <button class="circle-action-button" type="button" data-login-required>{{ circle_icon("comment") }}<span>{{ item.comment_count }}</span></button>
+                                    <button class="circle-action-button" type="button" data-login-required>{{ circle_icon("bookmark") }}<span>{{ item.counts.favorite }}</span></button>
+                                    <button class="circle-action-button" type="button" data-login-required>{{ circle_icon("share") }}<span>分享</span></button>
+                                    {% endif %}
+                                </div>
+
+                                <div class="comment-list">
+                                    {% for comment_item in item.comments %}
+                                    {{ render_comment_thread(comment_item, post, circle, current_user) }}
+                                    {% endfor %}
+                                </div>
+
+                                {% if current_user %}
+                                <form
+                                    class="circle-comment-form"
+                                    method="POST"
+                                    action="{{ url_for('circle.comment_post', circle_id=circle.id, post_id=post.id) }}"
+                                    enctype="multipart/form-data"
+                                >
+                                    <label class="form-label" for="comment-{{ post.id }}">发表评论</label>
+                                    <textarea class="form-input" id="comment-{{ post.id }}" name="content" rows="3"></textarea>
+                                    <label class="form-label" for="comment-images-{{ post.id }}">评论图片</label>
+                                    <div class="file-upload-control">
+                                        <input
+                                            class="circle-file-input"
+                                            type="file"
+                                            id="comment-images-{{ post.id }}"
+                                            name="images"
+                                            accept=".jpg,.jpeg,.png,.webp"
+                                            data-file-count-target="comment-image-count-{{ post.id }}"
+                                            data-image-upload
+                                            data-max-count="1"
+                                            data-max-bytes="512000"
+                                        >
+                                        <label class="file-upload-button" for="comment-images-{{ post.id }}">选择图片</label>
+                                        <span class="file-upload-count" id="comment-image-count-{{ post.id }}">未选择图片</span>
+                                    </div>
+                                    <button class="button button-small" type="submit">发布评论</button>
+                                </form>
+                                {% else %}
+                                <div class="login-prompt">
+                                    <p>登录或注册后可以评论、点赞、收藏和分享。</p>
+                                    <a class="button button-small" href="{{ url_for('auth.login', next=request.url) }}">登录</a>
+                                    <a class="button button-small button-secondary" href="{{ url_for('auth.register') }}">注册</a>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </article>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <p>这个圈子还没有帖子。</p>
+                        {% if current_user and is_member %}
+                        <a class="button" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">发布第一篇帖子</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </section>
+            </main>
+
+            <aside class="circle-sidebar" aria-label="圈子侧边信息">
+                <section class="circle-sidebar-panel circle-organizer-panel" aria-labelledby="circle-organizers-title">
+                    <div class="circle-sidebar-heading">
+                        <h2 id="circle-organizers-title">组织者</h2>
+                    </div>
+                    {% if circle.owner %}
+                    {{ render_member_card(circle.owner, "圈主") }}
+                    {% else %}
+                    <p class="circle-sidebar-empty">暂未设置圈主。</p>
+                    {% endif %}
+                    {% if moderator_memberships %}
+                    <p class="circle-organizer-note">{{ moderator_memberships|length }} 位管理员协助维护圈子</p>
+                    {% endif %}
+                </section>
+
+                <section class="circle-sidebar-panel" aria-labelledby="circle-members-title">
+                    <div class="circle-sidebar-heading">
+                        <h2 id="circle-members-title">成员 <span>{{ circle.member_count }}</span></h2>
+                        <button type="button" data-member-modal-open>查看全部</button>
+                    </div>
+                    <div class="circle-member-list">
+                        {% for membership in moderator_memberships %}
+                        {{ render_member_card(membership.user, "管理员") }}
+                        {% endfor %}
+                        {% for membership in featured_member_memberships %}
+                        {{ render_member_card(membership.user, "活跃成员") }}
+                        {% endfor %}
+                    </div>
+                    {% if not circle.owner and not moderator_memberships and not featured_member_memberships %}
+                    <p class="circle-sidebar-empty">暂无成员信息。</p>
+                    {% endif %}
+                </section>
+
+                <section class="circle-sidebar-panel">
+                    <div class="circle-sidebar-heading">
+                        <p class="eyebrow">Info</p>
+                        <h2>圈子信息</h2>
+                    </div>
+                    <dl class="circle-info-list">
+                        <div><dt>兴趣标签</dt><dd>{{ circle.tag or "同好圈" }}</dd></div>
+                        <div><dt>圈子类型</dt><dd>{{ circle.active_level }}</dd></div>
+                        <div><dt>成员</dt><dd>{{ circle.member_count }}</dd></div>
+                        <div><dt>帖子</dt><dd>{{ circle.post_count | default(0) }}</dd></div>
+                        <div><dt>活动</dt><dd>{{ related_activity_count | default(0) }}</dd></div>
+                    </dl>
+                </section>
+
+                {% if can_manage_circle %}
+                <details class="circle-management-panel" open>
+                    <summary>管理圈子</summary>
+                    {% if is_circle_owner or current_user.role == 'admin' %}
+                    <section class="management-card circle-privacy-panel">
+                        <h2 class="circle-management-title">圈子隐私</h2>
+                        <p class="form-hint">设为私密后，非成员需要提交加入理由，圈主审核通过后才能进入。</p>
+                        <form method="POST" action="{{ url_for('circle.update_circle_privacy', circle_id=circle.id) }}" class="circle-privacy-actions">
+                            <button class="button button-small {{ 'button-secondary' if circle.status == 'active' else '' }}" type="submit" name="privacy" value="public">公开</button>
+                            <button class="button button-small {{ 'button-secondary' if circle.status == 'private' else '' }}" type="submit" name="privacy" value="private">私密</button>
+                        </form>
+                    </section>
+
+                    {% if pending_members %}
+                    <section class="management-card circle-pending-panel">
+                        <h2 class="circle-management-title">入圈申请</h2>
+                        <div class="circle-pending-list">
+                            {% for membership in pending_members %}
+                            <div class="circle-member-row">
+                                <div class="circle-member-info">
+                                    <strong>{{ membership.user.nickname or membership.user.username }}</strong>
+                                    <span>@{{ membership.user.username }} · 等待审核</span>
+                                </div>
+                                <form method="POST" action="{{ url_for('circle.review_circle_access', circle_id=circle.id, user_id=membership.user_id) }}" class="circle-inline-form">
+                                    <button class="button button-small management-button" type="submit" name="decision" value="approve">通过</button>
+                                    <button class="button button-small button-danger management-button" type="submit" name="decision" value="reject">拒绝</button>
+                                </form>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </section>
+                    {% endif %}
+
+                    <section class="management-card">
+                        <h2 class="circle-management-title">修改圈子封面</h2>
+                        <p class="form-hint">支持 jpg、jpeg、png、webp，单张图片需小于 800KB。</p>
+                        <form method="POST" action="{{ url_for('circle.update_circle_cover', circle_id=circle.id) }}" enctype="multipart/form-data">
+                            <div class="file-upload-control">
+                                <input
+                                    class="circle-file-input"
+                                    type="file"
+                                    id="circle-cover-image"
+                                    name="cover_image"
+                                    accept=".jpg,.jpeg,.png,.webp"
+                                    required
+                                    data-file-count-target="circle-cover-image-count"
+                                    data-image-upload
+                                    data-max-count="1"
+                                    data-max-bytes="819200"
+                                >
+                                <label class="file-upload-button" for="circle-cover-image">选择封面</label>
+                                <span class="file-upload-count" id="circle-cover-image-count">未选择图片</span>
+                            </div>
+                            <div class="management-actions">
+                                <button class="button button-small management-button" type="submit">保存封面</button>
+                            </div>
+                        </form>
+                    </section>
+                    {% endif %}
+                    <section class="management-card">
+                        <h2 class="circle-management-title">编辑圈内公告</h2>
+                        <form method="POST" action="{{ url_for('circle.update_announcement', circle_id=circle.id) }}">
+                            <label class="form-label" for="announcement">公告内容</label>
+                            <textarea class="form-input" id="announcement" name="announcement" rows="4" maxlength="1000">{{ circle.announcement or '' }}</textarea>
+                            <div class="management-actions">
+                                <button class="button button-small management-button" type="submit">保存公告</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    {% if is_circle_owner %}
+                    <section class="management-card member-picker" data-member-picker>
+                        <h2 class="circle-management-title">设置管理员</h2>
+                        <p class="form-hint">按昵称、用户名或邮箱搜索当前圈内成员。</p>
+                        <label class="form-label" for="moderator-member-search">搜索成员</label>
+                        <input class="form-input member-picker-search" id="moderator-member-search" type="search" placeholder="输入昵称、用户名或邮箱" autocomplete="off" data-member-search>
+                        <div class="member-picker-list" data-member-list>
+                            {% for membership in circle_members %}
+                                {% if membership.user_id != circle.owner_id %}
+                                <div class="circle-member-row" data-member-item data-member-search-text="{{ membership.user.nickname or '' }} {{ membership.user.username }} {{ membership.user.email }}">
+                                    <div class="circle-member-info">
+                                        <strong>{{ membership.user.nickname or membership.user.username }}</strong>
+                                        <span>@{{ membership.user.username }} · {{ membership.user.email }}</span>
+                                    </div>
+                                    <span class="tag">{{ '管理员' if membership.role in ['moderator', 'admin'] else '成员' }}</span>
+                                    <form method="POST" action="{{ url_for('circle.update_circle_member_role', circle_id=circle.id, user_id=membership.user_id) }}">
+                                        <input type="hidden" name="role" value="{{ 'member' if membership.role in ['moderator', 'admin'] else 'moderator' }}">
+                                        <button class="button button-small management-button {{ 'button-danger' if membership.role in ['moderator', 'admin'] else 'button-secondary' }}" type="submit">
+                                            {{ '移除管理员' if membership.role in ['moderator', 'admin'] else '设为管理员' }}
+                                        </button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <p class="member-picker-empty is-hidden" data-member-empty>没有匹配的圈内成员。</p>
+                    </section>
+
+                    <section class="management-card member-picker" data-member-picker>
+                        <h2 class="circle-management-title">转移圈主</h2>
+                        <p class="form-hint">转移后你将成为普通成员，请谨慎操作。</p>
+                        <label class="form-label" for="owner-member-search">搜索接任成员</label>
+                        <input class="form-input member-picker-search" id="owner-member-search" type="search" placeholder="输入昵称、用户名或邮箱" autocomplete="off" data-member-search>
+                        <div class="member-picker-list" data-member-list>
+                            {% for membership in circle_members %}
+                                {% if membership.user_id != circle.owner_id %}
+                                <div class="circle-member-row" data-member-item data-member-search-text="{{ membership.user.nickname or '' }} {{ membership.user.username }} {{ membership.user.email }}">
+                                    <div class="circle-member-info">
+                                        <strong>{{ membership.user.nickname or membership.user.username }}</strong>
+                                        <span>@{{ membership.user.username }} · {{ membership.user.email }}</span>
+                                    </div>
+                                    <form method="POST" action="{{ url_for('circle.transfer_circle_owner', circle_id=circle.id) }}" onsubmit="return confirm('确定将圈主身份转移给该成员吗？');">
+                                        <input type="hidden" name="user_id" value="{{ membership.user_id }}">
+                                        <button class="button button-small button-danger management-button" type="submit">转移圈主</button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <p class="member-picker-empty is-hidden" data-member-empty>没有匹配的圈内成员。</p>
+                    </section>
+                    {% endif %}
+                </details>
+                {% endif %}
+            </aside>
+        </div>
+    </div>
+
+    <div class="circle-member-modal" data-member-modal hidden>
+        <div class="circle-member-modal-backdrop" data-member-modal-close></div>
+        <section class="circle-member-modal-panel" role="dialog" aria-modal="true" aria-labelledby="circle-member-modal-title">
+            <div class="circle-member-modal-heading">
+                <div>
+                    <p class="eyebrow">成员</p>
+                    <h2 id="circle-member-modal-title">全部成员</h2>
+                </div>
+                <button class="circle-modal-close" type="button" data-member-modal-close aria-label="关闭成员列表">×</button>
+            </div>
+            <div class="circle-member-modal-list">
+                {% if circle.owner %}
+                <a class="circle-member-modal-row" href="{{ url_for('profile.view_profile', user_id=circle.owner.id) }}">
+                    {{ member_avatar(circle.owner) }}
+                    <span><strong>{{ circle.owner.nickname or circle.owner.username }}</strong><small>圈主</small></span>
+                </a>
+                {% endif %}
+                {% for membership in circle_members %}
+                    {% if not circle.owner or membership.user_id != circle.owner_id %}
+                    <a class="circle-member-modal-row" href="{{ url_for('profile.view_profile', user_id=membership.user.id) }}">
+                        {{ member_avatar(membership.user) }}
+                        <span>
+                            <strong>{{ membership.user.nickname or membership.user.username }}</strong>
+                            <small>{{ '管理员' if membership.role in ['moderator', 'admin'] else '成员' }}</small>
+                        </span>
+                    </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</section>
+<script src="{{ url_for('static', filename='js/circle.js') }}"></script>
+{% endif %}
 {% endblock %}
