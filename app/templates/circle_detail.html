@@ -65,8 +65,8 @@
     {% if comment.images %}
     <div class="circle-image-grid comment-image-grid">
         {% for image in comment.images %}
-        <a href="{{ url_for('static', filename=image.image_path) }}" target="_blank" rel="noopener">
-            <img src="{{ url_for('static', filename=image.image_path) }}" alt="评论图片 {{ loop.index }}">
+        <a href="{{ image.image_path|asset_url }}" target="_blank" rel="noopener">
+            <img src="{{ image.image_path|asset_url }}" alt="评论图片 {{ loop.index }}">
         </a>
         {% endfor %}
     </div>
@@ -150,7 +150,7 @@
 
         <header class="circle-detail-hero">
             <div class="circle-detail-cover">
-                <img src="{{ url_for('static', filename=circle.cover_image_url) }}" alt="{{ circle.name }} cover">
+                <img src="{{ circle.cover_image_url|asset_url }}" alt="{{ circle.name }} cover">
                 <span class="circle-detail-cover-overlay"></span>
                 <div class="circle-cover-badges">
                     {% if circle.is_system %}<span class="tag circle-official-tag">官方圈子</span>{% endif %}
@@ -287,7 +287,7 @@
                         {% for activity in upcoming_activities %}
                         <a class="circle-related-activity-card" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
                             <span class="circle-event-image">
-                                <img src="{{ url_for('static', filename=activity.image) }}" alt="{{ activity.title }}">
+                                <img src="{{ activity.image|asset_url }}" alt="{{ activity.title }}">
                                 <span class="circle-event-save" aria-hidden="true">♡</span>
                             </span>
                             <span class="tag">{{ activity.category }}</span>
@@ -309,7 +309,7 @@
                         {% for activity in past_activities %}
                         <a class="circle-related-activity-card" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
                             <span class="circle-event-image">
-                                <img src="{{ url_for('static', filename=activity.image) }}" alt="{{ activity.title }}">
+                                <img src="{{ activity.image|asset_url }}" alt="{{ activity.title }}">
                                 <span class="circle-event-save" aria-hidden="true">♡</span>
                             </span>
                             <span class="tag">{{ activity.category }}</span>
@@ -345,7 +345,7 @@
                         {% for item in photo_items %}
                         <div class="circle-photo-item">
                             <a href="#post-{{ item.post.id }}">
-                                <img src="{{ url_for('static', filename=item.image.image_path) }}" alt="{{ item.post.title }} 图片">
+                                <img src="{{ item.image.image_path|asset_url }}" alt="{{ item.post.title }} 图片">
                             </a>
                             {% if item.can_delete %}
                             <form method="POST" action="{{ url_for('circle.delete_post_image', image_id=item.image.id) }}" onsubmit="return confirm('确定删除这张照片吗？');">
@@ -412,8 +412,8 @@
                                 {% if post.images %}
                                 <div class="circle-image-grid">
                                     {% for image in post.images %}
-                                    <a href="{{ url_for('static', filename=image.image_path) }}" target="_blank" rel="noopener">
-                                        <img src="{{ url_for('static', filename=image.image_path) }}" alt="{{ post.title }} 图片 {{ loop.index }}">
+                                    <a href="{{ image.image_path|asset_url }}" target="_blank" rel="noopener">
+                                        <img src="{{ image.image_path|asset_url }}" alt="{{ post.title }} 图片 {{ loop.index }}">
                                     </a>
                                     {% endfor %}
                                 </div>

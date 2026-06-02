@@ -104,8 +104,8 @@
           <article class="message-bubble {% if message.sender_id == session.get('user_id') %}is-mine{% endif %}" data-message-id="{{ message.id }}">
             <div class="message-bubble-inner">
               {% if message.image_path %}
-              <a href="{{ url_for('static', filename=message.image_path) }}" target="_blank" rel="noopener">
-                <img src="{{ url_for('static', filename=message.image_path) }}" alt="私信图片">
+              <a href="{{ message.image_path|asset_url }}" target="_blank" rel="noopener">
+                <img src="{{ message.image_path|asset_url }}" alt="私信图片">
               </a>
               {% endif %}
               {% if message.content %}<p>{{ message.content }}</p>{% endif %}

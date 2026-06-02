@@ -1,11 +1,10 @@
-import os
-from uuid import uuid4
-
-from flask import current_app
 from werkzeug.utils import secure_filename
 
-
-ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+from app.services.storage import (
+    ALLOWED_IMAGE_EXTENSIONS,
+    delete_stored_files,
+    upload_file,
+)
 
 
 def _content_matches_extension(content, extension):
@@ -19,6 +18,8 @@ def _content_matches_extension(content, extension):
             and content.startswith(b"RIFF")
             and content[8:12] == b"WEBP"
         )
+    if extension == "gif":
+        return content.startswith((b"GIF87a", b"GIF89a"))
     return False
 
 
@@ -31,11 +32,11 @@ def validate_image_files(files, max_count, max_bytes):
     for file in selected_files:
         original_filename = secure_filename(file.filename)
         if "." not in original_filename:
-            raise ValueError("图片格式不支持，请上传 jpg、jpeg、png 或 webp 图片。")
+            raise ValueError("图片格式不支持，请上传 jpg、jpeg、png、webp 或 gif 图片。")
 
         extension = original_filename.rsplit(".", 1)[1].lower()
         if extension not in ALLOWED_IMAGE_EXTENSIONS:
-            raise ValueError("图片格式不支持，请上传 jpg、jpeg、png 或 webp 图片。")
+            raise ValueError("图片格式不支持，请上传 jpg、jpeg、png、webp 或 gif 图片。")
 
         content = file.stream.read(max_bytes)
         file.stream.seek(0)
@@ -52,16 +53,14 @@ def validate_image_files(files, max_count, max_bytes):
 
 
 def save_image_files(validated_files, upload_subdir):
-    upload_dir = os.path.join(current_app.static_folder, upload_subdir)
-    os.makedirs(upload_dir, exist_ok=True)
-
     saved_paths = []
     try:
         for file, extension in validated_files:
-            filename = secure_filename(f"{uuid4().hex}.{extension}")
-            file.save(os.path.join(upload_dir, filename))
-            saved_paths.append(f"{upload_subdir.replace(os.sep, '/')}/{filename}")
-    except OSError as exc:
+            saved_paths.append(upload_file(file, upload_subdir, extension=extension))
+    except RuntimeError as exc:
+        delete_saved_images(saved_paths)
+        raise ValueError(str(exc)) from exc
+    except Exception as exc:
         delete_saved_images(saved_paths)
         raise ValueError("图片保存失败，请稍后重试。") from exc
 
@@ -69,10 +68,4 @@ def save_image_files(validated_files, upload_subdir):
 
 
 def delete_saved_images(image_paths):
-    for image_path in image_paths:
-        absolute_path = os.path.join(current_app.static_folder, image_path)
-        if os.path.isfile(absolute_path):
-            try:
-                os.remove(absolute_path)
-            except OSError:
-                pass
+    delete_stored_files(image_paths)

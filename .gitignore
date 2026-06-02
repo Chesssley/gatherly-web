@@ -41,7 +41,3 @@ gatherly_uploads_backup.zip
 
 # User uploads
 app/static/uploads/
-app/static/uploads/*
-!app/static/uploads/avatars/
-app/static/uploads/avatars/*
-!app/static/uploads/avatars/.gitkeep

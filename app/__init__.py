@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from app.models import db
+from app.services.storage import storage_url
 
 
 load_dotenv()
@@ -59,6 +60,7 @@ def create_app(test_config=None):
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
+    app.add_template_filter(storage_url, "asset_url")
 
     from app.routes.activity import activity_bp
     from app.routes.admin import admin_bp

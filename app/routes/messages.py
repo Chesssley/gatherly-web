@@ -15,12 +15,13 @@ from app.models import (
     get_user_display_name,
     users_are_mutual_followers,
 )
+from app.services.storage import storage_url
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
 
 messages_bp = Blueprint("messages", __name__, url_prefix="/messages")
 
-MESSAGE_IMAGE_UPLOAD_SUBDIR = os.path.join("uploads", "messages")
+MESSAGE_IMAGE_UPLOAD_SUBDIR = "messages"
 MESSAGE_IMAGE_MAX_BYTES = 800 * 1024
 MESSAGE_TEXT_MAX_LENGTH = 2000
 
@@ -283,7 +284,7 @@ def _message_to_dict(message, current_user_id):
         "content": message.content or "",
         "message_type": message.message_type,
         "image_url": (
-            url_for("static", filename=message.image_path)
+            storage_url(message.image_path)
             if message.image_path
             else None
         ),
