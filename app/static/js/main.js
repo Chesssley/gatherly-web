@@ -712,10 +712,29 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      let carouselButtonFrame = null;
+
       const updateCarouselButtons = () => {
+        carouselButtonFrame = null;
         const maxScrollLeft = Math.max(0, strip.scrollWidth - strip.clientWidth);
-        previousButton.disabled = strip.scrollLeft <= 1;
-        nextButton.disabled = strip.scrollLeft >= maxScrollLeft - 1;
+        const isAtStart = strip.scrollLeft <= 1;
+        const isAtEnd = strip.scrollLeft >= maxScrollLeft - 1;
+        const canScroll = maxScrollLeft > 1;
+
+        previousButton.disabled = !canScroll || isAtStart;
+        previousButton.hidden = !canScroll || isAtStart;
+        previousButton.setAttribute("aria-hidden", String(!canScroll || isAtStart));
+
+        nextButton.disabled = !canScroll || isAtEnd;
+        nextButton.hidden = !canScroll || isAtEnd;
+        nextButton.setAttribute("aria-hidden", String(!canScroll || isAtEnd));
+      };
+
+      const queueCarouselButtonUpdate = () => {
+        if (carouselButtonFrame !== null) {
+          return;
+        }
+        carouselButtonFrame = window.requestAnimationFrame(updateCarouselButtons);
       };
 
       const scrollFeaturedCards = direction => {
@@ -723,12 +742,24 @@ document.addEventListener("DOMContentLoaded", () => {
         const gap = Number.parseFloat(window.getComputedStyle(strip).columnGap || "0") || 0;
         const scrollDistance = firstCard ? firstCard.offsetWidth + gap : strip.clientWidth;
         strip.scrollBy({ left: direction * scrollDistance, behavior: "smooth" });
+        queueCarouselButtonUpdate();
       };
 
       previousButton.addEventListener("click", () => scrollFeaturedCards(-1));
       nextButton.addEventListener("click", () => scrollFeaturedCards(1));
-      strip.addEventListener("scroll", updateCarouselButtons, { passive: true });
-      window.addEventListener("resize", updateCarouselButtons);
+      strip.addEventListener("scroll", queueCarouselButtonUpdate, { passive: true });
+      window.addEventListener("resize", queueCarouselButtonUpdate);
+      if ("ResizeObserver" in window) {
+        const carouselResizeObserver = new ResizeObserver(queueCarouselButtonUpdate);
+        carouselResizeObserver.observe(strip);
+        carouselResizeObserver.observe(carousel);
+      }
+      strip.querySelectorAll("img").forEach(image => {
+        if (!image.complete) {
+          image.addEventListener("load", queueCarouselButtonUpdate, { once: true });
+          image.addEventListener("error", queueCarouselButtonUpdate, { once: true });
+        }
+      });
       updateCarouselButtons();
     });
   };
