@@ -101,3 +101,6 @@ Sprint 2 目标：完善 Gatherly 的核心业务闭环和特色功能。
 - 每个 Backlog 条目应对应 GitHub Issue。
 - 状态应与 GitHub Project 保持一致。
 - 文档类任务使用 Documentation 类型，缺陷修复使用 Bug 类型。
+# 历史归档，仅供参考
+
+> 本文件为本次文档整理前的旧版 Backlog 材料，保留为过程证据。当前功能范围请以 [../feature-guide.md](../feature-guide.md) 和当前 GitHub Issues 为准。

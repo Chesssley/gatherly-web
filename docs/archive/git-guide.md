@@ -99,3 +99,6 @@ git push origin --delete feature/activity-list
 - 没有提交 `__pycache__`、`.pyc`、`.db`、`.env`、临时文件。
 - 没有修改与当前 Issue 无关的业务逻辑。
 - 文档或样式变更已在 PR 描述中说明。
+# 历史归档，仅供参考
+
+> 本文件为本次文档整理前的旧版材料，可能包含过期结构、重复说明或编码损坏内容。当前 GitHub 协作流程请以 [../development-workflow.md](../development-workflow.md) 为准。
