@@ -526,6 +526,118 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const calendarTitle = popover.querySelector("[data-home-calendar-title]");
+    const calendarDays = popover.querySelector("[data-home-calendar-days]");
+    const previousMonthButton = popover.querySelector("[data-home-calendar-previous]");
+    const nextMonthButton = popover.querySelector("[data-home-calendar-next]");
+    const isCalendarFilter = Boolean(calendarTitle && calendarDays);
+    const todayDate = (() => {
+      const todayValue = popover.dataset.homeCalendarToday;
+      if (todayValue) {
+        const [year, month, day] = todayValue.split("-").map(Number);
+        if ([year, month, day].every(Number.isFinite)) {
+          return new Date(year, month - 1, day);
+        }
+      }
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    })();
+
+    const parseDateValue = value => {
+      if (!value) {
+        return null;
+      }
+      const [year, month, day] = value.split("-").map(Number);
+      if (![year, month, day].every(Number.isFinite)) {
+        return null;
+      }
+      return new Date(year, month - 1, day);
+    };
+
+    const padDatePart = value => String(value).padStart(2, "0");
+    const toDateValue = date => `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`;
+    const isSameDate = (left, right) => (
+      Boolean(left && right)
+      && left.getFullYear() === right.getFullYear()
+      && left.getMonth() === right.getMonth()
+      && left.getDate() === right.getDate()
+    );
+    const monthTitleFormatter = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
+    const monthShortFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
+    let selectedDate = parseDateValue(popover.dataset.homeCalendarSelectedDate)
+      || parseDateValue(popover.querySelector("[data-home-date-day].is-selected")?.dataset.homeDateValue)
+      || todayDate;
+    let calendarViewDate = new Date(
+      Number(popover.dataset.homeCalendarYear || selectedDate.getFullYear()),
+      Number(popover.dataset.homeCalendarMonth || selectedDate.getMonth() + 1) - 1,
+      1
+    );
+
+    const setToggleLabel = label => {
+      const textNode = Array.from(toggle.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+      if (textNode) {
+        textNode.textContent = `${label} `;
+        return;
+      }
+      toggle.insertBefore(document.createTextNode(`${label} `), toggle.firstChild);
+    };
+
+    const dateButtonLabel = date => {
+      const tomorrowDate = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate() + 1);
+      if (isSameDate(date, todayDate)) {
+        return "\u4eca\u5929";
+      }
+      if (isSameDate(date, tomorrowDate)) {
+        return "\u660e\u5929";
+      }
+      return `From ${monthShortFormatter.format(date)} ${date.getDate()}`;
+    };
+
+    const renderCalendar = () => {
+      if (!isCalendarFilter) {
+        return;
+      }
+      const viewYear = calendarViewDate.getFullYear();
+      const viewMonth = calendarViewDate.getMonth();
+      calendarTitle.textContent = monthTitleFormatter.format(calendarViewDate);
+      calendarDays.textContent = "";
+
+      const firstOfMonth = new Date(viewYear, viewMonth, 1);
+      const gridStart = new Date(viewYear, viewMonth, 1 - firstOfMonth.getDay());
+      for (let dayIndex = 0; dayIndex < 42; dayIndex += 1) {
+        const date = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + dayIndex);
+        const isCurrentMonth = date.getFullYear() === viewYear && date.getMonth() === viewMonth;
+        const isPast = date < todayDate;
+        const isSelected = isCurrentMonth && isSameDate(date, selectedDate);
+        const isToday = isCurrentMonth && isSameDate(date, todayDate);
+        const button = document.createElement("button");
+
+        button.type = "button";
+        button.textContent = String(date.getDate());
+        button.dataset.homeDateDay = String(date.getDate());
+        button.dataset.homeDateValue = toDateValue(date);
+        button.dataset.homeDateLabel = dateButtonLabel(date);
+        button.dataset.homeDateCurrentMonth = String(isCurrentMonth);
+        button.setAttribute("aria-pressed", String(isSelected));
+
+        if (!isCurrentMonth) {
+          button.classList.add("is-muted");
+        }
+        if (isToday) {
+          button.classList.add("is-today");
+        }
+        if (isSelected) {
+          button.classList.add("is-selected");
+        }
+        if (!isCurrentMonth || isPast) {
+          button.classList.add("is-disabled");
+          button.disabled = true;
+        }
+
+        calendarDays.appendChild(button);
+      }
+    };
+
     toggle.addEventListener("click", event => {
       event.preventDefault();
       event.stopPropagation();
@@ -541,25 +653,46 @@ document.addEventListener("DOMContentLoaded", () => {
       event.stopPropagation();
     });
 
-    popover.querySelectorAll("[data-home-date-day]").forEach(dayButton => {
-      dayButton.addEventListener("click", event => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (dayButton.disabled) {
-          return;
-        }
-        popover.querySelectorAll("[data-home-date-day]").forEach(item => {
-          item.classList.remove("is-selected");
-          item.setAttribute("aria-pressed", "false");
-        });
-        dayButton.classList.add("is-selected");
-        dayButton.setAttribute("aria-pressed", "true");
-        const label = dayButton.dataset.homeDateLabel || dayButton.textContent.trim();
-        toggle.firstChild.textContent = `${label} `;
-        popover.hidden = true;
-        toggle.setAttribute("aria-expanded", "false");
-      });
+    previousMonthButton?.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1);
+      renderCalendar();
     });
+
+    nextMonthButton?.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1);
+      renderCalendar();
+    });
+
+    popover.addEventListener("click", event => {
+      const dayButton = event.target instanceof Element
+        ? event.target.closest("[data-home-date-day]")
+        : null;
+      if (!dayButton || !popover.contains(dayButton)) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (dayButton.disabled) {
+        return;
+      }
+      selectedDate = parseDateValue(dayButton.dataset.homeDateValue) || selectedDate;
+      popover.querySelectorAll("[data-home-date-day]").forEach(item => {
+        item.classList.remove("is-selected");
+        item.setAttribute("aria-pressed", "false");
+      });
+      dayButton.classList.add("is-selected");
+      dayButton.setAttribute("aria-pressed", "true");
+      setToggleLabel(dayButton.dataset.homeDateLabel || dayButton.textContent.trim());
+      renderCalendar();
+      popover.hidden = true;
+      toggle.setAttribute("aria-expanded", "false");
+    });
+
+    renderCalendar();
   });
 
   document.addEventListener("click", () => {
