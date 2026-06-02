@@ -805,6 +805,187 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-circle-wizard]").forEach(wizard => {
+    const form = wizard.querySelector("[data-circle-wizard-form]");
+    const steps = Array.from(wizard.querySelectorAll("[data-circle-wizard-step]"));
+    const progressItems = Array.from(wizard.querySelectorAll("[data-wizard-progress]"));
+    const previousButton = wizard.querySelector("[data-wizard-prev]");
+    const nextButton = wizard.querySelector("[data-wizard-next]");
+    const submitButton = wizard.querySelector("[data-wizard-submit]");
+    const errorBox = wizard.querySelector("[data-wizard-error]");
+    const coverInput = wizard.querySelector("[data-circle-cover-preview], [data-activity-image-preview]");
+    const previewCover = wizard.querySelector("[data-preview-cover]");
+    const previewName = wizard.querySelector("[data-preview-name]");
+    const previewTag = wizard.querySelector("[data-preview-tag]");
+    const previewCity = wizard.querySelector("[data-preview-city]");
+    const previewDescription = wizard.querySelector("[data-preview-description]");
+    const previewLocation = wizard.querySelector("[data-preview-location]");
+    const previewTime = wizard.querySelector("[data-preview-time]");
+    const previewFee = wizard.querySelector("[data-preview-fee]");
+    let currentStep = 0;
+
+    if (!form || !steps.length) {
+      return;
+    }
+
+    const showError = message => {
+      if (!errorBox) {
+        return;
+      }
+      errorBox.textContent = message;
+      errorBox.hidden = !message;
+    };
+
+    const firstInvalidField = step => {
+      const requiredCheckboxGroups = Array.from(step.querySelectorAll("[data-required-checkbox-group]"));
+      for (const group of requiredCheckboxGroups) {
+        const groupName = group.dataset.requiredCheckboxGroup;
+        const checkedItems = Array.from(group.querySelectorAll('input[type="checkbox"]'))
+          .filter(checkbox => !groupName || checkbox.name === groupName)
+          .filter(checkbox => checkbox.checked);
+        if (!checkedItems.length) {
+          return group.querySelector('input[type="checkbox"]') || group;
+        }
+      }
+
+      const requiredFields = Array.from(step.querySelectorAll("[required]"));
+      const checkedRadioGroups = new Set();
+      for (const field of requiredFields) {
+        if (field.type === "radio") {
+          if (checkedRadioGroups.has(field.name)) {
+            continue;
+          }
+          checkedRadioGroups.add(field.name);
+          const hasCheckedRadio = Array.from(form.querySelectorAll('input[type="radio"]'))
+            .some(radio => radio.name === field.name && radio.checked);
+          if (!hasCheckedRadio) {
+            return field;
+          }
+          continue;
+        }
+        if (!field.value.trim()) {
+          return field;
+        }
+      }
+      return null;
+    };
+
+    const validateStep = index => {
+      const invalidField = firstInvalidField(steps[index]);
+      if (!invalidField) {
+        showError("");
+        return true;
+      }
+
+      const label = invalidField.closest(".form-group, fieldset")?.querySelector(".form-label, legend")?.textContent?.replace("*", "").trim();
+      showError(label ? `请先完成：${label}` : "请先填写当前步骤的必填项。");
+      invalidField.focus({ preventScroll: true });
+      invalidField.scrollIntoView({ behavior: "smooth", block: "center" });
+      return false;
+    };
+
+    const syncPreview = () => {
+      const name = form.elements.name?.value.trim() || form.elements.title?.value.trim();
+      const checkedTags = Array.from(form.querySelectorAll('input[name="tags"]:checked'))
+        .map(input => input.value.trim())
+        .filter(Boolean);
+      const primaryTagInput = form.querySelector('input[name="primary_tag"][type="hidden"]');
+      if (primaryTagInput) {
+        primaryTagInput.value = checkedTags[0] || "";
+      }
+      const legacyTag = form.querySelector('input[name="tag"]:checked')?.value.trim();
+      const tag = checkedTags.length ? checkedTags.join("、") : legacyTag;
+      const city = form.elements.city?.value.trim();
+      const shortDescription = form.elements.short_description?.value.trim() || form.elements.description?.value.trim();
+      const location = form.elements.location?.value.trim();
+      const startTime = form.elements.start_time?.value.trim();
+      const fee = form.elements.fee?.value.trim();
+
+      if (previewName) {
+        previewName.textContent = name || previewName.dataset.previewDefault || "圈子名称";
+      }
+      if (previewTag) {
+        previewTag.textContent = tag || previewTag.dataset.previewDefault || "兴趣标签";
+      }
+      if (previewCity) {
+        previewCity.textContent = city || previewCity.dataset.previewDefault || "城市 / 地区";
+      }
+      if (previewDescription) {
+        previewDescription.textContent = shortDescription || previewDescription.dataset.previewDefault || "简短介绍会显示在这里。";
+      }
+      if (previewLocation) {
+        previewLocation.textContent = location || "活动地点";
+      }
+      if (previewTime) {
+        previewTime.textContent = startTime || "开始时间";
+      }
+      if (previewFee) {
+        previewFee.textContent = !fee || Number(fee) === 0 ? "免费" : `¥${fee}`;
+      }
+    };
+
+    const showStep = index => {
+      currentStep = Math.max(0, Math.min(index, steps.length - 1));
+      steps.forEach((step, stepIndex) => {
+        const isActive = stepIndex === currentStep;
+        step.hidden = !isActive;
+        step.classList.toggle("is-active", isActive);
+      });
+      progressItems.forEach((item, itemIndex) => {
+        item.classList.toggle("is-active", itemIndex <= currentStep);
+      });
+      if (previousButton) {
+        previousButton.hidden = currentStep === 0;
+      }
+      if (nextButton) {
+        nextButton.hidden = currentStep === steps.length - 1;
+      }
+      if (submitButton) {
+        submitButton.hidden = currentStep !== steps.length - 1;
+      }
+      showError("");
+      syncPreview();
+    };
+
+    nextButton?.addEventListener("click", () => {
+      if (validateStep(currentStep)) {
+        showStep(currentStep + 1);
+      }
+    });
+
+    previousButton?.addEventListener("click", () => {
+      showStep(currentStep - 1);
+    });
+
+    form.addEventListener("input", syncPreview);
+    form.addEventListener("change", syncPreview);
+
+    form.addEventListener("submit", event => {
+      for (let index = 0; index < steps.length; index += 1) {
+        if (firstInvalidField(steps[index])) {
+          event.preventDefault();
+          showStep(index);
+          window.setTimeout(() => validateStep(index), 0);
+          return;
+        }
+      }
+    });
+
+    coverInput?.addEventListener("change", () => {
+      const file = coverInput.files?.[0];
+      if (!file || !previewCover || !file.type.startsWith("image/")) {
+        return;
+      }
+      const reader = new FileReader();
+      reader.addEventListener("load", () => {
+        previewCover.src = reader.result;
+      });
+      reader.readAsDataURL(file);
+    });
+
+    showStep(0);
+  });
+
   document.querySelectorAll("[data-member-picker]").forEach(picker => {
     const search = picker.querySelector("[data-member-search]");
     const members = picker.querySelectorAll("[data-member-item]");
@@ -964,12 +1145,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const accountMenuButtons = Array.from(document.querySelectorAll("[data-nav-menu-toggle]"));
   const accountMenus = Array.from(document.querySelectorAll("[data-nav-menu]"));
+  const createMenuButtons = Array.from(document.querySelectorAll("[data-create-menu-toggle]"));
+  const createMenus = Array.from(document.querySelectorAll("[data-create-menu]"));
   const mobileSearchButton = document.querySelector("[data-mobile-search-toggle]");
   const mobileSearchPanel = document.querySelector("[data-mobile-search]");
   const mobileMenuButton = document.querySelector("[data-mobile-menu-toggle]");
   const mobileMenu = document.querySelector("[data-mobile-menu]");
 
   const closeNavigationPanels = () => {
+    createMenuButtons.forEach(button => {
+      const menu = document.getElementById(button.getAttribute("aria-controls"));
+      togglePanel(button, menu, false);
+    });
     accountMenuButtons.forEach(button => {
       const menu = document.getElementById(button.getAttribute("aria-controls"));
       togglePanel(button, menu, false);
@@ -977,6 +1164,24 @@ document.addEventListener("DOMContentLoaded", () => {
     togglePanel(mobileSearchButton, mobileSearchPanel, false);
     togglePanel(mobileMenuButton, mobileMenu, false);
   };
+
+  createMenuButtons.forEach(button => {
+    const menu = document.getElementById(button.getAttribute("aria-controls"));
+    if (!menu || !createMenus.includes(menu)) {
+      return;
+    }
+
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      const shouldOpen = menu.hidden;
+      closeNavigationPanels();
+      togglePanel(button, menu, shouldOpen);
+    });
+
+    menu.addEventListener("click", event => {
+      event.stopPropagation();
+    });
+  });
 
   accountMenuButtons.forEach(button => {
     const menu = document.getElementById(button.getAttribute("aria-controls"));
@@ -989,6 +1194,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const shouldOpen = menu.hidden;
       closeNavigationPanels();
       togglePanel(button, menu, shouldOpen);
+    });
+
+    menu.addEventListener("click", event => {
+      event.stopPropagation();
     });
   });
 

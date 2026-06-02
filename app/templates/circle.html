@@ -6,6 +6,8 @@
 <section class="section {% if not create_mode %}circle-discovery-page discover-section{% endif %}">
     <div class="container">
         {% if create_mode %}
+        {% include "create_circle.html" %}
+        {% if false %}
         <div class="page-title">
             <p class="eyebrow">Create Circle</p>
             <h1>创建自定义同好圈</h1>
@@ -61,6 +63,7 @@
                 <a class="button button-secondary" href="{{ url_for('circle.circles') }}">返回列表</a>
             </form>
         </div>
+        {% endif %}
         {% else %}
         <section class="meetup-create-banner circle-directory-hero circle-discovery-hero" aria-label="创建同好圈">
             <strong>创建你自己的同好圈，并开始组织活动吧！</strong>

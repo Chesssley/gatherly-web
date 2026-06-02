@@ -161,9 +161,72 @@ CIRCLE_OFFICIAL_TOPIC_TAGS = [
     "公益志愿",
 ]
 
+CIRCLE_CREATE_INTEREST_CATEGORIES = [
+    {"icon": "🎉", "tag": "社交活动"},
+    {"icon": "🎨", "tag": "兴趣爱好"},
+    {"icon": "⚽", "tag": "运动健身"},
+    {"icon": "🌲", "tag": "旅行与户外"},
+    {"icon": "💼", "tag": "职业与商业"},
+    {"icon": "💻", "tag": "科技"},
+    {"icon": "🏙️", "tag": "社区与环境"},
+    {"icon": "🌐", "tag": "身份与语言"},
+    {"icon": "🎮", "tag": "游戏"},
+    {"icon": "🎶", "tag": "舞蹈"},
+    {"icon": "💗", "tag": "支持与辅导"},
+    {"icon": "🎵", "tag": "音乐"},
+    {"icon": "💜", "tag": "健康与身心"},
+    {"icon": "🎭", "tag": "艺术与文化"},
+    {"icon": "🔬", "tag": "科学与教育"},
+    {"icon": "🐱", "tag": "宠物与动物"},
+    {"icon": "🙏", "tag": "宗教与修养"},
+    {"icon": "✍️", "tag": "写作"},
+    {"icon": "👨‍👩‍👧", "tag": "父母与家庭"},
+    {"icon": "🏛️", "tag": "社会运动与政治"},
+]
+
 
 def _circle_interest_tags():
     return list(CIRCLE_OFFICIAL_TOPIC_TAGS)
+
+
+def _create_circle_template_context(is_admin):
+    return {
+        "circles": [],
+        "create_mode": True,
+        "is_admin": is_admin,
+        "interest_categories": CIRCLE_CREATE_INTEREST_CATEGORIES,
+    }
+
+
+def _selected_create_circle_tags():
+    available_tags = {category["tag"] for category in CIRCLE_CREATE_INTEREST_CATEGORIES}
+    raw_tags = request.form.getlist("tags")
+    legacy_tag = request.form.get("tag", "").strip()
+    if legacy_tag and not raw_tags:
+        raw_tags = legacy_tag.split(",")
+
+    selected_tags = []
+    for tag in raw_tags:
+        tag = tag.strip()
+        if tag in available_tags and tag not in selected_tags:
+            selected_tags.append(tag)
+    return selected_tags
+
+
+def _compose_circle_description(short_description, detailed_description, suitable_for):
+    parts = [short_description]
+    if detailed_description and detailed_description != short_description:
+        parts.append(f"详细介绍：{detailed_description}")
+    if suitable_for:
+        parts.append(f"适合谁加入：{suitable_for}")
+    return "\n\n".join(parts)
+
+
+def _compose_circle_announcement(announcement):
+    rule_notice = "基础规则：不发硬广、不骚扰、不发布虚假活动。"
+    if announcement:
+        return f"{announcement}\n\n{rule_notice}"
+    return rule_notice
 
 
 def _is_admin(user):
@@ -701,32 +764,59 @@ def create_circle():
     is_admin = _is_admin(user)
     if request.method == "POST":
         name = request.form.get("name", "").strip()
-        tag = request.form.get("tag", "").strip()
-        description = request.form.get("description", "").strip()
+        selected_tags = _selected_create_circle_tags()
+        tag = ",".join(selected_tags)
+        city = request.form.get("city", "").strip()
+        short_description = request.form.get("short_description", "").strip()
+        detailed_description = request.form.get("detailed_description", "").strip()
+        suitable_for = request.form.get("suitable_for", "").strip()
+        announcement = request.form.get("announcement", "").strip()
+        legacy_description = request.form.get("description", "").strip()
+        if legacy_description and not short_description:
+            short_description = legacy_description
+        if legacy_description and not detailed_description:
+            detailed_description = legacy_description
+        description = _compose_circle_description(short_description, detailed_description, suitable_for)
         requested_type = request.form.get("circle_type", "custom").strip()
         wants_system_circle = requested_type in {"official", "system"}
+        context = _create_circle_template_context(is_admin)
 
-        if not name or not description:
-            flash("圈子名称和简介不能为空。", "error")
-            return render_template("circle.html", circles=[], create_mode=True, is_admin=is_admin)
+        required_fields = [
+            (name, "请填写圈子名称。"),
+            (selected_tags, "请选择至少一个兴趣标签。"),
+            (city, "请填写所在城市或地区。"),
+            (short_description, "请填写简短介绍。"),
+            (detailed_description, "请填写详细简介。"),
+            (announcement, "请填写公告或规则说明。"),
+            (suitable_for, "请填写适合谁加入。"),
+        ]
+        missing_messages = [message for value, message in required_fields if not value]
+        if missing_messages:
+            for message in missing_messages:
+                flash(message, "error")
+            return render_template("circle.html", **context), 400
         if len(name) > 120:
             flash("圈子名称不能超过 120 个字符。", "error")
-            return render_template("circle.html", circles=[], create_mode=True, is_admin=is_admin)
+            return render_template("circle.html", **context), 400
+        if len(tag) > 50:
+            flash("兴趣标签不能超过 50 个字符。", "error")
+            return render_template("circle.html", **context), 400
         if wants_system_circle and not is_admin:
             flash("只有管理员可以创建官方圈子。", "error")
-            return render_template("circle.html", circles=[], create_mode=True, is_admin=is_admin)
+            return render_template("circle.html", **context), 403
 
         is_system = wants_system_circle and is_admin
         try:
             cover_image = _save_circle_cover(request.files.get("cover_image"))
         except ValueError as exc:
             flash(str(exc), "error")
-            return render_template("circle.html", circles=[], create_mode=True, is_admin=is_admin)
+            return render_template("circle.html", **context), 400
 
         circle = Circle(
             name=_strip_official_suffix(name) if is_system else name,
             tag=tag or ("官方" if is_system else "自定义"),
             description=description,
+            announcement=_compose_circle_announcement(announcement),
             owner_id=user.id,
             is_system=is_system,
             initial_member_count=0,
@@ -749,7 +839,7 @@ def create_circle():
             delete_saved_images([cover_image] if cover_image else [])
             flash("创建失败，请稍后重试。", "error")
 
-    return render_template("circle.html", circles=[], create_mode=True, is_admin=is_admin)
+    return render_template("circle.html", **_create_circle_template_context(is_admin))
 
 
 @circle_bp.route("/circle/<int:circle_id>")

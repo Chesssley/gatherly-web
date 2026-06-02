@@ -1,0 +1,172 @@
+<div class="circle-create-page" data-circle-wizard>
+    <header class="circle-create-header">
+        <a class="circle-create-back" href="{{ url_for('circle.circles') }}" aria-label="返回同好圈列表">← 返回</a>
+        <p class="eyebrow">Create Circle</p>
+        <h1>创建同好圈</h1>
+        <p>用 3 步补全圈子信息。创建成功后，你会自动成为圈主。</p>
+    </header>
+
+    <div class="circle-create-progress" aria-label="创建进度">
+        <span class="is-active" data-wizard-progress></span>
+        <span data-wizard-progress></span>
+        <span data-wizard-progress></span>
+    </div>
+
+    <form class="circle-create-form" method="POST" action="{{ url_for('circle.create_circle') }}" enctype="multipart/form-data" data-circle-wizard-form>
+        {% if is_admin %}
+        <div class="circle-create-admin">
+            <label class="form-label" for="circle_type">圈子类型</label>
+            <select class="form-input" id="circle_type" name="circle_type">
+                <option value="custom" {% if request.form.get('circle_type', 'custom') == 'custom' %}selected{% endif %}>自定义圈子</option>
+                <option value="official" {% if request.form.get('circle_type') == 'official' %}selected{% endif %}>官方圈子</option>
+            </select>
+        </div>
+        {% else %}
+        <input type="hidden" name="circle_type" value="custom">
+        {% endif %}
+
+        <section class="circle-wizard-step is-active" data-circle-wizard-step>
+            <div class="circle-step-layout">
+                <div class="circle-step-main">
+                    <span class="circle-step-kicker">第 1 步 / 共 3 步</span>
+                    <h2>基础信息</h2>
+                    <p class="circle-step-copy">先让其他用户知道这个圈子在哪里、聊什么、适合用哪个兴趣标签发现。</p>
+
+                    <div class="form-group">
+                        <label class="form-label" for="circle-name">圈子名称 <span class="form-required">*</span></label>
+                        <input class="form-input" type="text" id="circle-name" name="name" maxlength="120" value="{{ request.form.get('name', '') }}" placeholder="例如：周末城市摄影散步圈" data-preview-source="name" required>
+                    </div>
+
+                    <fieldset class="form-group">
+                        <legend class="form-label">兴趣标签 <span class="form-required">*</span></legend>
+                        <div class="circle-tag-picker" role="group" aria-label="兴趣标签" data-required-checkbox-group="tags">
+                            {% set selected_tags = request.form.getlist('tags') %}
+                            {% if not selected_tags and request.form.get('tag') %}
+                                {% set selected_tags = request.form.get('tag').split(',') %}
+                            {% endif %}
+                            {% for category in interest_categories %}
+                            <label class="circle-tag-choice">
+                                <input type="checkbox" name="tags" value="{{ category.tag }}" {% if category.tag in selected_tags %}checked{% endif %} data-preview-source="tag">
+                                <span class="circle-tag-icon" aria-hidden="true">{{ category.icon }}</span>
+                                <span>{{ category.tag }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </fieldset>
+
+                    <div class="form-group">
+                        <label class="form-label" for="circle-city">所在城市 / 地区 <span class="form-required">*</span></label>
+                        <input class="form-input" type="text" id="circle-city" name="city" value="{{ request.form.get('city', '') }}" placeholder="例如：上海 / 徐汇" data-preview-source="city" required>
+                        <p class="form-hint">当前没有单独城市字段，该信息仅用于创建流程和预览。</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="circle-short-description">简短介绍 <span class="form-required">*</span></label>
+                        <textarea class="form-input" id="circle-short-description" name="short_description" rows="3" maxlength="240" placeholder="一句话说明这个圈子的主题和氛围。" data-preview-source="short_description" required>{{ request.form.get('short_description', request.form.get('description', '')) }}</textarea>
+                    </div>
+                </div>
+
+                <aside class="circle-step-tip">
+                    <strong>提示</strong>
+                    <p>清晰的名称、准确的标签和城市信息，会让用户更快判断是否适合加入。</p>
+                </aside>
+            </div>
+        </section>
+
+        <section class="circle-wizard-step" data-circle-wizard-step hidden>
+            <div class="circle-step-layout">
+                <div class="circle-step-main">
+                    <span class="circle-step-kicker">第 2 步 / 共 3 步</span>
+                    <h2>圈子介绍与规则</h2>
+                    <p class="circle-step-copy">补充更完整的介绍和边界，让成员加入前就知道这里如何交流。</p>
+
+                    <div class="form-group">
+                        <label class="form-label" for="circle-detail-description">详细简介 <span class="form-required">*</span></label>
+                        <textarea class="form-input" id="circle-detail-description" name="detailed_description" rows="5" placeholder="说明圈子的主题、日常交流内容、计划组织什么活动。" required>{{ request.form.get('detailed_description', request.form.get('description', '')) }}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="circle-announcement">公告 / 规则说明 <span class="form-required">*</span></label>
+                        <textarea class="form-input" id="circle-announcement" name="announcement" rows="4" placeholder="写下成员加入后第一眼需要看到的公告或规则。" required>{{ request.form.get('announcement', '') }}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="circle-suitable-for">适合谁加入 <span class="form-required">*</span></label>
+                        <textarea class="form-input" id="circle-suitable-for" name="suitable_for" rows="3" placeholder="例如：欢迎摄影新手、城市漫步爱好者、想稳定参加线下活动的人。" required>{{ request.form.get('suitable_for', '') }}</textarea>
+                    </div>
+                </div>
+
+                <aside class="circle-step-tip circle-rules-tip">
+                    <strong>规则提示</strong>
+                    <ul>
+                        <li>不发硬广</li>
+                        <li>不骚扰成员</li>
+                        <li>不发布虚假活动</li>
+                    </ul>
+                </aside>
+            </div>
+        </section>
+
+        <section class="circle-wizard-step" data-circle-wizard-step hidden>
+            <div class="circle-step-layout">
+                <div class="circle-step-main">
+                    <span class="circle-step-kicker">第 3 步 / 共 3 步</span>
+                    <h2>封面与预览</h2>
+                    <p class="circle-step-copy">上传一张能代表圈子氛围的封面，确认卡片预览后发布。</p>
+
+                    <div class="form-group">
+                        <label class="form-label" for="cover_image">上传封面图</label>
+                        <div class="file-upload-control">
+                            <input
+                                class="circle-file-input"
+                                type="file"
+                                id="cover_image"
+                                name="cover_image"
+                                accept=".jpg,.jpeg,.png,.webp"
+                                data-file-count-target="circle-cover-count"
+                                data-image-upload
+                                data-circle-cover-preview
+                                data-max-count="1"
+                                data-max-bytes="819200"
+                            >
+                            <label class="file-upload-button" for="cover_image">选择封面</label>
+                            <span class="file-upload-count" id="circle-cover-count">未选择图片</span>
+                        </div>
+                        <p class="form-hint">可选。支持 jpg、jpeg、png、webp，单张图片必须小于 800KB。</p>
+                    </div>
+
+                    <div class="circle-publish-note">
+                        <strong>发布确认</strong>
+                        <p>点击确认创建后，页面会提交到 Flask 后端。创建成功会进入新圈子详情页。</p>
+                    </div>
+                </div>
+
+                <aside class="circle-preview-panel" aria-label="圈子卡片预览">
+                    <article class="circle-preview-card">
+                        <div class="circle-preview-cover">
+                            <img src="{{ url_for('static', filename='images/circles/circle-default.svg') }}" alt="" data-preview-cover>
+                        </div>
+                        <div class="circle-preview-body">
+                            {% set preview_tags = request.form.getlist('tags') %}
+                            {% if not preview_tags and request.form.get('tag') %}
+                                {% set preview_tags = request.form.get('tag').split(',') %}
+                            {% endif %}
+                            <span class="tag" data-preview-tag>{{ preview_tags|join('、') if preview_tags else '兴趣标签' }}</span>
+                            <h3 data-preview-name>{{ request.form.get('name') or '圈子名称' }}</h3>
+                            <p data-preview-description>{{ request.form.get('short_description') or request.form.get('description') or '简短介绍会显示在这里。' }}</p>
+                            <small data-preview-city>{{ request.form.get('city') or '城市 / 地区' }}</small>
+                        </div>
+                    </article>
+                </aside>
+            </div>
+        </section>
+
+        <p class="circle-wizard-error" data-wizard-error role="alert" hidden></p>
+
+        <div class="circle-wizard-actions">
+            <button class="button button-secondary" type="button" data-wizard-prev hidden>上一步</button>
+            <button class="button" type="button" data-wizard-next>下一步</button>
+            <button class="button" type="submit" data-wizard-submit hidden>确认创建</button>
+        </div>
+    </form>
+</div>
