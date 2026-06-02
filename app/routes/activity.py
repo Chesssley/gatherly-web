@@ -228,12 +228,17 @@ def _home_calendar_payload(today=None):
     tomorrow = today + timedelta(days=1)
     return {
         "label": f"{calendar.month_name[today.month]} {today.year}",
+        "year": today.year,
+        "month": today.month,
+        "selected_date": today.isoformat(),
         "today": today.day,
+        "today_date": today.isoformat(),
         "weekdays": ("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"),
         "weeks": [
             [
                 {
                     "day": day.day,
+                    "date": day.isoformat(),
                     "is_current_month": day.month == today.month,
                     "is_today": day == today,
                     "is_past": day < today,
