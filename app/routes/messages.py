@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 import os
 
@@ -8,6 +8,7 @@ from sqlalchemy import and_, or_
 from app.models import (
     DIRECT_MESSAGE_RETENTION_DAYS,
     DirectMessage,
+    DirectMessageConversationState,
     User,
     cleanup_expired_direct_messages,
     db,
@@ -54,11 +55,79 @@ def _conversation_query(current_user_id, other_user_id):
     )
 
 
+def _user_has_conversation(current_user_id, other_user_id):
+    return _conversation_query(current_user_id, other_user_id).first() is not None
+
+
+def _conversation_state_lookup(user_id, other_user_ids):
+    other_user_ids = {item for item in other_user_ids if item}
+    if not other_user_ids:
+        return {}
+    states = DirectMessageConversationState.query.filter(
+        DirectMessageConversationState.user_id == user_id,
+        DirectMessageConversationState.other_user_id.in_(other_user_ids),
+    ).all()
+    return {state.other_user_id: state for state in states}
+
+
+def get_or_create_conversation_state(user_id, other_user_id):
+    state = DirectMessageConversationState.query.filter_by(
+        user_id=user_id,
+        other_user_id=other_user_id,
+    ).first()
+    if state:
+        return state
+    state = DirectMessageConversationState(
+        user_id=user_id,
+        other_user_id=other_user_id,
+    )
+    db.session.add(state)
+    return state
+
+
+def hide_conversation_for_user(user_id, other_user_id):
+    state = get_or_create_conversation_state(user_id, other_user_id)
+    state.is_hidden = True
+    state.hidden_at = datetime.utcnow()
+    return state
+
+
+def delete_conversation_for_user(user_id, other_user_id):
+    state = get_or_create_conversation_state(user_id, other_user_id)
+    state.is_deleted = True
+    state.deleted_at = datetime.utcnow()
+    return state
+
+
+def restore_conversation_for_user(user_id, other_user_id):
+    state = DirectMessageConversationState.query.filter_by(
+        user_id=user_id,
+        other_user_id=other_user_id,
+    ).first()
+    if not state or (not state.is_hidden and not state.is_deleted):
+        return False
+    state.is_hidden = False
+    state.hidden_at = None
+    state.is_deleted = False
+    state.deleted_at = None
+    return True
+
+
 def _user_has_sent_message(sender_id, recipient_id):
     return DirectMessage.query.filter_by(
         sender_id=sender_id,
         recipient_id=recipient_id,
     ).first() is not None
+
+
+def to_utc_iso(dt):
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt.isoformat().replace("+00:00", "Z")
 
 
 def _message_permission_state(current_user_id, other_user_id):
@@ -127,10 +196,22 @@ def _conversation_items(current_user_id):
         .order_by(DirectMessage.created_at.desc(), DirectMessage.id.desc())
         .all()
     )
+    other_user_ids = {
+        (
+            message.recipient_id
+            if message.sender_id == current_user_id
+            else message.sender_id
+        )
+        for message in messages
+    }
+    states_by_user_id = _conversation_state_lookup(current_user_id, other_user_ids)
     conversations = {}
     for message in messages:
         other_user = message.recipient if message.sender_id == current_user_id else message.sender
         if not other_user or other_user.status == "deleted":
+            continue
+        state = states_by_user_id.get(other_user.id)
+        if state and (state.is_hidden or state.is_deleted):
             continue
         item = conversations.setdefault(
             other_user.id,
@@ -147,6 +228,9 @@ def _conversation_items(current_user_id):
 
 
 def _message_to_dict(message, current_user_id):
+    created_at_display = (
+        message.created_at.strftime("%Y-%m-%d %H:%M") if message.created_at else ""
+    )
     return {
         "id": message.id,
         "sender_id": message.sender_id,
@@ -158,9 +242,9 @@ def _message_to_dict(message, current_user_id):
             if message.image_path
             else None
         ),
-        "created_at": message.created_at.strftime("%Y-%m-%d %H:%M")
-        if message.created_at
-        else "",
+        "created_at": created_at_display,
+        "created_at_display": created_at_display,
+        "created_at_iso": to_utc_iso(message.created_at),
         "is_mine": message.sender_id == current_user_id,
     }
 
@@ -188,7 +272,22 @@ def inject_unread_direct_message_count():
     user_id = session.get("user_id")
     if not user_id:
         return {"unread_direct_message_count": 0}
-    count = DirectMessage.query.filter_by(recipient_id=user_id, read_at=None).count()
+    unread_messages = DirectMessage.query.filter_by(recipient_id=user_id, read_at=None).all()
+    hidden_state_by_user_id = _conversation_state_lookup(
+        user_id,
+        {message.sender_id for message in unread_messages},
+    )
+    count = sum(
+        1
+        for message in unread_messages
+        if not (
+            hidden_state_by_user_id.get(message.sender_id)
+            and (
+                hidden_state_by_user_id[message.sender_id].is_hidden
+                or hidden_state_by_user_id[message.sender_id].is_deleted
+            )
+        )
+    )
     return {"unread_direct_message_count": count}
 
 
@@ -197,7 +296,12 @@ def inject_unread_direct_message_count():
 def message_list():
     _cleanup_expired()
     conversations = _conversation_items(session["user_id"])
-    return render_template("messages.html", conversations=conversations, active_user=None)
+    return render_template(
+        "messages.html",
+        conversations=conversations,
+        active_user=None,
+        to_utc_iso=to_utc_iso,
+    )
 
 
 @messages_bp.route("/<int:user_id>", methods=["GET", "POST"])
@@ -210,6 +314,8 @@ def conversation(user_id):
         return redirect(url_for("messages.message_list"))
 
     other_user = _active_message_user_or_404(user_id)
+    if restore_conversation_for_user(current_user_id, user_id):
+        db.session.commit()
     saved_paths = []
 
     if request.method == "POST":
@@ -280,6 +386,7 @@ def conversation(user_id):
         has_both_sides_replied=permission_state["has_both_sides_replied"],
         show_follow_suggestion=permission_state["show_follow_suggestion"],
         message_notice=_message_notice(permission_state),
+        to_utc_iso=to_utc_iso,
         last_message_id=last_message_id,
         image_max_kb=MESSAGE_IMAGE_MAX_BYTES // 1024,
         text_max_length=MESSAGE_TEXT_MAX_LENGTH,
@@ -330,6 +437,58 @@ def poll_conversation(user_id):
     )
 
 
+@messages_bp.route("/api/conversation/<int:user_id>/hide", methods=["POST"])
+def hide_conversation(user_id):
+    login_error = _json_login_required()
+    if login_error:
+        return login_error
+
+    current_user_id = session["user_id"]
+    if user_id == current_user_id:
+        return jsonify({"ok": False, "error": "不能隐藏自己的私信会话。"}), 400
+
+    _active_message_user_or_404(user_id)
+    if not _user_has_conversation(current_user_id, user_id):
+        return jsonify({"ok": False, "error": "你没有权限操作这个聊天。"}), 403
+
+    hide_conversation_for_user(current_user_id, user_id)
+    db.session.commit()
+    return jsonify(
+        {
+            "ok": True,
+            "message": "已隐藏该聊天",
+            "conversation_id": user_id,
+            "redirect_url": url_for("messages.message_list"),
+        }
+    )
+
+
+@messages_bp.route("/api/conversation/<int:user_id>/delete", methods=["POST"])
+def delete_conversation(user_id):
+    login_error = _json_login_required()
+    if login_error:
+        return login_error
+
+    current_user_id = session["user_id"]
+    if user_id == current_user_id:
+        return jsonify({"ok": False, "error": "不能删除自己的私信会话。"}), 400
+
+    _active_message_user_or_404(user_id)
+    if not _user_has_conversation(current_user_id, user_id):
+        return jsonify({"ok": False, "error": "你没有权限操作这个聊天。"}), 403
+
+    delete_conversation_for_user(current_user_id, user_id)
+    db.session.commit()
+    return jsonify(
+        {
+            "ok": True,
+            "message": "已从你的私信列表删除",
+            "conversation_id": user_id,
+            "redirect_url": url_for("messages.message_list"),
+        }
+    )
+
+
 @messages_bp.route("/api/conversation/<int:user_id>/send", methods=["POST"])
 def send_conversation_message(user_id):
     login_error = _json_login_required()
@@ -341,6 +500,7 @@ def send_conversation_message(user_id):
         return jsonify({"ok": False, "error": "不能给自己发送私信。"}), 400
 
     _active_message_user_or_404(user_id)
+    restore_conversation_for_user(current_user_id, user_id)
     permission_state = _message_permission_state(current_user_id, user_id)
     if not permission_state["can_send"]:
         return jsonify(

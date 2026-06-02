@@ -451,6 +451,38 @@ class DirectMessage(db.Model):
     )
 
 
+class DirectMessageConversationState(db.Model):
+    __tablename__ = "direct_message_conversation_state"
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id",
+            "other_user_id",
+            name="uq_direct_message_conversation_state_pair",
+        ),
+        db.CheckConstraint(
+            "user_id != other_user_id",
+            name="ck_direct_message_conversation_state_not_self",
+        ),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    other_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    is_hidden = db.Column(db.Boolean, default=False, nullable=False)
+    hidden_at = db.Column(db.DateTime, nullable=True)
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    user = db.relationship("User", foreign_keys=[user_id])
+    other_user = db.relationship("User", foreign_keys=[other_user_id])
+
+
 DIRECT_MESSAGE_RETENTION_DAYS = 180
 
 
@@ -496,6 +528,7 @@ def cleanup_expired_direct_messages(now=None):
 
 def ensure_direct_message_schema():
     DirectMessage.__table__.create(db.engine, checkfirst=True)
+    DirectMessageConversationState.__table__.create(db.engine, checkfirst=True)
     UserFollow.__table__.create(db.engine, checkfirst=True)
     if db.engine.dialect.name != "sqlite":
         return

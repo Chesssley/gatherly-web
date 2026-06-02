@@ -16,28 +16,37 @@
         </div>
         <p class="message-retention-note">私信会定期清理，请保存重要信息。</p>
 
-        <div class="conversation-list">
+        <div class="conversation-list" data-message-list-url="{{ url_for('messages.message_list') }}" data-empty-text="暂无私信联系人。">
           {% for item in conversations %}
           {% set last = item.last_message %}
-          <a class="conversation-item {% if active_user and active_user.id == item.user.id %}is-active{% endif %}" href="{{ url_for('messages.conversation', user_id=item.user.id) }}">
-            <span class="conversation-avatar">
-              {% if item.user.avatar %}
-                <img src="{{ item.user.avatar }}" alt="{{ item.display_name }}">
-              {% else %}
-                <span aria-hidden="true">{{ item.display_name[:1]|upper }}</span>
-              {% endif %}
-            </span>
-            <span class="conversation-copy">
-              <strong>{{ item.display_name }}</strong>
-              <span>
-                {% if last.message_type == 'image' %}图片消息{% else %}{{ last.content|default('', true)|truncate(32, True) }}{% endif %}
+          <div class="conversation-list-row {% if active_user and active_user.id == item.user.id %}is-active{% endif %}" data-conversation-item data-conversation-id="{{ item.user.id }}">
+            <a class="conversation-item {% if active_user and active_user.id == item.user.id %}is-active{% endif %}" href="{{ url_for('messages.conversation', user_id=item.user.id) }}">
+              <span class="conversation-avatar">
+                {% if item.user.avatar %}
+                  <img src="{{ item.user.avatar }}" alt="{{ item.display_name }}">
+                {% else %}
+                  <span aria-hidden="true">{{ item.display_name[:1]|upper }}</span>
+                {% endif %}
               </span>
-            </span>
-            <span class="conversation-meta">
-              <small>{{ last.created_at.strftime('%m-%d') if last.created_at else '' }}</small>
-              {% if item.unread_count %}<b>{{ item.unread_count }}</b>{% endif %}
-            </span>
-          </a>
+              <span class="conversation-copy">
+                <strong>{{ item.display_name }}</strong>
+                <span>
+                  {% if last.message_type == 'image' %}图片消息{% else %}{{ last.content|default('', true)|truncate(32, True) }}{% endif %}
+                </span>
+              </span>
+              <span class="conversation-meta">
+                <small class="message-time" data-utc-time="{{ to_utc_iso(last.created_at) }}" data-message-time-format="date">{{ last.created_at.strftime('%m-%d') if last.created_at else '' }}</small>
+                {% if item.unread_count %}<b>{{ item.unread_count }}</b>{% endif %}
+              </span>
+            </a>
+            <div class="message-conversation-actions">
+              <button class="message-conversation-menu-button" type="button" aria-label="聊天操作" aria-expanded="false" data-conversation-menu-toggle>⋯</button>
+              <div class="message-conversation-menu" hidden>
+                <button class="message-conversation-action" type="button" data-conversation-action="hide" data-action-url="{{ url_for('messages.hide_conversation', user_id=item.user.id) }}">隐藏聊天</button>
+                <button class="message-conversation-action danger" type="button" data-conversation-action="delete" data-action-url="{{ url_for('messages.delete_conversation', user_id=item.user.id) }}">删除聊天</button>
+              </div>
+            </div>
+          </div>
           {% else %}
           <p class="conversation-empty">暂无私信联系人。</p>
           {% endfor %}
@@ -45,7 +54,7 @@
       </aside>
 
       <section
-        class="message-detail"
+        class="message-detail message-thread-panel"
         aria-label="私信详情"
         {% if active_user %}
         data-message-chat
@@ -58,7 +67,7 @@
         {% endif %}
       >
         {% if active_user %}
-        <header class="message-detail-header">
+        <header class="message-detail-header message-thread-header">
           <a class="message-detail-user" href="{{ url_for('profile.view_profile', user_id=active_user.id) }}">
             <span class="conversation-avatar">
               {% if active_user.avatar %}
@@ -82,7 +91,7 @@
           </form>
         </div>
 
-        <div class="message-thread">
+        <div class="message-thread message-list-scroll" id="messageList">
           {% for message in messages %}
           <article class="message-bubble {% if message.sender_id == session.get('user_id') %}is-mine{% endif %}" data-message-id="{{ message.id }}">
             <div class="message-bubble-inner">
@@ -93,7 +102,7 @@
               {% endif %}
               {% if message.content %}<p>{{ message.content }}</p>{% endif %}
             </div>
-            <time>{{ message.created_at.strftime('%Y-%m-%d %H:%M') if message.created_at else '' }}</time>
+            <time class="message-time" data-utc-time="{{ to_utc_iso(message.created_at) }}">{{ message.created_at.strftime('%Y-%m-%d %H:%M') if message.created_at else '' }}</time>
           </article>
           {% else %}
           <div class="message-empty-state" data-message-empty>
@@ -104,7 +113,7 @@
           {% endfor %}
         </div>
 
-        <form class="message-form" method="post" enctype="multipart/form-data" data-message-form>
+        <form class="message-form message-compose-bar" id="messageForm" method="post" enctype="multipart/form-data" data-message-form>
           <p class="message-limit-note" data-message-block-reason {% if can_send_message %}hidden{% endif %}>{{ send_block_reason or "暂时不能发送私信。" }}</p>
           <p class="message-form-error" data-message-form-error hidden></p>
           <label class="sr-only" for="message-content">输入私信</label>
