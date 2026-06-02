@@ -1447,7 +1447,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const actionType = action.dataset.conversationAction;
       if (
         actionType === "delete"
-        && !window.confirm("确定从你的私信列表删除这个聊天吗？仅从我的私信列表删除，不会删除对方聊天记录。")
+        && !window.confirm("确定删除与该用户的聊天吗？删除后，你将看不到此前的历史消息，但不会删除对方的聊天记录。")
       ) {
         closeConversationMenus();
         return;

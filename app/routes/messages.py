@@ -59,6 +59,13 @@ def _user_has_conversation(current_user_id, other_user_id):
     return _conversation_query(current_user_id, other_user_id).first() is not None
 
 
+def _conversation_state(user_id, other_user_id):
+    return DirectMessageConversationState.query.filter_by(
+        user_id=user_id,
+        other_user_id=other_user_id,
+    ).first()
+
+
 def _conversation_state_lookup(user_id, other_user_ids):
     other_user_ids = {item for item in other_user_ids if item}
     if not other_user_ids:
@@ -71,10 +78,7 @@ def _conversation_state_lookup(user_id, other_user_ids):
 
 
 def get_or_create_conversation_state(user_id, other_user_id):
-    state = DirectMessageConversationState.query.filter_by(
-        user_id=user_id,
-        other_user_id=other_user_id,
-    ).first()
+    state = _conversation_state(user_id, other_user_id)
     if state:
         return state
     state = DirectMessageConversationState(
@@ -94,16 +98,15 @@ def hide_conversation_for_user(user_id, other_user_id):
 
 def delete_conversation_for_user(user_id, other_user_id):
     state = get_or_create_conversation_state(user_id, other_user_id)
+    now = datetime.utcnow()
     state.is_deleted = True
-    state.deleted_at = datetime.utcnow()
+    state.deleted_at = now
+    state.cleared_at = now
     return state
 
 
 def restore_conversation_for_user(user_id, other_user_id):
-    state = DirectMessageConversationState.query.filter_by(
-        user_id=user_id,
-        other_user_id=other_user_id,
-    ).first()
+    state = _conversation_state(user_id, other_user_id)
     if not state or (not state.is_hidden and not state.is_deleted):
         return False
     state.is_hidden = False
@@ -111,6 +114,28 @@ def restore_conversation_for_user(user_id, other_user_id):
     state.is_deleted = False
     state.deleted_at = None
     return True
+
+
+def _state_cleared_at(state):
+    if not state:
+        return None
+    return state.cleared_at or (state.deleted_at if state.is_deleted else None)
+
+
+def _apply_clear_history_filter(query, state):
+    cleared_at = _state_cleared_at(state)
+    if cleared_at:
+        return query.filter(DirectMessage.created_at > cleared_at)
+    return query
+
+
+def _visible_conversation_query(current_user_id, other_user_id, state=None):
+    if state is None:
+        state = _conversation_state(current_user_id, other_user_id)
+    return _apply_clear_history_filter(
+        _conversation_query(current_user_id, other_user_id),
+        state,
+    )
 
 
 def _user_has_sent_message(sender_id, recipient_id):
@@ -185,7 +210,7 @@ def _message_notice(permission_state):
     return "你们还没有互相关注。对方回复前，只能发送一条私信。"
 
 
-def _conversation_items(current_user_id):
+def _conversation_items(current_user_id, active_user=None):
     messages = (
         DirectMessage.query.filter(
             or_(
@@ -204,6 +229,8 @@ def _conversation_items(current_user_id):
         )
         for message in messages
     }
+    if active_user:
+        other_user_ids.add(active_user.id)
     states_by_user_id = _conversation_state_lookup(current_user_id, other_user_ids)
     conversations = {}
     for message in messages:
@@ -211,7 +238,12 @@ def _conversation_items(current_user_id):
         if not other_user or other_user.status == "deleted":
             continue
         state = states_by_user_id.get(other_user.id)
-        if state and (state.is_hidden or state.is_deleted):
+        if state and state.is_hidden:
+            continue
+        cleared_at = _state_cleared_at(state)
+        if state and state.is_deleted and not cleared_at:
+            continue
+        if cleared_at and message.created_at and message.created_at <= cleared_at:
             continue
         item = conversations.setdefault(
             other_user.id,
@@ -220,11 +252,24 @@ def _conversation_items(current_user_id):
                 "display_name": get_user_display_name(other_user),
                 "last_message": message,
                 "unread_count": 0,
+                "has_conversation": True,
             },
         )
         if message.recipient_id == current_user_id and message.read_at is None:
             item["unread_count"] += 1
-    return list(conversations.values())
+    items = list(conversations.values())
+    if active_user and active_user.id not in conversations:
+        items.insert(
+            0,
+            {
+                "user": active_user,
+                "display_name": get_user_display_name(active_user),
+                "last_message": None,
+                "unread_count": 0,
+                "has_conversation": _user_has_conversation(current_user_id, active_user.id),
+            },
+        )
+    return items
 
 
 def _message_to_dict(message, current_user_id):
@@ -277,17 +322,17 @@ def inject_unread_direct_message_count():
         user_id,
         {message.sender_id for message in unread_messages},
     )
-    count = sum(
-        1
-        for message in unread_messages
-        if not (
-            hidden_state_by_user_id.get(message.sender_id)
-            and (
-                hidden_state_by_user_id[message.sender_id].is_hidden
-                or hidden_state_by_user_id[message.sender_id].is_deleted
-            )
-        )
-    )
+    count = 0
+    for message in unread_messages:
+        state = hidden_state_by_user_id.get(message.sender_id)
+        if state and state.is_hidden:
+            continue
+        cleared_at = _state_cleared_at(state)
+        if state and state.is_deleted and not cleared_at:
+            continue
+        if cleared_at and message.created_at and message.created_at <= cleared_at:
+            continue
+        count += 1
     return {"unread_direct_message_count": count}
 
 
@@ -361,14 +406,15 @@ def conversation(user_id):
             flash("私信发送失败，请稍后重试。", "error")
         return redirect(url_for("messages.conversation", user_id=user_id))
 
-    _conversation_query(current_user_id, user_id).filter(
+    state = _conversation_state(current_user_id, user_id)
+    _visible_conversation_query(current_user_id, user_id, state).filter(
         DirectMessage.recipient_id == current_user_id,
         DirectMessage.read_at.is_(None),
     ).update({"read_at": datetime.utcnow()}, synchronize_session=False)
     db.session.commit()
 
     messages = (
-        _conversation_query(current_user_id, user_id)
+        _visible_conversation_query(current_user_id, user_id, state)
         .order_by(DirectMessage.created_at.asc(), DirectMessage.id.asc())
         .all()
     )
@@ -376,7 +422,7 @@ def conversation(user_id):
     last_message_id = messages[-1].id if messages else 0
     return render_template(
         "messages.html",
-        conversations=_conversation_items(current_user_id),
+        conversations=_conversation_items(current_user_id, active_user=other_user),
         active_user=other_user,
         active_display_name=get_user_display_name(other_user),
         messages=messages,
@@ -407,21 +453,22 @@ def poll_conversation(user_id):
     after_id = request.args.get("after_id", 0, type=int) or 0
     after_id = max(after_id, 0)
 
+    state = _conversation_state(current_user_id, user_id)
     new_messages = (
-        _conversation_query(current_user_id, user_id)
+        _visible_conversation_query(current_user_id, user_id, state)
         .filter(DirectMessage.id > after_id)
         .order_by(DirectMessage.created_at.asc(), DirectMessage.id.asc())
         .limit(50)
         .all()
     )
-    _conversation_query(current_user_id, user_id).filter(
+    _visible_conversation_query(current_user_id, user_id, state).filter(
         DirectMessage.recipient_id == current_user_id,
         DirectMessage.read_at.is_(None),
     ).update({"read_at": datetime.utcnow()}, synchronize_session=False)
     db.session.commit()
 
     latest_message = (
-        _conversation_query(current_user_id, user_id)
+        _visible_conversation_query(current_user_id, user_id, state)
         .order_by(DirectMessage.id.desc())
         .first()
     )
@@ -482,7 +529,7 @@ def delete_conversation(user_id):
     return jsonify(
         {
             "ok": True,
-            "message": "已从你的私信列表删除",
+            "message": "已删除聊天记录",
             "conversation_id": user_id,
             "redirect_url": url_for("messages.message_list"),
         }
