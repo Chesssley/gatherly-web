@@ -39,6 +39,7 @@ AVATAR_ALLOWED_TYPES = {
     "image/jpeg": ("jpg", b"\xff\xd8\xff"),
     "image/webp": ("webp", b"RIFF"),
 }
+UNKNOWN_LOCATION_LABELS = {"未知地区"}
 
 
 def _section_filters(prefix):
@@ -319,11 +320,31 @@ def _profile_context(user, visibility, is_owner=True):
 
 
 def _nearby_match_score(current_user, candidate):
-    if locations_match(current_user.detected_city, candidate.detected_city):
-        return 0
-    if locations_match(current_user.detected_region, candidate.detected_region):
-        return 1
-    return 2
+    for current_index, current_location in enumerate(_nearby_location_values(current_user)):
+        for candidate_index, candidate_location in enumerate(_nearby_location_values(candidate)):
+            if locations_match(current_location, candidate_location):
+                return current_index + candidate_index
+    return 9
+
+
+def _usable_nearby_location(value):
+    value = (value or "").strip()
+    if not value or value in UNKNOWN_LOCATION_LABELS:
+        return None
+    return value
+
+
+def _nearby_location_values(user):
+    values = []
+    for value in (user.city, user.detected_city, user.detected_region):
+        clean_value = _usable_nearby_location(value)
+        if clean_value and clean_value not in values:
+            values.append(clean_value)
+    return values
+
+
+def _nearby_locations_match(current_user, candidate):
+    return _nearby_match_score(current_user, candidate) < 9
 
 
 def _user_search_items(query_text):
@@ -644,14 +665,15 @@ def user_search():
 def nearby_users():
     current_user = User.query.get_or_404(session["user_id"])
     _refresh_detected_location(current_user)
+    current_locations = _nearby_location_values(current_user)
     following_ids = {
         row.followed_id
         for row in UserFollow.query.filter_by(follower_id=current_user.id).all()
     }
     users = []
     location_notice = None
-    if current_user.detected_city or current_user.detected_region:
-        users = (
+    if current_locations:
+        candidates = (
             User.query.filter(
                 User.status == "active",
                 User.nearby_enabled.is_(True),
@@ -661,6 +683,7 @@ def nearby_users():
             .limit(120)
             .all()
         )
+        users = [user for user in candidates if _nearby_locations_match(current_user, user)]
         users = sorted(
             users,
             key=lambda user: (
@@ -670,7 +693,7 @@ def nearby_users():
             ),
         )[:60]
     else:
-        location_notice = "暂时无法根据 IP 判断附近用户。"
+        location_notice = "暂时无法识别你的地区，请开启附近的人后刷新或完善城市信息。"
 
     return render_template(
         "users.html",
@@ -682,7 +705,33 @@ def nearby_users():
         empty_message=location_notice or "附近暂时没有主动开启该功能的用户。",
         location_notice=location_notice,
         nearby_mode=True,
+        nearby_user=current_user,
+        nearby_location_label=" / ".join(current_locations),
     )
+
+
+@profile_bp.route("/nearby/toggle", methods=["POST"])
+@login_required
+def toggle_nearby():
+    user = User.query.get_or_404(session["user_id"])
+    user.nearby_enabled = not bool(user.nearby_enabled)
+    if user.nearby_enabled:
+        try:
+            update_user_detected_location(user, force=True)
+        except Exception:
+            db.session.rollback()
+            user = User.query.get_or_404(session["user_id"])
+            user.nearby_enabled = True
+            db.session.commit()
+            flash("已开启附近的人，但暂时无法更新粗略地区。", "warning")
+            return redirect(url_for("profile.nearby_users"))
+
+    db.session.commit()
+    if user.nearby_enabled:
+        flash("已开启附近的人。不会公开你的真实 IP 或精确地址。", "success")
+    else:
+        flash("已关闭附近的人。其他用户不会在附近的人列表中看到你。", "success")
+    return redirect(url_for("profile.nearby_users"))
 
 
 @profile_bp.route("/<int:user_id>/followers")
@@ -1002,7 +1051,6 @@ def edit_profile():
 
             user.nickname = nickname
             user.city = city
-            user.nearby_enabled = bool(request.form.get("nearby_enabled"))
             if new_avatar:
                 user.avatar = new_avatar
             elif request.form.get("remove_avatar"):

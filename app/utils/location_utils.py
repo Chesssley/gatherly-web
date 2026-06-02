@@ -5,6 +5,8 @@ from flask import request
 
 
 LOCAL_IPS = {"127.0.0.1", "::1", "localhost"}
+LOCAL_DEVELOPMENT_LOCATION = {"city": "本地开发环境", "region": "本地开发环境"}
+UNKNOWN_LOCATION = {"city": None, "region": "未知地区"}
 LOCATION_REFRESH_INTERVAL = timedelta(hours=12)
 CITY_HEADERS = (
     "X-Forwarded-City",
@@ -20,6 +22,32 @@ REGION_HEADERS = (
     "CloudFront-Viewer-Country-Region",
     "X-Geo-Region",
 )
+COUNTRY_HEADERS = (
+    "X-Forwarded-Country",
+    "X-Appengine-Country",
+    "CF-IPCountry",
+    "CloudFront-Viewer-Country",
+    "X-Geo-Country",
+)
+COUNTRY_CODE_NAMES = {
+    "CN": "中国",
+    "HK": "中国香港",
+    "MO": "中国澳门",
+    "TW": "中国台湾",
+    "US": "美国",
+    "CA": "加拿大",
+    "GB": "英国",
+    "JP": "日本",
+    "KR": "韩国",
+    "SG": "新加坡",
+    "AU": "澳大利亚",
+    "DE": "德国",
+    "FR": "法国",
+    "IT": "意大利",
+    "ES": "西班牙",
+    "NL": "荷兰",
+    "IN": "印度",
+}
 
 
 def _clean_location_value(value, max_length=80):
@@ -27,6 +55,13 @@ def _clean_location_value(value, max_length=80):
     if not value or value.lower() in {"unknown", "null", "none"}:
         return None
     return value[:max_length]
+
+
+def _country_name(value):
+    value = _clean_location_value(value)
+    if not value:
+        return None
+    return COUNTRY_CODE_NAMES.get(value.upper(), value)
 
 
 def get_client_ip():
@@ -60,9 +95,21 @@ def _is_private_or_local_ip(ip):
     )
 
 
+def _is_local_development_ip(ip):
+    if not ip:
+        return False
+    if ip in LOCAL_IPS:
+        return True
+    try:
+        return ip_address(ip).is_loopback
+    except ValueError:
+        return False
+
+
 def _header_location():
     city = None
     region = None
+    country = None
     for header in CITY_HEADERS:
         city = _clean_location_value(request.headers.get(header))
         if city:
@@ -71,18 +118,29 @@ def _header_location():
         region = _clean_location_value(request.headers.get(header))
         if region:
             break
-    if city or region:
-        return {"city": city, "region": region}
+    for header in COUNTRY_HEADERS:
+        country = _country_name(request.headers.get(header))
+        if country:
+            break
+    if city or region or country:
+        return {"city": city, "region": region or country}
     return None
 
 
 def detect_city_from_ip(ip):
-    if _is_private_or_local_ip(ip):
-        return None
-
     # Some deployment platforms or reverse proxies can provide coarse geo headers.
     # Without such headers, keep this dependency-free and fail closed.
-    return _header_location()
+    header_location = _header_location()
+    if header_location:
+        return header_location
+
+    if _is_local_development_ip(ip):
+        return LOCAL_DEVELOPMENT_LOCATION.copy()
+
+    if _is_private_or_local_ip(ip):
+        return UNKNOWN_LOCATION.copy()
+
+    return UNKNOWN_LOCATION.copy()
 
 
 def update_user_detected_location(user, force=False):
@@ -90,6 +148,9 @@ def update_user_detected_location(user, force=False):
         return None
 
     now = datetime.utcnow()
+    client_ip = get_client_ip()
+    if hasattr(user, "last_ip"):
+        user.last_ip = client_ip
     if (
         not force
         and user.last_location_detected_at
@@ -97,7 +158,7 @@ def update_user_detected_location(user, force=False):
     ):
         return {"city": user.detected_city, "region": user.detected_region}
 
-    detected = detect_city_from_ip(get_client_ip())
+    detected = detect_city_from_ip(client_ip)
     user.last_location_detected_at = now
     if detected:
         user.detected_city = detected.get("city")

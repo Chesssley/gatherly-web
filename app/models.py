@@ -25,6 +25,7 @@ class User(db.Model):
     detected_city = db.Column(db.String(80))
     detected_region = db.Column(db.String(80))
     last_location_detected_at = db.Column(db.DateTime)
+    last_ip = db.Column(db.String(45))
     role = db.Column(db.String(20), default="user", nullable=False)
     trust_score = db.Column(db.Integer, default=100, nullable=False)
     status = db.Column(db.String(20), default="active", nullable=False)
@@ -142,6 +143,8 @@ def ensure_user_account_schema():
         statements.append('ALTER TABLE "user" ADD COLUMN detected_region VARCHAR(80)')
     if rows and "last_location_detected_at" not in existing_columns:
         statements.append('ALTER TABLE "user" ADD COLUMN last_location_detected_at DATETIME')
+    if rows and "last_ip" not in existing_columns:
+        statements.append('ALTER TABLE "user" ADD COLUMN last_ip VARCHAR(45)')
     if rows and "email_verified_at" not in existing_columns:
         statements.append('ALTER TABLE "user" ADD COLUMN email_verified_at DATETIME')
 

@@ -14,9 +14,25 @@
     </div>
 
     {% if nearby_mode %}
+    <section class="nearby-control-panel" aria-labelledby="nearby-status-title">
+      <div class="nearby-control-copy">
+        <p class="eyebrow">Nearby</p>
+        <h2 id="nearby-status-title">附近的人</h2>
+        <p class="nearby-status-text">{{ '当前已开启' if nearby_user.nearby_enabled else '当前已关闭' }}</p>
+        {% if nearby_location_label %}
+          <p class="nearby-location-hint">当前用于匹配的粗略地区：{{ nearby_location_label }}</p>
+        {% else %}
+          <p class="nearby-location-hint">暂时无法识别你的地区，请开启附近的人后刷新或完善城市信息。</p>
+        {% endif %}
+      </div>
+      <form class="nearby-toggle-form" method="post" action="{{ url_for('profile.toggle_nearby') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="button" type="submit">{{ '关闭附近的人' if nearby_user.nearby_enabled else '开启附近的人' }}</button>
+      </form>
+    </section>
     <div class="nearby-privacy-note">
-      <strong>附近的人</strong>
-      <p>列表只显示主动开启“附近的人”的用户，并基于 IP 所属地区做粗略匹配，不展示完整 IP 或精确位置。</p>
+      <strong>列表规则</strong>
+      <p>只显示主动开启“附近的人”、且与你处于同城 / 同地区的用户；不会展示真实 IP 或精确地址。</p>
     </div>
     {% endif %}
 
