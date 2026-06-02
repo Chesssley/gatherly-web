@@ -15,9 +15,10 @@
       <td><span class="admin-status {% if user.id not in verified_merchant_user_ids %}status-inactive{% endif %}">{{ '已认证' if user.id in verified_merchant_user_ids else '未认证' }}</span></td>
       <td>{{ user.trust_score }}</td><td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><span class="admin-status status-{{ user.status }}">{{ user.status }}</span></td>
       <td>
-        <form class="admin-action admin-user-action-menu" method="post" action="{{ url_for('admin.apply_user_action', user_id=user.id) }}">
-          <select name="action" aria-label="选择对 {{ user.username }} 的操作" required>
+        <form class="admin-action admin-action-menu admin-user-action-menu" method="post" action="{{ url_for('admin.apply_user_action', user_id=user.id) }}">
+          <select name="action" aria-label="选择对 {{ user.username }} 的操作" data-admin-action-menu required>
             <option value="">选择操作</option>
+            <option value="view" data-href="{{ url_for('profile.view_profile', user_id=user.id) }}">查看主页</option>
           {% if user.role == 'user' and user.status == 'active' %}
             <option value="promote_admin">设为管理员</option>
           {% elif user.role == 'admin' and user.id != current_user.id %}
@@ -34,7 +35,7 @@
             <option value="grant_merchant">授予商家资质</option>
           {% endif %}
           </select>
-          <button class="button button-small" type="submit">执行</button>
+          <noscript><button class="button button-small" type="submit">执行</button></noscript>
         </form>
       </td>
     </tr>{% else %}<tr><td class="admin-empty" colspan="9">暂无用户。</td></tr>{% endfor %}</tbody>

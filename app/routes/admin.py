@@ -185,10 +185,9 @@ def log_official_circle_creation(response):
     return response
 
 
-def _update_status(model, target_id, allowed_statuses, target_type, list_endpoint):
+def _set_status(model, target_id, new_status, allowed_statuses, target_type, list_endpoint):
     _ensure_admin_schema()
     target = model.query.get_or_404(target_id)
-    new_status = request.form.get("status", "").strip()
     if new_status not in allowed_statuses:
         flash("无效的状态值，未进行修改。", "error")
         return redirect(url_for(list_endpoint))
@@ -220,6 +219,17 @@ def _update_status(model, target_id, allowed_statuses, target_type, list_endpoin
     db.session.commit()
     flash(f"{target_type} #{target.id} 状态已更新为 {new_status}。", "success")
     return redirect(url_for(list_endpoint))
+
+
+def _update_status(model, target_id, allowed_statuses, target_type, list_endpoint):
+    return _set_status(
+        model,
+        target_id,
+        request.form.get("status", "").strip(),
+        allowed_statuses,
+        target_type,
+        list_endpoint,
+    )
 
 
 @admin_bp.app_context_processor
@@ -497,6 +507,8 @@ def _update_user_merchant_status(user_id, grant):
 @admin_required
 def apply_user_action(user_id):
     action = request.form.get("action", "").strip()
+    if action == "view":
+        return redirect(url_for("profile.view_profile", user_id=user_id))
     handlers = {
         "promote_admin": promote_admin,
         "demote_admin": demote_admin,
@@ -553,20 +565,51 @@ def update_activity_status(activity_id):
     )
 
 
-@admin_bp.route("/admin/activities/<int:activity_id>/featured", methods=["POST"])
-@admin_required
-def toggle_activity_featured(activity_id):
+def _set_activity_featured(activity_id, is_featured=None):
     activity = Activity.query.get_or_404(activity_id)
-    activity.is_featured = not activity.is_featured
+    previous_value = bool(activity.is_featured)
+    new_value = not previous_value if is_featured is None else bool(is_featured)
+    if previous_value == new_value:
+        flash("活动精选状态没有变化。", "info")
+        return redirect(url_for("admin.admin_activities"))
+
+    activity.is_featured = new_value
     log_admin_action(
         get_current_user().id,
-        "toggle_featured",
+        "feature_activity" if new_value else "unfeature_activity",
         "活动",
         activity.id,
-        f"is_featured: {not activity.is_featured} -> {activity.is_featured}",
+        f"is_featured: {previous_value} -> {new_value}",
     )
     db.session.commit()
     flash("活动精选状态已更新。", "success")
+    return redirect(url_for("admin.admin_activities"))
+
+
+@admin_bp.route("/admin/activities/<int:activity_id>/featured", methods=["POST"])
+@admin_required
+def toggle_activity_featured(activity_id):
+    return _set_activity_featured(activity_id)
+
+
+@admin_bp.route("/admin/activities/<int:activity_id>/action", methods=["POST"])
+@admin_required
+def apply_activity_action(activity_id):
+    action = request.form.get("action", "").strip()
+    if action in ACTIVITY_STATUSES:
+        return _set_status(
+            Activity,
+            activity_id,
+            action,
+            ACTIVITY_STATUSES,
+            "活动",
+            "admin.admin_activities",
+        )
+    if action == "feature":
+        return _set_activity_featured(activity_id, True)
+    if action == "unfeature":
+        return _set_activity_featured(activity_id, False)
+    flash("请选择有效的活动操作。", "error")
     return redirect(url_for("admin.admin_activities"))
 
 
@@ -616,26 +659,66 @@ def update_circle_status(circle_id):
 @admin_bp.route("/admin/circles/<int:circle_id>/pin", methods=["POST"])
 @admin_required
 def toggle_circle_pin(circle_id):
+    return _set_circle_pinned(circle_id)
+
+
+def _set_circle_pinned(circle_id, is_pinned=None):
     _ensure_admin_schema()
     circle = Circle.query.get(circle_id)
     if circle is None or circle.status == "deleted":
         flash("同好圈不存在或已被删除。", "error")
         return redirect(url_for("admin.admin_circles"))
 
-    circle.is_pinned = not circle.is_pinned
-    circle.pinned_at = datetime.utcnow() if circle.is_pinned else None
+    previous_value = bool(circle.is_pinned)
+    new_value = not previous_value if is_pinned is None else bool(is_pinned)
+    if previous_value == new_value:
+        flash("同好圈置顶状态没有变化。", "info")
+        return redirect(url_for("admin.admin_circles"))
+
+    circle.is_pinned = new_value
+    circle.pinned_at = datetime.utcnow() if new_value else None
     log_admin_action(
         get_current_user().id,
-        "pin_circle" if circle.is_pinned else "unpin_circle",
+        "pin_circle" if new_value else "unpin_circle",
         "同好圈",
         circle.id,
-        f"is_pinned: {not circle.is_pinned} -> {circle.is_pinned}; name: {circle.name}",
+        f"is_pinned: {previous_value} -> {new_value}; name: {circle.name}",
     )
     db.session.commit()
     flash(
-        f"同好圈“{circle.name}”已{'置顶' if circle.is_pinned else '取消置顶'}。",
+        f"同好圈“{circle.name}”已{'置顶' if new_value else '取消置顶'}。",
         "success",
     )
+    return redirect(url_for("admin.admin_circles"))
+
+
+@admin_bp.route("/admin/circles/<int:circle_id>/action", methods=["POST"])
+@admin_required
+def apply_circle_action(circle_id):
+    action = request.form.get("action", "").strip()
+    if action == "hide":
+        return _set_status(
+            Circle,
+            circle_id,
+            "hidden",
+            CIRCLE_STATUSES,
+            "同好圈",
+            "admin.admin_circles",
+        )
+    if action == "restore":
+        return _set_status(
+            Circle,
+            circle_id,
+            "active",
+            CIRCLE_STATUSES,
+            "同好圈",
+            "admin.admin_circles",
+        )
+    if action == "pin":
+        return _set_circle_pinned(circle_id, True)
+    if action == "unpin":
+        return _set_circle_pinned(circle_id, False)
+    flash("请选择有效的同好圈操作。", "error")
     return redirect(url_for("admin.admin_circles"))
 
 
@@ -797,6 +880,32 @@ def update_post_status(post_id):
     return _update_status(Post, post_id, CONTENT_STATUSES, "帖子", "admin.admin_posts")
 
 
+@admin_bp.route("/admin/posts/<int:post_id>/action", methods=["POST"])
+@admin_required
+def apply_post_action(post_id):
+    action = request.form.get("action", "").strip()
+    if action == "hide":
+        return _set_status(
+            Post,
+            post_id,
+            "hidden",
+            CONTENT_STATUSES,
+            "帖子",
+            "admin.admin_posts",
+        )
+    if action == "restore":
+        return _set_status(
+            Post,
+            post_id,
+            "published",
+            CONTENT_STATUSES,
+            "帖子",
+            "admin.admin_posts",
+        )
+    flash("请选择有效的帖子操作。", "error")
+    return redirect(url_for("admin.admin_posts"))
+
+
 @admin_bp.route("/admin/comments")
 @admin_required
 def admin_comments():
@@ -870,6 +979,32 @@ def update_comment_status(comment_id):
         "评论",
         "admin.admin_comments",
     )
+
+
+@admin_bp.route("/admin/comments/<int:comment_id>/action", methods=["POST"])
+@admin_required
+def apply_comment_action(comment_id):
+    action = request.form.get("action", "").strip()
+    if action == "hide":
+        return _set_status(
+            Comment,
+            comment_id,
+            "hidden",
+            CONTENT_STATUSES,
+            "评论",
+            "admin.admin_comments",
+        )
+    if action == "restore":
+        return _set_status(
+            Comment,
+            comment_id,
+            "published",
+            CONTENT_STATUSES,
+            "评论",
+            "admin.admin_comments",
+        )
+    flash("请选择有效的评论操作。", "error")
+    return redirect(url_for("admin.admin_comments"))
 
 
 @admin_bp.route("/admin/account", methods=["GET", "POST"])

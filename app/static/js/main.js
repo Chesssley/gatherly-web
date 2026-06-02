@@ -1042,25 +1042,38 @@ document.addEventListener("DOMContentLoaded", () => {
     syncCustomReason();
   });
 
-  document.querySelectorAll("[data-admin-status-menu]").forEach(select => {
+  const submitAdminMenu = (select, originalValue) => {
+    if (!select.value || select.value === originalValue) {
+      return;
+    }
+
+    const selectedOption = select.selectedOptions?.[0];
+    const href = selectedOption?.dataset.href;
+    if (href) {
+      window.location.assign(href);
+      select.value = originalValue;
+      return;
+    }
+
+    const confirmMessage = selectedOption?.dataset.confirm
+      || (select.value === "cancelled" ? select.dataset.cancelConfirm : "");
+    if (confirmMessage && !window.confirm(confirmMessage)) {
+      select.value = originalValue;
+      return;
+    }
+
+    const form = select.closest("form");
+    if (typeof form?.requestSubmit === "function") {
+      form.requestSubmit();
+    } else {
+      form?.submit();
+    }
+  };
+
+  document.querySelectorAll("[data-admin-status-menu], [data-admin-action-menu]").forEach(select => {
     const originalValue = select.value;
     select.addEventListener("change", () => {
-      if (!select.value || select.value === originalValue) {
-        return;
-      }
-      if (select.value === "cancelled") {
-        const confirmMessage = select.dataset.cancelConfirm || "确定取消这个活动吗？";
-        if (!window.confirm(confirmMessage)) {
-          select.value = originalValue;
-          return;
-        }
-      }
-      const form = select.closest("form");
-      if (typeof form?.requestSubmit === "function") {
-        form.requestSubmit();
-      } else {
-        form?.submit();
-      }
+      submitAdminMenu(select, originalValue);
     });
   });
 

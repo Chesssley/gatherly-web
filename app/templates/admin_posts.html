@@ -13,8 +13,16 @@
     <tbody>{% for post in posts %}<tr>
       <td>{{ post.id }}</td><td>{{ post.title }}</td><td>{{ post.user.username }}</td><td>{{ post.circle.name }}</td><td><span class="admin-status status-{{ post.status }}">{{ '已隐藏' if post.status == 'hidden' else ('已删除' if post.status == 'deleted' else '正常') }}</span></td><td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
       <td><div class="admin-action-group">
-        <a class="button button-small button-secondary" href="{{ url_for('circle.circle_detail', circle_id=post.circle_id, _anchor='post-' ~ post.id) }}">查看</a>
-        {% if post.status in ['published', 'hidden'] %}<form method="post" action="{{ url_for('admin.update_post_status', post_id=post.id) }}"><input type="hidden" name="status" value="{{ 'published' if post.status == 'hidden' else 'hidden' }}"><button class="button button-small button-secondary" type="submit">{{ '恢复显示' if post.status == 'hidden' else '隐藏' }}</button></form>{% endif %}
+        <form class="admin-action admin-action-menu" method="post" action="{{ url_for('admin.apply_post_action', post_id=post.id) }}">
+          <select name="action" aria-label="选择对 {{ post.title }} 的操作" data-admin-action-menu required>
+            <option value="">选择操作</option>
+            <option value="view" data-href="{{ url_for('circle.circle_detail', circle_id=post.circle_id, _anchor='post-' ~ post.id) }}">查看</option>
+            {% if post.status in ['published', 'hidden'] %}
+              <option value="{{ 'restore' if post.status == 'hidden' else 'hide' }}">{{ '恢复显示' if post.status == 'hidden' else '隐藏' }}</option>
+            {% endif %}
+          </select>
+          <noscript><button class="button button-small" type="submit">执行</button></noscript>
+        </form>
         <form method="post" action="{{ url_for('admin.delete_post', post_id=post.id) }}" onsubmit="return confirm('确定删除这篇帖子吗？帖子下的评论也会被删除。');"><button class="button button-small button-danger" type="submit">删除</button></form>
       </div></td>
     </tr>{% else %}<tr><td class="admin-empty" colspan="7">暂无帖子。</td></tr>{% endfor %}</tbody>
