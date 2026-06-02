@@ -8,35 +8,41 @@
   </div>
 
   <h1>{{ display_name }}</h1>
-  <p class="profile-email">{{ user.email }}</p>
-  {% if is_owner %}
-  <div class="profile-sidebar-actions">
-    <a class="profile-edit-link" href="{{ url_for('profile.edit_profile') }}">编辑资料</a>
-  </div>
-  {% elif session.get('user_id') %}
-  <div class="profile-sidebar-actions">
-    <a class="profile-edit-link" href="{{ url_for('messages.conversation', user_id=user.id) }}">私信</a>
-    {% if is_following %}
-    <form method="post" action="{{ url_for('profile.unfollow_user', user_id=user.id) }}">
-      <input type="hidden" name="next" value="{{ request.full_path }}">
-      <button class="profile-edit-link" type="submit">已关注</button>
-    </form>
-    {% else %}
-    <form method="post" action="{{ url_for('profile.follow_user', user_id=user.id) }}">
-      <input type="hidden" name="next" value="{{ request.full_path }}">
-      <button class="profile-edit-link" type="submit">关注</button>
-    </form>
-    {% endif %}
-  </div>
-  {% endif %}
+  <p class="profile-email">{{ user.email if session.get('user_id') else '@' ~ user.username }}</p>
 
   {% if user.bio %}
   <p class="profile-sidebar-bio">{{ user.bio }}</p>
   {% endif %}
 
+  {% if is_owner %}
+  <div class="profile-sidebar-actions">
+    <a class="profile-edit-link" href="{{ url_for('profile.edit_profile') }}">编辑资料</a>
+  </div>
+  {% else %}
+  <div class="profile-sidebar-actions profile-social-actions">
+    {% if session.get('user_id') %}
+    <a class="button profile-action-btn profile-action-primary" href="{{ url_for('messages.conversation', user_id=user.id) }}">私信</a>
+      {% if is_following %}
+      <form method="post" action="{{ url_for('profile.unfollow_user', user_id=user.id) }}">
+        <input type="hidden" name="next" value="{{ request.full_path }}">
+        <button class="button button-secondary profile-action-btn profile-action-secondary profile-action-following" type="submit">已关注</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('profile.follow_user', user_id=user.id) }}">
+        <input type="hidden" name="next" value="{{ request.full_path }}">
+        <button class="button button-secondary profile-action-btn profile-action-secondary" type="submit">关注</button>
+      </form>
+      {% endif %}
+    {% else %}
+    <a class="button profile-action-btn profile-action-primary" href="{{ url_for('auth.login', next=request.url) }}">私信</a>
+    <a class="button button-secondary profile-action-btn profile-action-secondary" href="{{ url_for('auth.login', next=request.url) }}">关注</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <div class="profile-sidebar-meta">
     <p><span aria-hidden="true">&#128205;</span> {{ user.city or '城市未设置' }}</p>
-    <p><span aria-hidden="true">&#127760;</span> IP：{{ user.detected_city or user.detected_region or '未知地区' }}</p>
+    <p><span aria-hidden="true">&#127760;</span> 附近的人：{{ '开启' if user.nearby_enabled|default(false) else '关闭' }}</p>
     <p><span aria-hidden="true">&#128197;</span> 加入于 {{ user.created_at.strftime('%Y年%m月') if user.created_at else '-' }}</p>
   </div>
 

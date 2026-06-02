@@ -583,7 +583,6 @@ def my_profile():
 
 
 @profile_bp.route("/<int:user_id>")
-@login_required
 def view_profile(user_id):
     user = User.query.get_or_404(user_id)
     display_name = get_user_display_name(user)
