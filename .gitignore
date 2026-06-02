@@ -24,11 +24,13 @@ temp_error.txt
 
 # Python / Flask
 __pycache__/
+*.pyc
 *.py[cod]
 .pdm-python
 .venv/
 venv/
 instance/
+*.db
 instance/*.db
 *.sqlite
 *.sqlite3
@@ -36,6 +38,7 @@ instance/*.db
 .flaskenv
 
 # User uploads
+app/static/uploads/
 app/static/uploads/*
 !app/static/uploads/avatars/
 app/static/uploads/avatars/*
