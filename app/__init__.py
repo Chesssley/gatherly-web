@@ -1,13 +1,27 @@
 import os
 
 from flask import Flask, flash, redirect, request, url_for
+from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
+from dotenv import load_dotenv
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from app.models import db, ensure_task_foundation_schema
 
 
+load_dotenv()
+
 csrf = CSRFProtect()
+migrate = Migrate()
+
+
+def _database_uri():
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        return database_url
+    return "sqlite:///gatherly.db"
 
 
 def _env_flag(name, default=False):
@@ -30,7 +44,7 @@ def _is_production():
 def create_app(test_config=None):
     app = Flask(__name__)
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///gatherly.db"
+    app.config["SQLALCHEMY_DATABASE_URI"] = _database_uri()
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
     app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -43,9 +57,11 @@ def create_app(test_config=None):
         app.config.update(test_config)
 
     db.init_app(app)
+    migrate.init_app(app, db)
     csrf.init_app(app)
     with app.app_context():
-        ensure_task_foundation_schema()
+        if db.engine.dialect.name == "sqlite":
+            ensure_task_foundation_schema()
 
     from app.routes.activity import activity_bp
     from app.routes.admin import admin_bp
