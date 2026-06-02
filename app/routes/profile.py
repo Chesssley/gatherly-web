@@ -1,9 +1,7 @@
 from functools import wraps
-import os
 from urllib.parse import urlencode
-from uuid import uuid4
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import and_, or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
@@ -25,6 +23,7 @@ from app.models import (
     get_user_display_name,
 )
 from app.utils.location_utils import locations_match, update_user_detected_location
+from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
 
 profile_bp = Blueprint("profile", __name__, url_prefix="/profile")
 
@@ -33,12 +32,8 @@ PRIVATE_SCOPE = "private"
 SORT_OPTIONS = {"newest", "oldest"}
 BIO_MAX_LENGTH = 300
 INTERESTS_MAX_LENGTH = 500
-AVATAR_UPLOAD_SUBDIR = os.path.join("uploads", "avatars")
+AVATAR_UPLOAD_SUBDIR = "avatars"
 AVATAR_MAX_BYTES = 700 * 1024
-AVATAR_ALLOWED_TYPES = {
-    "image/jpeg": ("jpg", b"\xff\xd8\xff"),
-    "image/webp": ("webp", b"RIFF"),
-}
 UNKNOWN_LOCATION_LABELS = {"未知地区"}
 
 
@@ -142,46 +137,17 @@ def _normalize_interests(interests):
     return ", ".join(dict.fromkeys(_split_interests(interests)))
 
 
-def _avatar_upload_dir():
-    upload_dir = os.path.join(current_app.static_folder, AVATAR_UPLOAD_SUBDIR)
-    os.makedirs(upload_dir, exist_ok=True)
-    return upload_dir
-
-
 def _save_avatar(file):
     if not file or not file.filename:
         return None
 
-    expected = AVATAR_ALLOWED_TYPES.get(file.mimetype)
-    if expected is None:
-        raise ValueError("头像只支持 JPEG 或 WebP 格式。")
-
-    content = file.stream.read(AVATAR_MAX_BYTES + 1)
-    if not content:
-        raise ValueError("头像文件不能为空。")
-    if len(content) > AVATAR_MAX_BYTES:
-        raise ValueError("裁剪后的头像不能超过 700KB。")
-
-    extension, signature = expected
-    if not content.startswith(signature):
-        raise ValueError("头像文件内容与格式不匹配。")
-    if extension == "webp" and (len(content) < 12 or content[8:12] != b"WEBP"):
-        raise ValueError("头像文件内容与格式不匹配。")
-
-    filename = f"{uuid4().hex}.{extension}"
-    with open(os.path.join(_avatar_upload_dir(), filename), "wb") as avatar_file:
-        avatar_file.write(content)
-    return f"/static/{AVATAR_UPLOAD_SUBDIR.replace(os.sep, '/')}/{filename}"
+    validated_images = validate_image_files([file], max_count=1, max_bytes=AVATAR_MAX_BYTES)
+    saved_paths = save_image_files(validated_images, AVATAR_UPLOAD_SUBDIR)
+    return saved_paths[0] if saved_paths else None
 
 
 def _delete_managed_avatar(avatar_url):
-    prefix = f"/static/{AVATAR_UPLOAD_SUBDIR.replace(os.sep, '/')}/"
-    if not avatar_url or not avatar_url.startswith(prefix):
-        return
-
-    avatar_path = os.path.join(_avatar_upload_dir(), os.path.basename(avatar_url))
-    if os.path.isfile(avatar_path):
-        os.remove(avatar_path)
+    delete_saved_images([avatar_url] if avatar_url else [])
 
 
 def _safe_all(query):

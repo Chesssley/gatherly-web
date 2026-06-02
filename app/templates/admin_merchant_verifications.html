@@ -28,7 +28,7 @@
             <td>{{ application.business_name }}</td>
             <td>
               {% if application.document_path %}
-              <a href="{{ url_for('static', filename=application.document_path) }}" target="_blank" rel="noopener">查看图片</a>
+              <a href="{{ application.document_path|asset_url }}" target="_blank" rel="noopener">查看图片</a>
               {% else %}-{% endif %}
             </td>
             <td>{{ application.reason or '-' }}</td>

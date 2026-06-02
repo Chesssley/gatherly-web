@@ -145,7 +145,7 @@
             {% for circle in circles %}
             <article class="activity-card circle-card circle-discovery-card discover-card" data-tags="{{ circle.tag or '兴趣爱好' }},{{ circle.name }}" data-time="any">
                 <a class="circle-card-cover" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">
-                    <img src="{{ url_for('static', filename=circle.cover_image_url) }}" alt="{{ circle.name }} cover">
+                    <img src="{{ circle.cover_image_url|asset_url }}" alt="{{ circle.name }} cover">
                     <span class="circle-card-cover-overlay"></span>
                     <span class="circle-card-cover-content">
                         <span class="card-tags">

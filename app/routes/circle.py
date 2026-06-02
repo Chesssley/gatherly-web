@@ -15,10 +15,10 @@ POST_IMAGE_MAX_BYTES = 800 * 1024
 POST_IMAGE_MAX_COUNT = 3
 COMMENT_IMAGE_MAX_BYTES = 500 * 1024
 COMMENT_IMAGE_MAX_COUNT = 1
-POST_UPLOAD_SUBDIR = os.path.join("uploads", "posts")
-COMMENT_UPLOAD_SUBDIR = os.path.join("uploads", "comments")
+POST_UPLOAD_SUBDIR = "posts"
+COMMENT_UPLOAD_SUBDIR = "comments"
 CIRCLE_COVER_ASSET_SUBDIR = "images/circle_covers/"
-CIRCLE_COVER_UPLOAD_SUBDIR = os.path.join("images", "circles")
+CIRCLE_COVER_UPLOAD_SUBDIR = "circles"
 CIRCLE_COVER_UPLOAD_PREFIX = "images/circles/"
 CIRCLE_COVER_ALLOWED_SUBDIRS = (CIRCLE_COVER_ASSET_SUBDIR, CIRCLE_COVER_UPLOAD_PREFIX)
 DEFAULT_CIRCLE_COVER = f"{CIRCLE_COVER_ASSET_SUBDIR}default.webp"
@@ -116,7 +116,11 @@ def _is_official_default_cover(image_path):
 
 def _circle_cover_image(circle):
     cover_image = getattr(circle, "cover_image", None)
-    if not cover_image or not cover_image.startswith(CIRCLE_COVER_ALLOWED_SUBDIRS):
+    if not cover_image:
+        return DEFAULT_CIRCLE_COVER
+    if cover_image.startswith(("http://", "https://", "/static/uploads/circles/")):
+        return cover_image
+    if not cover_image.startswith(CIRCLE_COVER_ALLOWED_SUBDIRS):
         return DEFAULT_CIRCLE_COVER
     if os.path.splitext(cover_image)[1].lower() not in CIRCLE_COVER_EXTENSIONS:
         return DEFAULT_CIRCLE_COVER
@@ -162,7 +166,11 @@ def _save_circle_cover(file):
 def _is_uploaded_circle_cover(image_path):
     return bool(
         image_path
-        and image_path.startswith(CIRCLE_COVER_UPLOAD_PREFIX)
+        and (
+            image_path.startswith(CIRCLE_COVER_UPLOAD_PREFIX)
+            or image_path.startswith("/static/uploads/circles/")
+            or image_path.startswith(("http://", "https://"))
+        )
         and image_path not in _official_default_cover_paths()
         and os.path.splitext(image_path)[1].lower() in {".jpg", ".jpeg", ".png", ".webp"}
     )
@@ -171,10 +179,7 @@ def _is_uploaded_circle_cover(image_path):
 def _delete_uploaded_circle_cover(image_path):
     if not _is_uploaded_circle_cover(image_path):
         return
-    cover_dir = os.path.abspath(os.path.join(current_app.static_folder, CIRCLE_COVER_UPLOAD_PREFIX))
-    cover_path = os.path.abspath(os.path.join(current_app.static_folder, image_path))
-    if os.path.commonpath([cover_dir, cover_path]) == cover_dir:
-        delete_saved_images([image_path])
+    delete_saved_images([image_path])
 
 
 def _can_edit_circle_cover(user, circle):

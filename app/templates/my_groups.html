@@ -56,7 +56,7 @@
         {% set group = membership.circle %}
         <a class="my-group-card" href="{{ url_for('circle.circle_detail', circle_id=group.id) }}">
           <span class="my-group-cover">
-            <img src="{{ url_for('static', filename=group.cover_image_url) }}" alt="{{ group.name }}">
+            <img src="{{ group.cover_image_url|asset_url }}" alt="{{ group.name }}">
           </span>
           <span class="my-group-copy">
             <strong>{{ group.name }}</strong>
@@ -84,7 +84,7 @@
         {% set group = membership.circle %}
         <a class="my-group-card" href="{{ url_for('circle.circle_detail', circle_id=group.id) }}">
           <span class="my-group-cover">
-            <img src="{{ url_for('static', filename=group.cover_image_url) }}" alt="{{ group.name }}">
+            <img src="{{ group.cover_image_url|asset_url }}" alt="{{ group.name }}">
           </span>
           <span class="my-group-copy">
             <strong>{{ group.name }}</strong>

@@ -25,7 +25,7 @@ from app.utils.upload_utils import delete_saved_images, save_image_files, valida
 
 auth_bp = Blueprint("auth", __name__)
 MERCHANT_DOCUMENT_MAX_BYTES = 800 * 1024
-MERCHANT_DOCUMENT_UPLOAD_SUBDIR = os.path.join("uploads", "merchant-verifications")
+MERCHANT_DOCUMENT_UPLOAD_SUBDIR = "merchant-verifications"
 REGISTER_FORM_DRAFT_FIELDS = ("username", "email", "nickname", "city")
 EMAIL_CODE_SESSION_LIMIT_SECONDS = 60 * 60
 EMAIL_CODE_SESSION_LIMIT_MAX = 10
