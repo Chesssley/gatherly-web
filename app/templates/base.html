@@ -27,12 +27,35 @@
       </form>
 
       <div class="desktop-nav nav-actions">
-        <a class="nav-icon-btn" href="{{ url_for('activity.create_activity') }}" aria-label="发布活动">
-          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M12 5v14M5 12h14"></path>
-          </svg>
-          <span class="sr-only">发布活动</span>
-        </a>
+        <div class="nav-create">
+          <button class="nav-icon-btn" type="button" aria-label="新建" aria-expanded="false" aria-controls="create-menu" data-create-menu-toggle>
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+            <span class="sr-only">新建</span>
+          </button>
+          <div class="nav-create-menu" id="create-menu" data-create-menu hidden>
+            {% if session.get('user_id') %}
+              <a href="{{ url_for('activity.create_activity') }}">
+                <strong>新建活动</strong>
+                <small>发布一次线下或线上活动</small>
+              </a>
+              <a href="{{ url_for('circle.create_circle') }}">
+                <strong>新建同好圈</strong>
+                <small>创建长期交流的兴趣圈子</small>
+              </a>
+            {% else %}
+              <a href="{{ url_for('auth.login', next=url_for('activity.create_activity')) }}">
+                <strong>新建活动</strong>
+                <small>登录后发布一次活动</small>
+              </a>
+              <a href="{{ url_for('auth.login', next=url_for('circle.create_circle')) }}">
+                <strong>新建同好圈</strong>
+                <small>登录后创建兴趣圈子</small>
+              </a>
+            {% endif %}
+          </div>
+        </div>
         {% if session.get('user_id') %}
           <a class="nav-icon-btn nav-notification-link" href="{{ url_for('messages.message_list') }}" aria-label="私信{% if unread_direct_message_count %}，{{ unread_direct_message_count }} 条未读{% endif %}">
             <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -144,7 +167,13 @@
     {% endif %}
 
     <div class="mobile-menu container" id="mobile-menu" data-mobile-menu hidden>
-      <a href="{{ url_for('activity.create_activity') }}">发布活动</a>
+      {% if session.get('user_id') %}
+        <a href="{{ url_for('activity.create_activity') }}">新建活动</a>
+        <a href="{{ url_for('circle.create_circle') }}">新建同好圈</a>
+      {% else %}
+        <a href="{{ url_for('auth.login', next=url_for('activity.create_activity')) }}">新建活动</a>
+        <a href="{{ url_for('auth.login', next=url_for('circle.create_circle')) }}">新建同好圈</a>
+      {% endif %}
       <a href="{{ url_for('circle.circles') }}">同好圈</a>
       {% if not session.get('user_id') %}
         <a href="{{ url_for('auth.login') }}">登录</a>

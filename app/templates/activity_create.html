@@ -4,135 +4,227 @@
 
 {% block content %}
 <section class="section">
-    <div class="container narrow-page">
-        <a href="{{ url_for('activity.index') }}" class="back-link">&larr; 返回活动列表</a>
-        <h1 class="detail-title">发布新活动</h1>
-
+    <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% for category, message in messages %}
                 <div class="flash-msg {{ category }}">{{ message }}</div>
             {% endfor %}
         {% endwith %}
 
-        <div class="form-card">
-            <form method="post" enctype="multipart/form-data">
+        {% set selected_activity_tags = request.form.getlist('tags') %}
+        {% set selected_primary_tag = request.form.get('primary_tag') %}
+        {% if selected_primary_tag and selected_primary_tag not in selected_activity_tags %}
+            {% set selected_activity_tags = selected_activity_tags + [selected_primary_tag] %}
+        {% endif %}
+
+        <div class="circle-create-page" data-circle-wizard>
+            <header class="circle-create-header">
+                <a class="circle-create-back" href="{{ url_for('activity.index') }}" aria-label="返回活动列表">← 返回</a>
+                <p class="eyebrow">Create Activity</p>
+                <h1>发布新活动</h1>
+                <p>用 3 步补全活动信息。发布成功后，活动会进入详情页，并按当前活动展示逻辑出现在首页和活动列表。</p>
+            </header>
+
+            <div class="circle-create-progress" aria-label="发布进度">
+                <span class="is-active" data-wizard-progress></span>
+                <span data-wizard-progress></span>
+                <span data-wizard-progress></span>
+            </div>
+
+            <form class="circle-create-form" method="post" enctype="multipart/form-data" data-circle-wizard-form>
                 <input type="hidden" name="timezone" value="{{ request.form.get('timezone', '') }}" data-activity-timezone>
-                <div class="form-group">
-                    <label for="title" class="form-label">活动标题 <span class="form-required">*</span></label>
-                    <input type="text" id="title" name="title" class="form-input" maxlength="120" value="{{ request.form.get('title', '') }}" required>
-                </div>
+                <input type="hidden" name="primary_tag" value="{{ selected_activity_tags[0] if selected_activity_tags else '' }}">
 
-                <div class="form-group">
-                    <label for="description" class="form-label">活动简介 <span class="form-required">*</span></label>
-                    <textarea id="description" name="description" class="form-input" rows="3" required>{{ request.form.get('description', '') }}</textarea>
-                </div>
+                <section class="circle-wizard-step is-active" data-circle-wizard-step>
+                    <div class="circle-step-layout">
+                        <div class="circle-step-main">
+                            <span class="circle-step-kicker">第 1 步 / 共 3 步</span>
+                            <h2>填写活动基础信息</h2>
+                            <p class="circle-step-copy">先告诉大家这是什么活动，它属于哪个同好圈，以及应该通过哪些兴趣标签被发现。</p>
 
-                <div class="form-group">
-                    <label for="detail" class="form-label">活动详情 <span class="form-required">*</span></label>
-                    <textarea id="detail" name="detail" class="form-input" rows="6" required>{{ request.form.get('detail', '') }}</textarea>
-                </div>
+                            <div class="form-group">
+                                <label for="title" class="form-label">活动标题 <span class="form-required">*</span></label>
+                                <input type="text" id="title" name="title" class="form-input" maxlength="120" value="{{ request.form.get('title', '') }}" placeholder="例如：周六城市摄影散步" data-preview-source="title" required>
+                            </div>
 
-                <div class="form-group">
-                    <label for="start_time" class="form-label">活动开始时间 <span class="form-required">*</span></label>
-                    <input type="datetime-local" id="start_time" name="start_time" class="form-input" value="{{ request.form.get('start_time', '') }}" required>
-                </div>
+                            <div class="form-group">
+                                <label for="circle_id" class="form-label">所属同好圈</label>
+                                <select id="circle_id" name="circle_id" class="form-input">
+                                    <option value="">暂不关联同好圈</option>
+                                    {% for circle in circles %}
+                                    <option value="{{ circle.id }}" {% if request.form.get('circle_id')|int == circle.id %}selected{% endif %}>
+                                        {{ circle.name }}{% if circle.tag %} · {{ circle.tag }}{% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <p class="form-hint">建议选择。关联后，活动会出现在对应同好圈详情页。</p>
+                            </div>
 
-                <div class="form-group">
-                    <label for="end_time" class="form-label">活动结束时间 <span class="form-required">*</span></label>
-                    <input type="datetime-local" id="end_time" name="end_time" class="form-input" value="{{ request.form.get('end_time', '') }}" required>
-                </div>
+                            <fieldset class="form-group">
+                                <legend class="form-label">兴趣分类 / 标签 <span class="form-required">*</span></legend>
+                                <div class="meetup-category-picker is-checkbox-list circle-tag-picker" role="group" aria-label="兴趣分类 / 标签" data-required-checkbox-group="tags">
+                                    {% for category in interest_categories %}
+                                    <label class="meetup-category-choice circle-tag-choice">
+                                        <input type="checkbox" name="tags" value="{{ category.tag }}" {% if category.tag in selected_activity_tags %}checked{% endif %} data-preview-source="tag">
+                                        <span class="circle-tag-icon icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
+                                        <span class="icon-category-label">{{ category.tag }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                <p class="form-hint">可多选。这里使用与筛选栏一致的兴趣分类、顺序和图标。</p>
+                            </fieldset>
 
-                <div class="form-group">
-                    <label for="city" class="form-label">城市 / 地区 <span class="form-required">*</span></label>
-                    <input type="text" id="city" name="city" class="form-input" maxlength="80" value="{{ request.form.get('city', '') }}" placeholder="例如：上海市徐汇区" required>
-                </div>
+                            <div class="form-group">
+                                <label for="city" class="form-label">活动城市 <span class="form-required">*</span></label>
+                                <input type="text" id="city" name="city" class="form-input" maxlength="80" value="{{ request.form.get('city', '') }}" placeholder="例如：上海市徐汇区" data-preview-source="city" required>
+                            </div>
 
-                <div class="form-group">
-                    <label for="location" class="form-label">详细地点 <span class="form-required">*</span></label>
-                    <input type="text" id="location" name="location" class="form-input" maxlength="255" value="{{ request.form.get('location', '') }}" required>
-                </div>
+                            <div class="form-group">
+                                <label for="description" class="form-label">一句话亮点 <span class="form-required">*</span></label>
+                                <textarea id="description" name="description" class="form-input" rows="3" maxlength="240" placeholder="用一句话说明活动看点、适合人群或体验亮点。" data-preview-source="description" required>{{ request.form.get('description', '') }}</textarea>
+                                <p class="form-hint">该内容会作为活动简介保存，不新增数据库字段。</p>
+                            </div>
+                        </div>
 
-                <div class="form-group">
-                    <label for="max_participants" class="form-label">人数上限 <span class="form-required">*</span></label>
-                    <input type="number" id="max_participants" name="max_participants" class="form-input" min="1" value="{{ request.form.get('max_participants', '') }}" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="fee" class="form-label">费用（元） <span class="form-required">*</span></label>
-                    <input type="number" id="fee" name="fee" class="form-input" min="0" step="0.01" value="{{ request.form.get('fee', '0') }}" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="circle_id" class="form-label">关联同好圈</label>
-                    <select id="circle_id" name="circle_id" class="form-input">
-                        <option value="">不关联同好圈</option>
-                        {% for circle in circles %}
-                        <option value="{{ circle.id }}" {% if request.form.get('circle_id')|int == circle.id %}selected{% endif %}>
-                            {{ circle.name }}{% if circle.tag %} · {{ circle.tag }}{% endif %}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <p class="form-hint">可选。选择后，活动会出现在对应同好圈详情页。</p>
-                </div>
-
-                <div class="form-group">
-                    <span class="form-label">兴趣探索分类 <span class="form-required">*</span></span>
-                    {% set selected_primary_tag = request.form.get('primary_tag') or (request.form.getlist('tags')[0] if request.form.getlist('tags') else '') %}
-                    <div class="meetup-category-picker" role="radiogroup" aria-label="活动主分类">
-                        {% for category in interest_categories %}
-                        <label class="meetup-category-choice">
-                            <input type="radio" name="primary_tag" value="{{ category.tag }}" {% if selected_primary_tag == category.tag %}checked{% endif %} required>
-                            <span class="icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
-                            <span class="icon-category-label">{{ category.tag }}</span>
-                        </label>
-                        {% endfor %}
+                        <aside class="circle-step-tip">
+                            <strong>提示</strong>
+                            <p>清晰的标题、标签和城市信息，会让用户更快判断是否适合报名。</p>
+                        </aside>
                     </div>
-                    <p class="form-hint">用于发现页筛选和活动卡片展示。</p>
-                </div>
+                </section>
 
-                <fieldset class="form-group">
-                    <legend class="form-label">补充兴趣标签</legend>
-                    <p class="form-hint">可选。可以补充更多相关兴趣，让用户更容易理解活动内容。</p>
-                    <div class="meetup-category-picker is-checkbox-list">
-                        {% for category in interest_categories %}
-                        <label class="meetup-category-choice">
-                            <input type="checkbox" name="tags" value="{{ category.tag }}" {% if category.tag in request.form.getlist('tags') and category.tag != selected_primary_tag %}checked{% endif %}>
-                            <span class="icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
-                            <span class="icon-category-label">{{ category.tag }}</span>
-                        </label>
-                        {% endfor %}
+                <section class="circle-wizard-step" data-circle-wizard-step hidden>
+                    <div class="circle-step-layout">
+                        <div class="circle-step-main">
+                            <span class="circle-step-kicker">第 2 步 / 共 3 步</span>
+                            <h2>设置时间地点和参与方式</h2>
+                            <p class="circle-step-copy">让报名用户清楚知道什么时候、在哪里、多少人，以及参与前需要准备什么。</p>
+
+                            <div class="form-group">
+                                <label for="start_time" class="form-label">开始时间 <span class="form-required">*</span></label>
+                                <input type="datetime-local" id="start_time" name="start_time" class="form-input" value="{{ request.form.get('start_time', '') }}" data-preview-source="start_time" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="end_time" class="form-label">结束时间 <span class="form-required">*</span></label>
+                                <input type="datetime-local" id="end_time" name="end_time" class="form-input" value="{{ request.form.get('end_time', '') }}" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="location" class="form-label">活动地点 <span class="form-required">*</span></label>
+                                <input type="text" id="location" name="location" class="form-input" maxlength="255" value="{{ request.form.get('location', '') }}" placeholder="例如：徐汇滨江集合点" data-preview-source="location" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="max_participants" class="form-label">人数上限 <span class="form-required">*</span></label>
+                                <input type="number" id="max_participants" name="max_participants" class="form-input" min="1" value="{{ request.form.get('max_participants', '') }}" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="fee" class="form-label">活动费用 <span class="form-required">*</span></label>
+                                <input type="number" id="fee" name="fee" class="form-input" min="0" step="0.01" value="{{ request.form.get('fee', '0') }}" data-preview-source="fee" required>
+                                <p class="form-hint">免费活动填写 0；收费活动填写实际金额。</p>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="preparation" class="form-label">准备事项 / 参与规则 <span class="form-required">*</span></label>
+                                <textarea id="preparation" name="preparation" class="form-input" rows="4" placeholder="例如：自带相机或手机、准时集合、活动中尊重他人意愿。" required>{{ request.form.get('preparation', '') }}</textarea>
+                                <p class="form-hint">该内容复用活动准备事项字段，不新增数据库字段。</p>
+                            </div>
+                        </div>
+
+                        <aside class="circle-step-tip circle-rules-tip">
+                            <strong>参与提示</strong>
+                            <ul>
+                                <li>时间地点尽量写具体</li>
+                                <li>收费活动请写清金额</li>
+                                <li>准备事项要便于报名用户执行</li>
+                            </ul>
+                        </aside>
                     </div>
-                </fieldset>
+                </section>
 
-                <div class="form-group">
-                    <label for="preparation" class="form-label">准备事项 <span class="form-required">*</span></label>
-                    <textarea id="preparation" name="preparation" class="form-input" rows="4" required>{{ request.form.get('preparation', '') }}</textarea>
-                </div>
+                <section class="circle-wizard-step" data-circle-wizard-step hidden>
+                    <div class="circle-step-layout">
+                        <div class="circle-step-main">
+                            <span class="circle-step-kicker">第 3 步 / 共 3 步</span>
+                            <h2>完善介绍并确认发布</h2>
+                            <p class="circle-step-copy">补充活动详情，上传真实图片，确认卡片预览后发布。</p>
 
-                <div class="form-group">
-                    <label for="image" class="form-label">活动图片 <span class="form-required">*</span></label>
-                    <input type="file" id="image" name="image" class="form-input" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required>
-                    <p class="form-hint">支持 JPG、PNG、WebP，单张图片小于 800KB。</p>
-                </div>
+                            <div class="form-group">
+                                <label for="detail" class="form-label">活动详细介绍 <span class="form-required">*</span></label>
+                                <textarea id="detail" name="detail" class="form-input" rows="6" placeholder="说明活动流程、集合方式、适合谁参加，以及其他需要提前知道的信息。" required>{{ request.form.get('detail', '') }}</textarea>
+                            </div>
 
-                <fieldset class="form-group">
-                    <legend class="form-label">活动标识</legend>
-                    {% if can_publish_verified_activity %}
-                    <label class="tag-checkbox">
-                        <input type="checkbox" name="is_official" value="1" {% if request.form.get('is_official') == '1' %}checked{% endif %}>
-                        <span>官方认证活动</span>
-                    </label>
-                    <label class="tag-checkbox">
-                        <input type="checkbox" name="is_featured" value="1" {% if request.form.get('is_featured') == '1' %}checked{% endif %}>
-                        <span>优质活动</span>
-                    </label>
-                    {% else %}
-                    <p class="form-hint">完成商家认证后，可发布“官方认证活动”或“优质活动”。普通活动不受影响。</p>
-                    {% endif %}
-                </fieldset>
+                            <div class="form-group">
+                                <label for="image" class="form-label">活动图片 <span class="form-required">*</span></label>
+                                <div class="file-upload-control">
+                                    <input
+                                        class="circle-file-input form-input"
+                                        type="file"
+                                        id="image"
+                                        name="image"
+                                        accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                                        data-file-count-target="activity-image-count"
+                                        data-image-upload
+                                        data-activity-image-preview
+                                        data-max-count="1"
+                                        data-max-bytes="819200"
+                                        required
+                                    >
+                                    <label class="file-upload-button" for="image">选择图片</label>
+                                    <span class="file-upload-count" id="activity-image-count">未选择图片</span>
+                                </div>
+                                <p class="form-hint">支持 JPG、PNG、WebP，单张图片小于 800KB。继续复用后端已有上传校验。</p>
+                            </div>
 
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-register">发布活动</button>
+                            <fieldset class="form-group">
+                                <legend class="form-label">活动标识</legend>
+                                {% if can_publish_verified_activity %}
+                                <label class="tag-checkbox">
+                                    <input type="checkbox" name="is_official" value="1" {% if request.form.get('is_official') == '1' %}checked{% endif %}>
+                                    <span>官方认证活动</span>
+                                </label>
+                                <label class="tag-checkbox">
+                                    <input type="checkbox" name="is_featured" value="1" {% if request.form.get('is_featured') == '1' %}checked{% endif %}>
+                                    <span>优质活动</span>
+                                </label>
+                                {% else %}
+                                <p class="form-hint">完成商家认证后，可发布“官方认证活动”或“优质活动”。普通活动不受影响。</p>
+                                {% endif %}
+                            </fieldset>
+
+                            <div class="circle-publish-note">
+                                <strong>发布确认</strong>
+                                <p>点击发布活动后，页面会提交到 Flask 后端。发布成功后进入活动详情页。</p>
+                            </div>
+                        </div>
+
+                        <aside class="circle-preview-panel" aria-label="活动卡片预览">
+                            <article class="circle-preview-card">
+                                <div class="circle-preview-cover">
+                                    <img src="{{ url_for('static', filename='images/placeholder-activity.jpg') }}" alt="" data-preview-cover>
+                                </div>
+                                <div class="circle-preview-body">
+                                    <span class="tag" data-preview-tag data-preview-default="兴趣标签">{{ selected_activity_tags|join('、') if selected_activity_tags else '兴趣标签' }}</span>
+                                    <h3 data-preview-name data-preview-default="活动标题">{{ request.form.get('title') or '活动标题' }}</h3>
+                                    <p data-preview-description data-preview-default="一句话亮点会显示在这里。">{{ request.form.get('description') or '一句话亮点会显示在这里。' }}</p>
+                                    <small data-preview-city data-preview-default="城市 / 地区">{{ request.form.get('city') or '城市 / 地区' }}</small>
+                                    <small data-preview-location>{{ request.form.get('location') or '活动地点' }}</small>
+                                    <small data-preview-time>{{ request.form.get('start_time') or '开始时间' }}</small>
+                                    <small data-preview-fee>{{ '免费' if request.form.get('fee', '0') in ['', '0', '0.0', '0.00'] else '¥' ~ request.form.get('fee') }}</small>
+                                </div>
+                            </article>
+                        </aside>
+                    </div>
+                </section>
+
+                <p class="circle-wizard-error" data-wizard-error role="alert" hidden></p>
+
+                <div class="circle-wizard-actions form-actions">
+                    <button class="button button-secondary" type="button" data-wizard-prev hidden>上一步</button>
+                    <button class="button" type="button" data-wizard-next>下一步</button>
+                    <button class="button btn btn-register" type="submit" data-wizard-submit hidden>发布活动</button>
                 </div>
             </form>
         </div>
