@@ -397,10 +397,12 @@ def delete_account():
     current_password = request.form.get("current_password", "")
     confirm_text = request.form.get("confirm_text", "").strip()
     if not check_password_hash(user.password, current_password):
+        session["account_settings_active_panel"] = "delete-account-panel"
         flash("当前密码错误", "error")
         return redirect(url_for("auth.account_settings"))
-    if confirm_text != "注销账户":
-        flash("确认文字不正确", "error")
+    if confirm_text != "注销账号":
+        session["account_settings_active_panel"] = "delete-account-panel"
+        flash("确认文字不正确，请输入“注销账号”。", "error")
         return redirect(url_for("auth.account_settings"))
 
     old_email = user.email
