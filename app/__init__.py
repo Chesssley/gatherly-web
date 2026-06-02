@@ -60,7 +60,8 @@ def create_app(test_config=None):
     migrate.init_app(app, db)
     csrf.init_app(app)
     with app.app_context():
-        ensure_task_foundation_schema()
+        if db.engine.dialect.name == "sqlite":
+            ensure_task_foundation_schema()
 
     from app.routes.activity import activity_bp
     from app.routes.admin import admin_bp

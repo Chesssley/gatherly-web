@@ -36,6 +36,7 @@ instance/*.db
 *.sqlite3
 .env
 .flaskenv
+gatherly_export.json
 
 # User uploads
 app/static/uploads/
