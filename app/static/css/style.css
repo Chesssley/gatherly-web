@@ -2756,10 +2756,44 @@ textarea.form-input {
   flex-wrap: wrap;
   justify-content: flex-start;
   gap: 8px;
+  margin-top: 14px;
 }
 
 .profile-sidebar-actions form {
   margin: 0;
+}
+
+.profile-social-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.profile-social-actions form {
+  display: flex;
+}
+
+.profile-action-btn {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.profile-action-primary {
+  box-shadow: 0 8px 16px rgba(28, 105, 72, 0.14);
+}
+
+.profile-action-secondary {
+  background: #ffffff;
+}
+
+.profile-action-following {
+  border-color: #b9c7c0;
+  color: var(--color-muted);
 }
 
 .profile-sidebar-bio,
@@ -4241,6 +4275,10 @@ textarea.form-input {
     width: 144px;
     height: 144px;
     font-size: 54px;
+  }
+
+  .profile-social-actions {
+    grid-template-columns: 1fr;
   }
 
   .profile-main {
