@@ -1286,13 +1286,176 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  const formatLocalMessageTime = isoString => {
+    if (!isoString) {
+      return "";
+    }
+
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+
+    return `${year}-${month}-${day} ${hour}:${minute}`;
+  };
+
+  const formatLocalMessageDate = isoString => {
+    const localTime = formatLocalMessageTime(isoString);
+    return localTime ? localTime.slice(5, 10) : "";
+  };
+
+  const localizeMessageTimes = root => {
+    root.querySelectorAll(".message-time[data-utc-time]").forEach(item => {
+      const formatter = item.dataset.messageTimeFormat === "date"
+        ? formatLocalMessageDate
+        : formatLocalMessageTime;
+      const localText = formatter(item.dataset.utcTime);
+      if (localText) {
+        item.textContent = localText;
+      }
+    });
+  };
+
+  const getCsrfToken = () => (
+    document.querySelector('meta[name="csrf-token"]')?.content
+    || document.querySelector('input[name="csrf_token"]')?.value
+    || ""
+  );
+
+  const postConversationAction = async url => {
+    const headers = { "Content-Type": "application/json" };
+    const token = getCsrfToken();
+    if (token) {
+      headers["X-CSRFToken"] = token;
+      headers["X-CSRF-Token"] = token;
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers,
+      body: JSON.stringify({}),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || data.message || "操作失败，请稍后重试。");
+    }
+    return data;
+  };
+
+  const initMessageConversationActions = () => {
+    const list = document.querySelector(".conversation-list");
+    if (!list) {
+      return;
+    }
+
+    const closeConversationMenus = except => {
+      list.querySelectorAll(".message-conversation-menu").forEach(menu => {
+        if (menu !== except) {
+          menu.hidden = true;
+          menu
+            .closest(".message-conversation-actions")
+            ?.querySelector("[data-conversation-menu-toggle]")
+            ?.setAttribute("aria-expanded", "false");
+        }
+      });
+    };
+
+    const ensureConversationEmptyState = () => {
+      if (list.querySelector("[data-conversation-item]")) {
+        return;
+      }
+      if (list.querySelector(".conversation-empty")) {
+        return;
+      }
+      const empty = document.createElement("p");
+      empty.className = "conversation-empty";
+      empty.textContent = list.dataset.emptyText || "暂无私信联系人。";
+      list.appendChild(empty);
+    };
+
+    list.addEventListener("click", async event => {
+      const menuButton = event.target.closest("[data-conversation-menu-toggle]");
+      if (menuButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        const menu = menuButton
+          .closest(".message-conversation-actions")
+          ?.querySelector(".message-conversation-menu");
+        if (!menu) {
+          return;
+        }
+        const willOpen = menu.hidden;
+        closeConversationMenus(menu);
+        menu.hidden = !willOpen;
+        menuButton.setAttribute("aria-expanded", String(willOpen));
+        return;
+      }
+
+      const action = event.target.closest("[data-conversation-action]");
+      if (!action) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const actionType = action.dataset.conversationAction;
+      if (
+        actionType === "delete"
+        && !window.confirm("确定从你的私信列表删除这个聊天吗？仅从我的私信列表删除，不会删除对方聊天记录。")
+      ) {
+        closeConversationMenus();
+        return;
+      }
+
+      const row = action.closest("[data-conversation-item]");
+      const actionUrl = action.dataset.actionUrl;
+      if (!row || !actionUrl) {
+        return;
+      }
+
+      action.disabled = true;
+      try {
+        const data = await postConversationAction(actionUrl);
+        const activeConversationId = document.querySelector("[data-message-chat]")?.dataset.conversationId;
+        const removedConversationId = row.dataset.conversationId;
+        row.remove();
+        ensureConversationEmptyState();
+        if (activeConversationId && activeConversationId === removedConversationId) {
+          window.location.assign(data.redirect_url || list.dataset.messageListUrl || "/messages/");
+        }
+      } catch (error) {
+        window.alert(error.message || "操作失败，请稍后重试。");
+        if (row.isConnected) {
+          action.disabled = false;
+        }
+      } finally {
+        closeConversationMenus();
+      }
+    });
+
+    document.addEventListener("click", event => {
+      if (!event.target.closest(".message-conversation-actions")) {
+        closeConversationMenus();
+      }
+    });
+  };
+
   const initMessageChat = () => {
+    localizeMessageTimes(document);
+
     const chat = document.querySelector("[data-message-chat]");
     if (!chat) {
       return;
     }
 
-    const thread = chat.querySelector(".message-thread");
+    const thread = chat.querySelector("#messageList") || chat.querySelector(".message-list-scroll") || chat.querySelector(".message-thread");
     const form = chat.querySelector("[data-message-form]");
     const input = chat.querySelector("[data-message-input]");
     const submitButton = chat.querySelector("[data-message-submit]");
@@ -1333,12 +1496,27 @@ document.addEventListener("DOMContentLoaded", () => {
       formError.hidden = !message;
     };
 
-    const isNearBottom = () => (
-      thread.scrollHeight - thread.scrollTop - thread.clientHeight < 96
+    const getMessageListElement = () => (
+      chat.querySelector("#messageList")
+      || chat.querySelector(".message-list-scroll")
+      || thread
     );
 
-    const scrollToBottom = () => {
-      thread.scrollTop = thread.scrollHeight;
+    const isNearBottom = (element = getMessageListElement(), threshold = 120) => {
+      if (!element) {
+        return true;
+      }
+      return element.scrollHeight - element.scrollTop - element.clientHeight < threshold;
+    };
+
+    const scrollMessagesToBottom = (force = false) => {
+      const messageList = getMessageListElement();
+      if (!messageList) {
+        return;
+      }
+      if (force || isNearBottom(messageList)) {
+        messageList.scrollTop = messageList.scrollHeight;
+      }
     };
 
     const removeEmptyState = () => {
@@ -1381,7 +1559,16 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const time = document.createElement("time");
-      time.textContent = message.created_at || "";
+      time.className = "message-time";
+      if (message.created_at_iso) {
+        time.dataset.utcTime = message.created_at_iso;
+      }
+      time.textContent = (
+        formatLocalMessageTime(message.created_at_iso)
+        || message.created_at_display
+        || message.created_at
+        || ""
+      );
 
       article.appendChild(inner);
       article.appendChild(time);
@@ -1392,7 +1579,7 @@ document.addEventListener("DOMContentLoaded", () => {
       chat.dataset.lastMessageId = String(lastMessageId);
 
       if (shouldStickToBottom) {
-        scrollToBottom();
+        scrollMessagesToBottom(true);
       }
     };
 
@@ -1434,9 +1621,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const csrfToken = () => (
-      document.querySelector('meta[name="csrf-token"]')?.content
-      || form.querySelector('input[name="csrf_token"]')?.value
-      || ""
+      getCsrfToken()
     );
 
     const schedulePoll = delay => {
@@ -1464,7 +1649,12 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error(data.error || "私信更新失败。");
         }
 
-        (data.messages || []).forEach(appendMessage);
+        const incomingMessages = data.messages || [];
+        const shouldStickToBottom = isNearBottom();
+        incomingMessages.forEach(appendMessage);
+        if (incomingMessages.length && shouldStickToBottom) {
+          scrollMessagesToBottom(true);
+        }
         if (Number.isFinite(Number(data.last_message_id))) {
           lastMessageId = Math.max(lastMessageId, Number(data.last_message_id));
           chat.dataset.lastMessageId = String(lastMessageId);
@@ -1526,6 +1716,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         appendMessage(data.message);
+        scrollMessagesToBottom(true);
         input.value = "";
         applyPermissionState(data);
       } catch (error) {
@@ -1540,10 +1731,11 @@ document.addEventListener("DOMContentLoaded", () => {
       schedulePoll(document.hidden ? 12000 : 500);
     });
 
-    window.requestAnimationFrame(scrollToBottom);
+    window.requestAnimationFrame(() => scrollMessagesToBottom(true));
     schedulePoll(nextNormalDelay());
   };
 
+  initMessageConversationActions();
   initMessageChat();
 
   document.addEventListener("keydown", event => {
