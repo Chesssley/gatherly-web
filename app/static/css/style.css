@@ -4677,16 +4677,43 @@ textarea.form-input {
   stroke-width: 1.8;
 }
 
-.desktop-nav .nav-register {
-  padding: 8px 15px;
+.desktop-nav > a.nav-register {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--color-primary);
   border-radius: 999px;
   background: var(--color-primary);
   color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
-.desktop-nav .nav-register:hover {
+.desktop-nav > a.nav-register:hover,
+.desktop-nav > a.nav-register:focus-visible {
   background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
   color: #ffffff;
+  outline: 0;
+}
+
+.desktop-nav > a.nav-register:active {
+  background: #1f4942;
+  border-color: #1f4942;
+  color: #ffffff;
+}
+
+.desktop-nav > a.nav-register[aria-disabled="true"] {
+  background: #c8d8d4;
+  border-color: #c8d8d4;
+  color: #3f625b;
+  cursor: default;
 }
 
 .nav-account {
@@ -10379,9 +10406,12 @@ textarea.form-input {
 
 .circle-events-toolbar button,
 .circle-add-photo-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 38px;
   padding: 0 17px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: #eeeeF2;
   color: #111111;
@@ -10389,13 +10419,44 @@ textarea.form-input {
   font: inherit;
   font-size: 14px;
   font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
   text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
 .circle-events-toolbar button.is-active,
 .circle-add-photo-button {
   background: #6b55d9;
+  border-color: #6b55d9;
   color: #ffffff;
+}
+
+.circle-add-photo-button:hover,
+.circle-add-photo-button:focus-visible,
+.circle-events-toolbar button.is-active:hover,
+.circle-events-toolbar button.is-active:focus-visible {
+  background: #5845bf;
+  border-color: #5845bf;
+  color: #ffffff;
+  outline: 0;
+}
+
+.circle-add-photo-button:active,
+.circle-events-toolbar button.is-active:active {
+  background: #49399f;
+  border-color: #49399f;
+  color: #ffffff;
+}
+
+.circle-add-photo-button[aria-disabled="true"],
+.circle-add-photo-button.is-disabled,
+.circle-events-toolbar button:disabled {
+  background: #ded9f8;
+  border-color: #ded9f8;
+  color: #5d5199;
+  cursor: default;
 }
 
 .circle-events-calendar {
@@ -11010,6 +11071,38 @@ body.circle-modal-open {
   font-size: 13px;
   font-weight: 800;
   text-decoration: none;
+}
+
+.circle-group-home .circle-feed-heading > a.circle-add-photo-button {
+  min-height: 40px;
+  padding: 0 18px;
+  background: #6b55d9;
+  border-color: #6b55d9;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.circle-group-home .circle-feed-heading > a.circle-add-photo-button:hover,
+.circle-group-home .circle-feed-heading > a.circle-add-photo-button:focus-visible {
+  background: #5845bf;
+  border-color: #5845bf;
+  color: #ffffff;
+}
+
+.circle-group-home .circle-feed-heading > a.circle-add-photo-button:active {
+  background: #49399f;
+  border-color: #49399f;
+  color: #ffffff;
+}
+
+.circle-group-home .circle-feed-heading > a.circle-add-photo-button[aria-disabled="true"],
+.circle-group-home .circle-feed-heading > a.circle-add-photo-button.is-disabled {
+  background: #ded9f8;
+  border-color: #ded9f8;
+  color: #5d5199;
 }
 
 .circle-about-grid {
