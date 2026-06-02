@@ -1068,21 +1068,48 @@ def index():
     ]
     if not group_activities:
         group_activities = featured_activities[:6] or filtered_activities[:6]
-    sidebar_activity_lookup = {
-        activity["id"]: activity for activity in featured_normalized_activities + normalized_activities
-    }
-    sidebar_going_activity = next(
-        (sidebar_activity_lookup.get(registration.activity_id) for registration in registered_rows),
-        None,
-    )
-    sidebar_saved_activity = next(
-        (sidebar_activity_lookup.get(favorite.activity_id) for favorite in favorite_rows),
-        None,
-    )
-    if sidebar_going_activity is None:
-        sidebar_going_activity = featured_activities[0] if featured_activities else None
-    if sidebar_saved_activity is None:
-        sidebar_saved_activity = featured_activities[1] if len(featured_activities) > 1 else sidebar_going_activity
+    sidebar_going_activity = None
+    sidebar_saved_activity = None
+    if current_user:
+        now = datetime.now()
+        inactive_statuses = ("cancelled", "closed", "ended", "completed", "expired", "deleted")
+        sidebar_going_db_activity = (
+            Activity.query.join(Registration, Registration.activity_id == Activity.id)
+            .filter(
+                Registration.user_id == current_user.id,
+                Registration.status == "registered",
+                Activity.start_time.isnot(None),
+                Activity.start_time > now,
+                Activity.status.notin_(inactive_statuses),
+            )
+            .order_by(Activity.start_time.asc(), Activity.id.desc())
+            .first()
+        )
+        sidebar_saved_db_activity = (
+            Activity.query.join(ActivityFavorite, ActivityFavorite.activity_id == Activity.id)
+            .filter(
+                ActivityFavorite.user_id == current_user.id,
+                Activity.status != "deleted",
+            )
+            .order_by(ActivityFavorite.created_at.desc(), Activity.id.desc())
+            .first()
+        )
+        if sidebar_going_db_activity:
+            sidebar_going_activity = _activity_to_summary(
+                sidebar_going_db_activity,
+                reg_counts.get(sidebar_going_db_activity.id, 0),
+                favorite_counts.get(sidebar_going_db_activity.id, 0),
+                featured_attendee_previews.get(sidebar_going_db_activity.id, []),
+                activity_ratings.get(sidebar_going_db_activity.id),
+            )
+        if sidebar_saved_db_activity:
+            sidebar_saved_activity = _activity_to_summary(
+                sidebar_saved_db_activity,
+                reg_counts.get(sidebar_saved_db_activity.id, 0),
+                favorite_counts.get(sidebar_saved_db_activity.id, 0),
+                featured_attendee_previews.get(sidebar_saved_db_activity.id, []),
+                activity_ratings.get(sidebar_saved_db_activity.id),
+            )
     user_display_name = get_user_display_name(current_user).strip() if current_user else "访客"
     home_user_card = {
         "display_name": user_display_name or (current_user.username if current_user else "访客"),
@@ -1166,20 +1193,21 @@ def my_events():
         )
 
     now = datetime.now()
+    inactive_statuses = ("closed", "cancelled", "ended", "completed", "expired")
     ended_filter = or_(
-        Activity.status == "closed",
-        Activity.status == "cancelled",
+        Activity.status.in_(inactive_statuses),
         and_(Activity.end_time.isnot(None), Activity.end_time <= now),
         and_(
             Activity.end_time.is_(None),
             Activity.start_time.isnot(None),
-            Activity.start_time < now,
+            Activity.start_time <= now,
         ),
     )
     if active_status == "upcoming":
         query = query.filter(
-            Activity.status.notin_({"closed", "cancelled"}),
-            or_(Activity.start_time.is_(None), Activity.start_time >= now),
+            Activity.status.notin_(inactive_statuses),
+            Activity.start_time.isnot(None),
+            Activity.start_time > now,
         )
         ordering = (Activity.start_time.asc(), Activity.id.desc())
     elif active_status == "ended":

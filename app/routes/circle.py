@@ -794,6 +794,7 @@ def my_groups():
     if user is None:
         return redirect(url_for("auth.login", next=request.url))
 
+    search_query = request.args.get("q", "").strip()
     memberships = (
         CircleMember.query.filter(
             CircleMember.user_id == user.id,
@@ -801,9 +802,16 @@ def my_groups():
         )
         .join(Circle, CircleMember.circle_id == Circle.id)
         .filter(Circle.status != "deleted")
-        .order_by(CircleMember.joined_at.desc())
-        .all()
     )
+    if search_query:
+        memberships = memberships.filter(
+            or_(
+                Circle.name.ilike(f"%{search_query}%"),
+                Circle.description.ilike(f"%{search_query}%"),
+                Circle.tag.ilike(f"%{search_query}%"),
+            )
+        )
+    memberships = memberships.order_by(CircleMember.joined_at.desc()).all()
     active_groups = [membership for membership in memberships if membership.status == "active"]
     pending_groups = [membership for membership in memberships if membership.status == "pending"]
     for membership in memberships:
@@ -813,6 +821,7 @@ def my_groups():
         "my_groups.html",
         active_groups=active_groups,
         pending_groups=pending_groups,
+        search_query=search_query,
     )
 
 

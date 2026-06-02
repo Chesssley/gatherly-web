@@ -629,6 +629,36 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-home-mini-events]").forEach(panel => {
+    const tabs = Array.from(panel.querySelectorAll("[data-home-mini-tab]"));
+    const panels = Array.from(panel.querySelectorAll("[data-home-mini-panel]"));
+    const viewAllLink = panel.querySelector("[data-home-mini-view-all]");
+    const urls = {
+      upcoming: panel.dataset.upcomingUrl || (viewAllLink ? viewAllLink.href : ""),
+      saved: panel.dataset.savedUrl || (viewAllLink ? viewAllLink.href : ""),
+    };
+
+    const activateHomeMiniTab = tabName => {
+      tabs.forEach(tab => {
+        const isActive = tab.dataset.homeMiniTab === tabName;
+        tab.classList.toggle("is-active", isActive);
+        tab.setAttribute("aria-selected", String(isActive));
+      });
+      panels.forEach(item => {
+        const isActive = item.dataset.homeMiniPanel === tabName;
+        item.classList.toggle("is-active", isActive);
+        item.hidden = !isActive;
+      });
+      if (viewAllLink && urls[tabName]) {
+        viewAllLink.href = urls[tabName];
+      }
+    };
+
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => activateHomeMiniTab(tab.dataset.homeMiniTab));
+    });
+  });
+
   const syncFavoriteButtons = (activityId, isFavorited) => {
     document.querySelectorAll(`[data-activity-favorite][data-activity-id="${activityId}"]`).forEach(button => {
       button.classList.toggle("is-active", isFavorited);
@@ -1130,34 +1160,43 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  const myEventsSearch = document.querySelector("[data-my-events-search]");
-  const myEventsSearchToggle = myEventsSearch?.querySelector("[data-my-events-search-toggle]");
-  const myEventsSearchField = myEventsSearch?.querySelector("[data-my-events-search-field]");
-  const myEventsSearchInput = myEventsSearch?.querySelector("[data-my-events-search-input]");
+  document.querySelectorAll("[data-my-events-search]").forEach(myEventsSearch => {
+    const myEventsSearchToggle = myEventsSearch.querySelector("[data-my-events-search-toggle]");
+    const myEventsSearchField = myEventsSearch.querySelector("[data-my-events-search-field]");
+    const myEventsSearchInput = myEventsSearch.querySelector("[data-my-events-search-input]");
 
-  const toggleMyEventsSearch = (shouldOpen) => {
-    if (!myEventsSearch || !myEventsSearchToggle || !myEventsSearchField) {
-      return;
-    }
-
-    myEventsSearch.classList.toggle("is-open", shouldOpen);
-    myEventsSearchToggle.setAttribute("aria-expanded", String(shouldOpen));
-    myEventsSearchField.hidden = !shouldOpen;
-    if (shouldOpen) {
-      myEventsSearchInput?.focus();
-    }
-  };
-
-  if (myEventsSearchToggle && myEventsSearchField) {
-    myEventsSearchToggle.addEventListener("click", () => {
-      const shouldOpen = !myEventsSearch.classList.contains("is-open");
-      if (!shouldOpen && myEventsSearchInput?.value.trim()) {
-        myEventsSearchInput.focus();
+    const toggleMyEventsSearch = (shouldOpen) => {
+      if (!myEventsSearchToggle || !myEventsSearchField) {
         return;
       }
-      toggleMyEventsSearch(shouldOpen);
+
+      myEventsSearch.classList.toggle("is-open", shouldOpen);
+      myEventsSearchToggle.setAttribute("aria-expanded", String(shouldOpen));
+      myEventsSearchField.hidden = !shouldOpen;
+      if (shouldOpen) {
+        myEventsSearchInput?.focus();
+      }
+    };
+
+    if (myEventsSearchToggle && myEventsSearchField) {
+      myEventsSearchToggle.addEventListener("click", () => {
+        const shouldOpen = !myEventsSearch.classList.contains("is-open");
+        if (!shouldOpen && myEventsSearchInput?.value.trim()) {
+          myEventsSearchInput.focus();
+          return;
+        }
+        toggleMyEventsSearch(shouldOpen);
+      });
+    }
+
+    myEventsSearchInput?.addEventListener("keydown", event => {
+      if (event.key !== "Enter") {
+        return;
+      }
+      event.preventDefault();
+      myEventsSearch.requestSubmit();
     });
-  }
+  });
 
   const togglePanel = (button, panel, shouldOpen) => {
     if (!button || !panel) {
