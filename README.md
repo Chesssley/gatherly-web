@@ -269,6 +269,20 @@ os.environ["BREVO_SENDER_NAME"] = "Gatherly"
 
 PythonAnywhere free accounts do not automatically inherit environment variables from your local PowerShell session. Configure these values separately in the WSGI file, PythonAnywhere Web app settings, or the PythonAnywhere console before running the app there.
 
+### Production security
+
+Use HTTPS in production. For PythonAnywhere, visit the site with an `https://` URL and confirm the browser Security panel reports a secure connection.
+
+Set a strong `SECRET_KEY` and enable production cookie security:
+
+```text
+APP_ENV=production
+SESSION_COOKIE_SECURE=true
+SECRET_KEY=replace-with-a-long-random-secret
+```
+
+`SESSION_COOKIE_SECURE` is off by default for local `http://127.0.0.1:5000` development, so local login sessions continue to work without HTTPS.
+
 ## Main Routes
 
 | Route                     | Description            |
@@ -296,7 +310,7 @@ Current or planned model areas include:
   * username
   * nickname
   * email
-  * password
+  * password_hash
   * avatar
   * interests
   * role

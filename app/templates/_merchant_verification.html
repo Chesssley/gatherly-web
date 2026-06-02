@@ -7,6 +7,7 @@
   {% endif %}
   {% if not latest_merchant_verification or latest_merchant_verification.status != 'pending' %}
   <form method="post" action="{{ url_for('auth.apply_merchant_verification') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% if merchant_verification_return_to %}<input type="hidden" name="return_to" value="{{ merchant_verification_return_to }}">{% endif %}
     <div class="form-group">
       <label class="form-label" for="{{ merchant_verification_id_prefix }}business_name">商家名称 <span class="form-required">*</span></label>

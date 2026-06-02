@@ -22,6 +22,7 @@
     </div>
 
     <form class="form-card admin-account-form" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="return_to" value="admin_account">
       <div class="admin-account-section">
         <h2>基本信息</h2>

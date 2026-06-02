@@ -52,6 +52,7 @@
 
     <div class="form-card" style="margin-top: 24px;">
         <form method="POST" action="{{ url_for('auth.login') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <!-- 账号 ID / 邮箱 -->
             <div style="margin-bottom: 16px;">
                 <label for="email" class="form-label">账号 ID / 邮箱</label>
