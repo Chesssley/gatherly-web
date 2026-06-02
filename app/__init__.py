@@ -6,7 +6,7 @@ from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 from werkzeug.exceptions import RequestEntityTooLarge
 
-from app.models import db, ensure_task_foundation_schema
+from app.models import db
 
 
 load_dotenv()
@@ -59,9 +59,6 @@ def create_app(test_config=None):
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
-    with app.app_context():
-        if db.engine.dialect.name == "sqlite":
-            ensure_task_foundation_schema()
 
     from app.routes.activity import activity_bp
     from app.routes.admin import admin_bp
