@@ -37,6 +37,7 @@ instance/*.db
 .env
 .flaskenv
 gatherly_export.json
+gatherly_uploads_backup.zip
 
 # User uploads
 app/static/uploads/
