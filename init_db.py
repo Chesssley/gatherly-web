@@ -8,6 +8,7 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from app.models import Activity, User, db, ensure_task_foundation_schema
+from app.routes.circle import _sync_system_circles
 from seed_data import DEMO_ACTIVITIES
 
 app = create_app()
@@ -15,6 +16,7 @@ app = create_app()
 with app.app_context():
     db.create_all()
     ensure_task_foundation_schema()
+    _sync_system_circles()
 
     demo_organizer = User.query.filter_by(username="gatherly_demo").first()
     if demo_organizer is None:

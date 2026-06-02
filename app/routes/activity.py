@@ -1023,8 +1023,9 @@ def index():
                 "static",
                 filename=(
                     circle.cover_image
-                    if circle.cover_image and circle.cover_image.startswith("images/circles/")
-                    else "images/circles/circle-default.svg"
+                    if circle.cover_image
+                    and circle.cover_image.startswith(("images/circles/", "images/circle_covers/"))
+                    else "images/circle_covers/default.webp"
                 ),
             ),
             "member_count": circle.member_count,

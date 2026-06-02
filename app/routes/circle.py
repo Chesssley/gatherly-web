@@ -17,10 +17,13 @@ COMMENT_IMAGE_MAX_BYTES = 500 * 1024
 COMMENT_IMAGE_MAX_COUNT = 1
 POST_UPLOAD_SUBDIR = os.path.join("uploads", "posts")
 COMMENT_UPLOAD_SUBDIR = os.path.join("uploads", "comments")
-CIRCLE_COVER_SUBDIR = "images/circles/"
+CIRCLE_COVER_ASSET_SUBDIR = "images/circle_covers/"
 CIRCLE_COVER_UPLOAD_SUBDIR = os.path.join("images", "circles")
-DEFAULT_CIRCLE_COVER = f"{CIRCLE_COVER_SUBDIR}circle-default.svg"
+CIRCLE_COVER_UPLOAD_PREFIX = "images/circles/"
+CIRCLE_COVER_ALLOWED_SUBDIRS = (CIRCLE_COVER_ASSET_SUBDIR, CIRCLE_COVER_UPLOAD_PREFIX)
+DEFAULT_CIRCLE_COVER = f"{CIRCLE_COVER_ASSET_SUBDIR}default.webp"
 CIRCLE_COVER_MAX_BYTES = 800 * 1024
+OFFICIAL_CIRCLE_COVER_MAX_BYTES = 500 * 1024
 CIRCLE_COVER_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".svg"}
 HOT_CIRCLE_MEMBER_THRESHOLD = 200
 HOT_CIRCLE_SCORE_THRESHOLD = 260
@@ -48,6 +51,21 @@ _ACTIVE_LEVELS = ["高活跃", "稳定活跃", "新兴活跃"]
 
 
 _OFFICIAL_CIRCLE_COVERS = [
+    "photography.webp",
+    "outdoor.webp",
+    "coffee.webp",
+    "reading.webp",
+    "crafts.webp",
+    "music.webp",
+    "film.webp",
+    "city.webp",
+    "games.webp",
+    "tech.webp",
+    "food.webp",
+    "volunteer.webp",
+]
+
+_LEGACY_OFFICIAL_CIRCLE_COVERS = [
     "circle-camera.svg",
     "circle-cycling.svg",
     "circle-coffee.svg",
@@ -60,25 +78,67 @@ _OFFICIAL_CIRCLE_COVERS = [
     "circle-tech.svg",
     "circle-food.svg",
     "circle-volunteer.svg",
+    "generated/circle-cover-photo.webp",
+    "generated/circle-cover-outdoor.webp",
+    "generated/circle-cover-coffee.webp",
+    "generated/circle-cover-reading.webp",
+    "generated/circle-cover-crafts.webp",
+    "generated/circle-cover-music.webp",
+    "generated/circle-cover-film.webp",
+    "generated/circle-cover-city.webp",
+    "generated/circle-cover-games.webp",
+    "generated/circle-cover-tech.webp",
+    "generated/circle-cover-food.webp",
+    "generated/circle-cover-volunteer.webp",
 ]
 
 
 def _official_cover_image(index):
     filename = _OFFICIAL_CIRCLE_COVERS[(index - 1) % len(_OFFICIAL_CIRCLE_COVERS)]
-    return f"{CIRCLE_COVER_SUBDIR}{filename}"
+    return f"{CIRCLE_COVER_ASSET_SUBDIR}{filename}"
+
+
+def _official_default_cover_paths():
+    current_paths = {
+        f"{CIRCLE_COVER_ASSET_SUBDIR}{filename}"
+        for filename in _OFFICIAL_CIRCLE_COVERS
+    }
+    legacy_paths = {
+        f"{CIRCLE_COVER_UPLOAD_PREFIX}{filename}"
+        for filename in _LEGACY_OFFICIAL_CIRCLE_COVERS
+    }
+    return current_paths | legacy_paths | {DEFAULT_CIRCLE_COVER}
+
+
+def _is_official_default_cover(image_path):
+    return not image_path or image_path in _official_default_cover_paths()
 
 
 def _circle_cover_image(circle):
     cover_image = getattr(circle, "cover_image", None)
-    if not cover_image or not cover_image.startswith(CIRCLE_COVER_SUBDIR):
+    if not cover_image or not cover_image.startswith(CIRCLE_COVER_ALLOWED_SUBDIRS):
         return DEFAULT_CIRCLE_COVER
     if os.path.splitext(cover_image)[1].lower() not in CIRCLE_COVER_EXTENSIONS:
         return DEFAULT_CIRCLE_COVER
-    cover_dir = os.path.abspath(os.path.join(current_app.static_folder, CIRCLE_COVER_SUBDIR))
     cover_path = os.path.abspath(os.path.join(current_app.static_folder, cover_image))
-    if os.path.commonpath([cover_dir, cover_path]) != cover_dir:
+    is_allowed = False
+    for cover_subdir in CIRCLE_COVER_ALLOWED_SUBDIRS:
+        if not cover_image.startswith(cover_subdir):
+            continue
+        cover_dir = os.path.abspath(os.path.join(current_app.static_folder, cover_subdir))
+        if os.path.commonpath([cover_dir, cover_path]) == cover_dir:
+            is_allowed = True
+            break
+    if not is_allowed:
         return DEFAULT_CIRCLE_COVER
-    if not os.path.isfile(cover_path) or os.path.getsize(cover_path) >= CIRCLE_COVER_MAX_BYTES:
+    if not os.path.isfile(cover_path):
+        return DEFAULT_CIRCLE_COVER
+    max_bytes = (
+        OFFICIAL_CIRCLE_COVER_MAX_BYTES
+        if cover_image.startswith(CIRCLE_COVER_ASSET_SUBDIR)
+        else CIRCLE_COVER_MAX_BYTES
+    )
+    if os.path.getsize(cover_path) >= max_bytes:
         return DEFAULT_CIRCLE_COVER
     return cover_image
 
@@ -102,7 +162,8 @@ def _save_circle_cover(file):
 def _is_uploaded_circle_cover(image_path):
     return bool(
         image_path
-        and image_path.startswith(CIRCLE_COVER_SUBDIR)
+        and image_path.startswith(CIRCLE_COVER_UPLOAD_PREFIX)
+        and image_path not in _official_default_cover_paths()
         and os.path.splitext(image_path)[1].lower() in {".jpg", ".jpeg", ".png", ".webp"}
     )
 
@@ -110,7 +171,7 @@ def _is_uploaded_circle_cover(image_path):
 def _delete_uploaded_circle_cover(image_path):
     if not _is_uploaded_circle_cover(image_path):
         return
-    cover_dir = os.path.abspath(os.path.join(current_app.static_folder, CIRCLE_COVER_SUBDIR))
+    cover_dir = os.path.abspath(os.path.join(current_app.static_folder, CIRCLE_COVER_UPLOAD_PREFIX))
     cover_path = os.path.abspath(os.path.join(current_app.static_folder, image_path))
     if os.path.commonpath([cover_dir, cover_path]) == cover_dir:
         delete_saved_images([image_path])
@@ -359,7 +420,7 @@ def _sync_system_circles():
                 circle.name = name
 
             circle.description = _official_description(tag)
-            if not circle.cover_image:
+            if _is_official_default_cover(circle.cover_image):
                 circle.cover_image = _official_cover_image(index)
             circle.initial_member_count = max(
                 circle.initial_member_count or 0,

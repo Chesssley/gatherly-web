@@ -277,7 +277,7 @@
                 {% for circle in home_circles|default([]) %}
                     {% if loop.index <= 2 %}
                     <a class="home-mini-group" href="{{ circle.url }}">
-                        <img src="{{ circle.cover_url }}" alt="{{ circle.name }}" onerror="this.src='{{ url_for('static', filename='images/circles/circle-default.svg') }}'">
+                        <img src="{{ circle.cover_url }}" alt="{{ circle.name }}" onerror="this.src='{{ url_for('static', filename='images/circle_covers/default.webp') }}'">
                         <span>
                             <strong>{{ circle.name }}</strong>
                             <small>{{ circle.tag or '同好圈' }}</small>
