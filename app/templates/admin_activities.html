@@ -12,8 +12,26 @@
     <thead><tr><th>ID</th><th>标题</th><th>组织者</th><th>地点</th><th>开始时间</th><th>结束时间</th><th>状态</th><th>精选</th><th>操作</th></tr></thead>
     <tbody>{% for activity in activities %}<tr>
       <td>{{ activity.id }}</td><td>{{ activity.title }}</td><td>{{ 'Gatherly官方' if activity.is_official or activity.organizer.role == 'admin' else (activity.organizer.nickname or activity.organizer.username) }}</td><td>{{ activity.location or '-' }}</td><td>{{ activity.start_time.strftime('%Y-%m-%d %H:%M') if activity.start_time else '-' }}</td><td>{{ activity.end_time.strftime('%Y-%m-%d %H:%M') if activity.end_time else '-' }}</td><td><span class="admin-status status-{{ activity.status }}">{{ activity.status }}</span></td>
-      <td><form method="post" action="{{ url_for('admin.toggle_activity_featured', activity_id=activity.id) }}"><button class="button button-small {% if activity.is_featured %}button-secondary{% endif %}" type="submit">{{ '取消精选' if activity.is_featured else '设为精选' }}</button></form></td>
-      <td><form class="admin-action admin-activity-action-menu" method="post" action="{{ url_for('admin.update_activity_status', activity_id=activity.id) }}"><input type="hidden" name="cancel_reason" value="管理员后台取消活动"><select name="status" aria-label="修改 {{ activity.title }} 的状态" data-admin-status-menu data-cancel-confirm="确定取消这个活动吗？将保存默认理由：管理员后台取消活动。">{% for status, label in [('open', 'Open'), ('hidden', 'Hidden'), ('closed', 'Closed'), ('cancelled', 'Cancel')] %}<option value="{{ status }}" {% if activity.status == status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><noscript><button class="button button-small" type="submit">提交</button></noscript></form></td>
+      <td><span class="admin-status {% if not activity.is_featured %}status-inactive{% endif %}">{{ '已精选' if activity.is_featured else '未精选' }}</span></td>
+      <td>
+        <form class="admin-action admin-action-menu admin-activity-action-menu" method="post" action="{{ url_for('admin.apply_activity_action', activity_id=activity.id) }}">
+          <input type="hidden" name="cancel_reason" value="管理员后台取消活动">
+          <select name="action" aria-label="选择对 {{ activity.title }} 的操作" data-admin-action-menu required>
+            <option value="">选择操作</option>
+            <option value="view" data-href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">查看</option>
+            {% if activity.status != 'open' %}<option value="open">恢复开放</option>{% endif %}
+            {% if activity.status != 'hidden' %}<option value="hidden">隐藏</option>{% endif %}
+            {% if activity.status != 'closed' %}<option value="closed">关闭</option>{% endif %}
+            {% if activity.status != 'cancelled' %}<option value="cancelled" data-confirm="确定取消这个活动吗？将保存默认理由：管理员后台取消活动。">取消活动</option>{% endif %}
+            {% if activity.is_featured %}
+              <option value="unfeature">取消精选</option>
+            {% else %}
+              <option value="feature">设为精选</option>
+            {% endif %}
+          </select>
+          <noscript><button class="button button-small" type="submit">执行</button></noscript>
+        </form>
+      </td>
     </tr>{% else %}<tr><td class="admin-empty" colspan="9">暂无活动。</td></tr>{% endfor %}</tbody>
   </table></div>
 </div></section>

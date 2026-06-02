@@ -2628,6 +2628,14 @@ textarea.form-input {
   min-width: 220px;
 }
 
+.admin-action-menu {
+  min-width: 150px;
+}
+
+.admin-action-menu select {
+  min-width: 132px;
+}
+
 .admin-user-action-menu select {
   min-width: 132px;
 }

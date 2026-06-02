@@ -13,8 +13,20 @@
     <tbody>{% for comment in comments %}<tr>
       <td>{{ comment.id }}</td><td class="admin-summary">{{ comment.content|truncate(60, true) }}</td><td>{{ comment.author.username }}</td><td>{% if comment.parent_id %}回复评论 #{{ comment.parent_id }}{% elif comment.post %}帖子 #{{ comment.post.id }}{% elif comment.activity %}活动 #{{ comment.activity.id }}{% else %}-{% endif %}</td><td><span class="admin-status status-{{ comment.status }}">{{ '已隐藏' if comment.status == 'hidden' else ('已删除' if comment.status == 'deleted' else '正常') }}</span></td><td>{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
       <td><div class="admin-action-group">
-        {% if comment.post %}<a class="button button-small button-secondary" href="{{ url_for('circle.circle_detail', circle_id=comment.post.circle_id, _anchor='comment-' ~ comment.id) }}">查看</a>{% elif comment.activity %}<a class="button button-small button-secondary" href="{{ url_for('activity.activity_detail', activity_id=comment.activity_id, _anchor='comment-' ~ comment.id) }}">查看</a>{% else %}<span class="admin-muted">无可用链接</span>{% endif %}
-        {% if comment.status in ['published', 'hidden'] %}<form method="post" action="{{ url_for('admin.update_comment_status', comment_id=comment.id) }}"><input type="hidden" name="status" value="{{ 'published' if comment.status == 'hidden' else 'hidden' }}"><button class="button button-small button-secondary" type="submit">{{ '恢复显示' if comment.status == 'hidden' else '隐藏' }}</button></form>{% endif %}
+        <form class="admin-action admin-action-menu" method="post" action="{{ url_for('admin.apply_comment_action', comment_id=comment.id) }}">
+          <select name="action" aria-label="选择对评论 #{{ comment.id }} 的操作" data-admin-action-menu required>
+            <option value="">选择操作</option>
+            {% if comment.post %}
+              <option value="view" data-href="{{ url_for('circle.circle_detail', circle_id=comment.post.circle_id, _anchor='comment-' ~ comment.id) }}">查看</option>
+            {% elif comment.activity %}
+              <option value="view" data-href="{{ url_for('activity.activity_detail', activity_id=comment.activity_id, _anchor='comment-' ~ comment.id) }}">查看</option>
+            {% endif %}
+            {% if comment.status in ['published', 'hidden'] %}
+              <option value="{{ 'restore' if comment.status == 'hidden' else 'hide' }}">{{ '恢复显示' if comment.status == 'hidden' else '隐藏' }}</option>
+            {% endif %}
+          </select>
+          <noscript><button class="button button-small" type="submit">执行</button></noscript>
+        </form>
         <form method="post" action="{{ url_for('admin.delete_comment', comment_id=comment.id) }}" onsubmit="return confirm('确定删除这条评论吗？');"><button class="button button-small button-danger" type="submit">删除</button></form>
       </div></td>
     </tr>{% else %}<tr><td class="admin-empty" colspan="7">暂无评论。</td></tr>{% endfor %}</tbody>
