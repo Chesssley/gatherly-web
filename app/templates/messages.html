@@ -31,14 +31,21 @@
               <span class="conversation-copy">
                 <strong>{{ item.display_name }}</strong>
                 <span>
-                  {% if last.message_type == 'image' %}图片消息{% else %}{{ last.content|default('', true)|truncate(32, True) }}{% endif %}
+                  {% if last %}
+                    {% if last.message_type == 'image' %}图片消息{% else %}{{ last.content|default('', true)|truncate(32, True) }}{% endif %}
+                  {% else %}
+                    暂无可见消息
+                  {% endif %}
                 </span>
               </span>
               <span class="conversation-meta">
+                {% if last %}
                 <small class="message-time" data-utc-time="{{ to_utc_iso(last.created_at) }}" data-message-time-format="date">{{ last.created_at.strftime('%m-%d') if last.created_at else '' }}</small>
+                {% endif %}
                 {% if item.unread_count %}<b>{{ item.unread_count }}</b>{% endif %}
               </span>
             </a>
+            {% if item.has_conversation %}
             <div class="message-conversation-actions">
               <button class="message-conversation-menu-button" type="button" aria-label="聊天操作" aria-expanded="false" data-conversation-menu-toggle>⋯</button>
               <div class="message-conversation-menu" hidden>
@@ -46,6 +53,7 @@
                 <button class="message-conversation-action danger" type="button" data-conversation-action="delete" data-action-url="{{ url_for('messages.delete_conversation', user_id=item.user.id) }}">删除聊天</button>
               </div>
             </div>
+            {% endif %}
           </div>
           {% else %}
           <p class="conversation-empty">暂无私信联系人。</p>

@@ -472,6 +472,7 @@ class DirectMessageConversationState(db.Model):
     hidden_at = db.Column(db.DateTime, nullable=True)
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
+    cleared_at = db.Column(db.DateTime, nullable=True)
     updated_at = db.Column(
         db.DateTime,
         default=datetime.utcnow,
@@ -552,6 +553,14 @@ def ensure_direct_message_schema():
                 "datetime(COALESCE(created_at, CURRENT_TIMESTAMP), '+180 days') "
                 "WHERE expires_at IS NULL"
             )
+        )
+    state_rows = db.session.execute(
+        text("PRAGMA table_info(direct_message_conversation_state)")
+    ).fetchall()
+    state_columns = {row[1] for row in state_rows}
+    if state_rows and "cleared_at" not in state_columns:
+        db.session.execute(
+            text("ALTER TABLE direct_message_conversation_state ADD COLUMN cleared_at DATETIME")
         )
     db.session.execute(
         text(
