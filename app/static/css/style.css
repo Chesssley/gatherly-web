@@ -12663,3 +12663,417 @@ body.circle-modal-open {
     flex-basis: 30px;
   }
 }
+
+/* UI-13 Home sidebar, my events page, account menu polish */
+.home-mini-events {
+  overflow: hidden;
+  border: 1px solid #e4e1dc;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(34, 34, 34, 0.04);
+}
+
+.home-mini-events .home-sidebar-tabs {
+  grid-template-columns: auto auto 1fr;
+  margin-bottom: 20px;
+}
+
+.home-sidebar-tabs button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary-dark);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.home-sidebar-tabs button.is-active {
+  color: #111111;
+}
+
+.home-sidebar-tabs button.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: -9px;
+  left: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  content: "";
+}
+
+.home-mini-events .home-sidebar-tabs a {
+  justify-self: end;
+}
+
+.home-mini-event-panel[hidden] {
+  display: none;
+}
+
+.home-mini-events .home-mini-event,
+.home-mini-events .home-mini-event:hover,
+.home-mini-events .home-mini-event:focus-visible {
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.home-sidebar-empty {
+  margin: 0;
+  color: #6f6f6f;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.my-events-page {
+  padding: 86px 0 92px;
+  background: #fbfcfb;
+}
+
+.my-events-container {
+  max-width: 780px;
+}
+
+.my-events-back-links {
+  margin-bottom: 26px;
+}
+
+.my-events-back-links a {
+  color: #1d3145;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.my-events-heading h1 {
+  margin: 0 0 24px;
+  color: #101828;
+  font-size: clamp(42px, 6vw, 60px);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.my-events-filter-panel {
+  display: grid;
+  gap: 16px;
+  margin: 0 0 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.my-events-filter-toolbar {
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.my-events-filter-row,
+.my-events-filter-row + .my-events-filter-row {
+  margin: 0;
+}
+
+.my-events-tabs {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.my-events-tab {
+  min-height: 42px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  background: #eef3f1;
+  color: #0b3b33;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.my-events-tab:hover,
+.my-events-tab.is-active {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.my-events-search-toggle {
+  background: #f2f5f4;
+}
+
+.my-events-search-field input {
+  width: min(250px, 34vw);
+}
+
+.my-events-filter-summary {
+  margin: -4px 0 0;
+  padding: 0;
+  border: 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.my-events-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.my-events-card {
+  overflow: hidden;
+  border: 1px solid #e6e8ec;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.04);
+}
+
+.my-events-card-link {
+  height: 100%;
+}
+
+.my-events-card-image {
+  height: 170px;
+}
+
+.my-events-card-body {
+  gap: 9px;
+  padding: 16px 18px 18px;
+}
+
+.my-events-card-tags {
+  min-height: 26px;
+}
+
+.my-events-card-tags .tag {
+  background: #eef7f3;
+  color: var(--color-primary-dark);
+}
+
+.my-events-card h2 {
+  margin: 0;
+  color: #101828;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.my-events-card p {
+  margin: 0;
+  color: #475467;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.my-events-card-footer {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #edf0f2;
+  color: #667085;
+  font-size: 13px;
+}
+
+.my-events-card-footer strong {
+  color: var(--color-primary-dark);
+}
+
+.my-events-empty-state {
+  border: 1px solid #e6e8ec;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.04);
+}
+
+.account-menu {
+  width: 218px;
+  padding: 12px;
+  border-color: #ded8cf;
+  border-radius: 16px;
+}
+
+.account-menu a,
+.mobile-account-menu a {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.nav-avatar-btn,
+.mobile-avatar-button {
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-button[aria-expanded="true"] .nav-chevron {
+  transform: none;
+}
+
+.nav-dropdown-arrow::before {
+  transform: translateY(-1px) rotate(45deg);
+}
+
+.avatar-button[aria-expanded="true"] .nav-dropdown-arrow::before {
+  transform: translateY(2px) rotate(225deg);
+}
+
+.mobile-account-menu .account-menu-divider {
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .my-events-page {
+    padding: 52px 0 72px;
+  }
+
+  .my-events-container {
+    max-width: 640px;
+  }
+
+  .my-events-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-mini-events {
+    border-radius: 22px;
+  }
+
+  .home-mini-events .home-sidebar-tabs {
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .home-mini-events .home-mini-event {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .home-mini-events .home-mini-event img {
+    width: 76px;
+    height: 48px;
+  }
+
+  .my-events-page {
+    padding: 36px 0 60px;
+  }
+
+  .my-events-heading h1 {
+    font-size: 44px;
+  }
+
+  .my-events-filter-toolbar {
+    align-items: flex-start;
+    flex-direction: column-reverse;
+    gap: 12px;
+  }
+
+  .my-events-tabs {
+    width: 100%;
+  }
+
+  .my-events-tab {
+    min-height: 40px;
+    padding: 0 16px;
+  }
+
+  .my-events-search-form {
+    width: 100%;
+  }
+
+  .my-events-search-field {
+    flex: 1 1 auto;
+  }
+
+  .my-events-search-field input {
+    width: 100%;
+  }
+
+  .my-events-card-image {
+    height: 190px;
+  }
+
+  .mobile-account-menu.container {
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: calc(100vw - 24px);
+  }
+}
+
+/* UI-13 follow-up: align my-events tabs with my-groups and share search UI */
+.my-groups-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.my-groups-controls .my-groups-tabs {
+  margin-top: 0;
+}
+
+.my-events-tabs {
+  gap: 10px;
+}
+
+.my-events-tab,
+.my-groups-tab {
+  display: inline-flex;
+  min-width: 86px;
+  height: 42px;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  background: #f1f1f2;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.my-events-tab:hover,
+.my-events-tab.is-active,
+.my-groups-tab:hover,
+.my-groups-tab.is-active {
+  background: #7058d8;
+  color: #ffffff;
+}
+
+.my-groups-search-form {
+  justify-content: flex-end;
+}
+
+.my-groups-search-summary {
+  margin-top: 12px;
+}
+
+@media (max-width: 760px) {
+  .my-groups-controls {
+    align-items: flex-start;
+    flex-direction: column-reverse;
+    gap: 12px;
+  }
+
+  .my-groups-search-form {
+    width: 100%;
+  }
+
+  .my-groups-search-form .my-events-search-field {
+    flex: 1 1 auto;
+  }
+
+  .my-groups-search-form .my-events-search-field input {
+    width: 100%;
+  }
+}

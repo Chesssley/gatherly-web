@@ -8,10 +8,45 @@
     <a class="my-groups-back" href="{{ url_for('activity.index') }}">← 返回首页</a>
     <header class="my-groups-heading">
       <h1>我的同好圈</h1>
-      <div class="my-groups-tabs" role="tablist" aria-label="我的同好圈分类">
-        <button class="my-groups-tab is-active" type="button" data-my-groups-tab="member">已加入</button>
-        <button class="my-groups-tab" type="button" data-my-groups-tab="pending">待审核</button>
+      <div class="my-groups-controls">
+        <div class="my-groups-tabs" role="tablist" aria-label="我的同好圈分类">
+          <button class="my-groups-tab is-active" type="button" data-my-groups-tab="member">已加入</button>
+          <button class="my-groups-tab" type="button" data-my-groups-tab="pending">待审核</button>
+        </div>
+        <form class="my-events-search-form my-groups-search-form {% if search_query %}is-open{% endif %}"
+              action="{{ url_for('circle.my_groups') }}"
+              method="get"
+              role="search"
+              data-my-events-search>
+          <button class="my-events-search-toggle"
+                  type="button"
+                  aria-label="按同好圈名称搜索"
+                  aria-expanded="{{ 'true' if search_query else 'false' }}"
+                  aria-controls="my-groups-search-input"
+                  data-my-events-search-toggle>
+            <span aria-hidden="true">&#128269;</span>
+          </button>
+          <div class="my-events-search-field" {% if not search_query %}hidden{% endif %} data-my-events-search-field>
+            <label class="sr-only" for="my-groups-search-input">搜索同好圈名称</label>
+            <input id="my-groups-search-input"
+                   name="q"
+                   type="search"
+                   value="{{ search_query }}"
+                   placeholder="按同好圈名称搜索"
+                   autocomplete="off"
+                   data-my-events-search-input>
+          </div>
+          {% if search_query %}
+          <a class="my-events-search-clear"
+             href="{{ url_for('circle.my_groups') }}">
+            清除
+          </a>
+          {% endif %}
+        </form>
       </div>
+      {% if search_query %}
+      <p class="my-events-filter-summary my-groups-search-summary">名称包含“<strong>{{ search_query }}</strong>”</p>
+      {% endif %}
     </header>
 
     <div class="my-groups-panel is-active" data-my-groups-panel="member">
@@ -32,8 +67,12 @@
       </div>
       {% else %}
       <div class="my-groups-empty">
+        {% if search_query %}
+        <p>没有找到匹配“{{ search_query }}”的已加入同好圈。</p>
+        {% else %}
         <p>你还没有加入同好圈。</p>
         <a class="button button-small" href="{{ url_for('circle.circles') }}">发现同好圈</a>
+        {% endif %}
       </div>
       {% endif %}
     </div>
@@ -57,7 +96,11 @@
       </div>
       {% else %}
       <div class="my-groups-empty">
+        {% if search_query %}
+        <p>没有找到匹配“{{ search_query }}”的待审核同好圈。</p>
+        {% else %}
         <p>没有待审核的加入申请。</p>
+        {% endif %}
       </div>
       {% endif %}
     </div>

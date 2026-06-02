@@ -249,24 +249,63 @@
                 <span class="home-profile-arrow" aria-hidden="true">&#8250;</span>
             </a>
 
-            <section class="home-sidebar-panel home-mini-events" aria-labelledby="home-mini-events-title">
-                <div class="home-sidebar-tabs" id="home-mini-events-title">
-                    <a class="is-active" href="{{ url_for('activity.my_events', tab='joined', status='upcoming') if session.get('user_id') else url_for('auth.login') }}">即将开始</a>
-                    <a href="{{ url_for('activity.my_events', tab='saved', status='upcoming') if session.get('user_id') else url_for('auth.login') }}">收藏</a>
-                    <a href="{{ url_for('activity.my_events', tab='joined', status='upcoming') if session.get('user_id') else url_for('auth.login') }}">查看全部</a>
+            <section class="home-sidebar-panel home-mini-events"
+                     aria-labelledby="home-mini-events-title"
+                     data-home-mini-events
+                     data-upcoming-url="{{ url_for('activity.my_events', tab='joined', status='upcoming') if session.get('user_id') else url_for('auth.login') }}"
+                     data-saved-url="{{ url_for('activity.my_events', tab='saved') if session.get('user_id') else url_for('auth.login') }}">
+                <div class="home-sidebar-tabs" id="home-mini-events-title" role="tablist" aria-label="我的活动预览">
+                    <button class="is-active"
+                            type="button"
+                            role="tab"
+                            aria-selected="true"
+                            aria-controls="home-mini-events-upcoming"
+                            data-home-mini-tab="upcoming">即将开始</button>
+                    <button type="button"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="home-mini-events-saved"
+                            data-home-mini-tab="saved">收藏</button>
+                    <a href="{{ url_for('activity.my_events', tab='joined', status='upcoming') if session.get('user_id') else url_for('auth.login') }}"
+                       data-home-mini-view-all>查看全部</a>
                 </div>
-                {% set sidebar_event = sidebar_going_activity or sidebar_saved_activity %}
-                {% if sidebar_event %}
-                <article class="home-mini-event" tabindex="0" role="link" data-card-url="{{ sidebar_event.detail_url }}">
-                    <img src="{{ sidebar_event.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ sidebar_event.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
-                    <span>
-                        <strong>{{ sidebar_event.title }}</strong>
-                        <small>{{ sidebar_event.sidebar_time or sidebar_event.time }}</small>
-                    </span>
-                </article>
-                {% else %}
-                <p class="home-sidebar-empty">暂无近期活动</p>
-                {% endif %}
+                <div class="home-mini-event-panel is-active"
+                     id="home-mini-events-upcoming"
+                     role="tabpanel"
+                     data-home-mini-panel="upcoming">
+                    {% if sidebar_going_activity %}
+                    <article class="home-mini-event" aria-label="{{ sidebar_going_activity.title }}">
+                        <img src="{{ sidebar_going_activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ sidebar_going_activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                        <span>
+                            <strong>{{ sidebar_going_activity.title }}</strong>
+                            <small>{{ sidebar_going_activity.sidebar_time or sidebar_going_activity.time }}</small>
+                        </span>
+                    </article>
+                    {% elif session.get('user_id') %}
+                    <p class="home-sidebar-empty">暂无即将开始的报名活动，去浏览更多活动吧。</p>
+                    {% else %}
+                    <p class="home-sidebar-empty">登录后可以查看即将开始的报名活动。</p>
+                    {% endif %}
+                </div>
+                <div class="home-mini-event-panel"
+                     id="home-mini-events-saved"
+                     role="tabpanel"
+                     data-home-mini-panel="saved"
+                     hidden>
+                    {% if sidebar_saved_activity %}
+                    <article class="home-mini-event" aria-label="{{ sidebar_saved_activity.title }}">
+                        <img src="{{ sidebar_saved_activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ sidebar_saved_activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                        <span>
+                            <strong>{{ sidebar_saved_activity.title }}</strong>
+                            <small>{{ sidebar_saved_activity.sidebar_time or sidebar_saved_activity.time }}</small>
+                        </span>
+                    </article>
+                    {% elif session.get('user_id') %}
+                    <p class="home-sidebar-empty">暂无收藏活动，可以先收藏感兴趣的活动。</p>
+                    {% else %}
+                    <p class="home-sidebar-empty">登录后可以查看收藏活动。</p>
+                    {% endif %}
+                </div>
             </section>
 
             <section class="home-sidebar-panel home-mini-groups" aria-labelledby="home-mini-groups-title">
