@@ -684,8 +684,18 @@ class Circle(db.Model):
     cover_image = db.Column(db.String(255))
     description = db.Column(db.Text)
     announcement = db.Column(db.Text)
-    owner_id = db.Column(db.Integer, db.ForeignKey("user.id"))
-    pinned_post_id = db.Column(db.Integer, db.ForeignKey("post.id"))
+    owner_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", name="fk_circle_owner_id_user"),
+    )
+    pinned_post_id = db.Column(
+        db.Integer,
+        db.ForeignKey(
+            "post.id",
+            use_alter=True,
+            name="fk_circle_pinned_post_id_post",
+        ),
+    )
     is_pinned = db.Column(db.Boolean, default=False, nullable=False)
     pinned_at = db.Column(db.DateTime)
     is_system = db.Column(db.Boolean, default=False, nullable=False)
@@ -714,8 +724,16 @@ class Post(db.Model):
     type = db.Column(db.String(20), default="share", nullable=False)
     status = db.Column(db.String(20), default="published", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    circle_id = db.Column(db.Integer, db.ForeignKey("circle.id"), nullable=False)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", name="fk_post_user_id_user"),
+        nullable=False,
+    )
+    circle_id = db.Column(
+        db.Integer,
+        db.ForeignKey("circle.id", name="fk_post_circle_id_circle"),
+        nullable=False,
+    )
 
     user = db.relationship("User", back_populates="posts")
     circle = db.relationship("Circle", back_populates="posts", foreign_keys=[circle_id])
