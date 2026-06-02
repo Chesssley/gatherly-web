@@ -5038,7 +5038,7 @@ textarea.form-input {
 .message-detail {
   display: grid;
   min-width: 0;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   background: #fbfaf8;
 }
 
@@ -5046,8 +5046,46 @@ textarea.form-input {
   gap: 10px;
 }
 
+.message-detail > .message-detail-header {
+  grid-row: 1;
+}
+
+.message-notice {
+  display: flex;
+  grid-row: 2;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 18px 0;
+  padding: 12px 14px;
+  border: 1px solid #ead7a7;
+  border-radius: 10px;
+  background: #fff8e6;
+  color: #715116;
+  font-size: 14px;
+}
+
+.message-notice[hidden] {
+  display: none;
+}
+
+.message-notice.info {
+  border-color: #c9e3db;
+  background: #eef8f4;
+  color: var(--color-primary-dark);
+}
+
+.message-follow-form {
+  flex: 0 0 auto;
+}
+
+.message-follow-form[hidden] {
+  display: none;
+}
+
 .message-thread {
   display: flex;
+  grid-row: 3;
   min-height: 0;
   flex-direction: column;
   gap: 14px;
@@ -5124,6 +5162,7 @@ textarea.form-input {
 
 .message-form {
   display: grid;
+  grid-row: 4;
   gap: 10px;
   padding: 14px 18px 16px;
   border-top: 1px solid var(--color-border);
@@ -5150,6 +5189,17 @@ textarea.form-input {
   gap: 10px;
 }
 
+.message-limit-note[hidden],
+.message-form-error[hidden] {
+  display: none;
+}
+
+.message-form-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 13px;
+}
+
 .message-image-picker {
   display: inline-flex;
   align-items: center;
@@ -5161,6 +5211,11 @@ textarea.form-input {
   color: var(--color-primary);
   cursor: pointer;
   font-weight: 700;
+}
+
+.message-image-picker:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .message-image-picker input {
@@ -9091,6 +9146,15 @@ textarea.form-input {
 
   .message-bubble {
     max-width: 90%;
+  }
+
+  .message-notice {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .message-follow-form .button {
+    width: 100%;
   }
 
   .message-form-actions .button {
