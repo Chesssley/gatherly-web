@@ -27,3 +27,6 @@ Sprint 1 的目标是完成 Gatherly Web 的项目基础框架和核心页面雏
 - 文件命名建议使用 `sprintN-meeting.md` 或 `YYYY-MM-DD-topic.md`。
 - 总览文件只放索引和摘要，不重复粘贴完整会议纪要。
 - 会议中的任务变化应同步更新 `docs/product-backlog.md` 和 GitHub Project。
+# 历史归档，仅供参考
+
+> 本文件为本次文档整理前的旧版材料，保留为课程过程记录。当前项目说明请以 `docs/` 顶层文档为准。
