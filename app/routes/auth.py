@@ -30,6 +30,11 @@ REGISTER_FORM_DRAFT_FIELDS = ("username", "email", "nickname", "city")
 EMAIL_CODE_SESSION_LIMIT_SECONDS = 60 * 60
 EMAIL_CODE_SESSION_LIMIT_MAX = 10
 EMAIL_CODE_RATE_LIMIT_MESSAGE = "验证码发送过于频繁，请稍后再试。"
+LOGIN_FAILURE_WINDOW_SECONDS = 5 * 60
+LOGIN_FAILURE_MAX_ATTEMPTS = 5
+LOGIN_FAILURE_COOLDOWN_MESSAGE = "登录尝试过于频繁，请稍后再试。"
+LOGIN_FAILURE_MESSAGE = "邮箱或密码错误"
+_login_failure_attempts = {}
 
 
 @auth_bp.before_app_request
@@ -101,6 +106,79 @@ def _record_session_email_code_attempt():
             recent_attempts.append(timestamp)
     recent_attempts.append(now)
     session["email_code_send_attempts"] = recent_attempts
+
+
+def _client_ip():
+    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    if forwarded_for:
+        return forwarded_for.split(",", 1)[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def _login_failure_keys(identifier):
+    normalized_identifier = (identifier or "").strip().lower() or "unknown"
+    return (f"ip:{_client_ip()}", f"account:{normalized_identifier}")
+
+
+def _recent_login_failures(key, now=None):
+    now = now or time.time()
+    recent = [
+        timestamp
+        for timestamp in _login_failure_attempts.get(key, [])
+        if now - timestamp < LOGIN_FAILURE_WINDOW_SECONDS
+    ]
+    if recent:
+        _login_failure_attempts[key] = recent
+    else:
+        _login_failure_attempts.pop(key, None)
+    return recent
+
+
+def _is_login_rate_limited(identifier):
+    now = time.time()
+    return any(
+        len(_recent_login_failures(key, now)) >= LOGIN_FAILURE_MAX_ATTEMPTS
+        for key in _login_failure_keys(identifier)
+    )
+
+
+def _record_login_failure(identifier):
+    now = time.time()
+    for key in _login_failure_keys(identifier):
+        recent = _recent_login_failures(key, now)
+        recent.append(now)
+        _login_failure_attempts[key] = recent
+
+
+def _clear_login_failures(identifier):
+    for key in _login_failure_keys(identifier):
+        _login_failure_attempts.pop(key, None)
+
+
+def _stored_password_looks_hashed(stored_password):
+    return (stored_password or "").startswith(
+        ("scrypt:", "pbkdf2:", "argon2:", "sha256$", "sha512$")
+    )
+
+
+def _check_user_password(user, password):
+    stored_password = user.password_hash or ""
+    try:
+        if check_password_hash(stored_password, password):
+            return True
+    except (TypeError, ValueError):
+        pass
+
+    if not _stored_password_looks_hashed(stored_password) and stored_password == password:
+        user.password_hash = generate_password_hash(password)
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            return False
+        return True
+
+    return False
 
 
 def _is_email_code_send_rate_limited(email, purpose):
@@ -246,34 +324,27 @@ def login():
 
     if request.method == "POST":
         identifier = request.form.get("email", "").strip()
-        password = request.form.get("password", "").strip()
+        password = request.form.get("password", "")
 
         if not identifier or not password:
-            flash("账号或邮箱和密码不能为空", "error")
+            flash(LOGIN_FAILURE_MESSAGE, "error")
+            return render_template("login.html")
+
+        if _is_login_rate_limited(identifier):
+            flash(LOGIN_FAILURE_COOLDOWN_MESSAGE, "error")
             return render_template("login.html")
 
         user = User.query.filter(
             (User.username == identifier) | (User.email == identifier)
         ).first()
 
-        if not user:
-            flash("账号、邮箱或密码错误", "error")
-            return render_template("login.html")
-
-        # 验证密码
-        if user.status == "deleted":
-            flash("该账号已注销", "error")
-            return render_template("login.html")
-
-        if not check_password_hash(user.password, password):
-            flash("账号、邮箱或密码错误", "error")
-            return render_template("login.html")
-
-        if user.status == "banned":
-            flash("该账号已被封禁", "error")
+        if not user or user.status != "active" or not _check_user_password(user, password):
+            _record_login_failure(identifier)
+            flash(LOGIN_FAILURE_MESSAGE, "error")
             return render_template("login.html")
 
         # 登录成功，写入 session
+        _clear_login_failures(identifier)
         session.clear()
         session["user_id"] = user.id
         session["nickname"] = user.nickname or user.username
@@ -396,7 +467,7 @@ def delete_account():
 
     current_password = request.form.get("current_password", "")
     confirm_text = request.form.get("confirm_text", "").strip()
-    if not check_password_hash(user.password, current_password):
+    if not _check_user_password(user, current_password):
         session["account_settings_active_panel"] = "delete-account-panel"
         flash("当前密码错误", "error")
         return redirect(url_for("auth.account_settings"))
@@ -441,7 +512,7 @@ def change_email():
         flash("邮箱不能超过 120 个字符。", "error")
     elif new_email.lower() == (user.email or "").lower():
         flash("新邮箱与当前邮箱相同，无需修改。", "info")
-    elif not current_password or not check_password_hash(user.password, current_password):
+    elif not current_password or not _check_user_password(user, current_password):
         flash("当前密码错误，无法修改邮箱。", "error")
     elif User.query.filter(User.email == new_email, User.id != user.id).first():
         flash("该邮箱已被其他用户占用，请更换后重试。", "error")
@@ -478,7 +549,7 @@ def change_password():
     password_code = request.form.get("password_verification_code", "")
     session["account_settings_active_panel"] = "change-password-panel"
 
-    if not current_password or not check_password_hash(user.password, current_password):
+    if not current_password or not _check_user_password(user, current_password):
         flash("当前密码错误，无法修改密码。", "error")
     elif not new_password:
         flash("请输入新密码。", "error")
@@ -489,7 +560,7 @@ def change_password():
     elif not verify_email_code(user.email, "change_password", password_code, user=user):
         flash("改密验证码错误或已过期，请重新获取。", "error")
     else:
-        user.password = generate_password_hash(new_password)
+        user.password_hash = generate_password_hash(new_password)
         db.session.commit()
         session.pop("account_settings_active_panel", None)
         flash("密码已更新，请使用新密码登录。", "success")
@@ -519,7 +590,7 @@ def forgot_password():
         elif not verify_email_code(email, "reset_password", email_code):
             flash("邮箱、验证码或新密码无效。", "error")
         else:
-            user.password = generate_password_hash(new_password)
+            user.password_hash = generate_password_hash(new_password)
             db.session.commit()
             session.pop("forgot_password_email_draft", None)
             flash("密码已重置，请使用新密码登录。", "success")
@@ -584,7 +655,7 @@ def register():
             email=email,
             city=city,
             email_verified_at=datetime.utcnow(),
-            password=hashed_password,
+            password_hash=hashed_password,
             role="user",
             trust_score=100,
         )

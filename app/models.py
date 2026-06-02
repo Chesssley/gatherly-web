@@ -2,9 +2,12 @@ from datetime import datetime, timedelta
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
+from werkzeug.security import generate_password_hash
 
 
 db = SQLAlchemy()
+PASSWORD_HASH_PREFIXES = ("scrypt:", "pbkdf2:", "argon2:", "sha256$", "sha512$")
+LEGACY_PLAINTEXT_PASSWORD_MAX_LENGTH = 59
 
 
 class User(db.Model):
@@ -13,7 +16,7 @@ class User(db.Model):
     nickname = db.Column(db.String(80), nullable=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     email_verified_at = db.Column(db.DateTime)
-    password = db.Column(db.String(255), nullable=False)
+    password_hash = db.Column("password", db.String(255), nullable=False)
     avatar = db.Column(db.String(255))
     bio = db.Column(db.Text)
     interests = db.Column(db.Text)
@@ -105,6 +108,14 @@ class User(db.Model):
         back_populates="reviewer",
     )
 
+    @property
+    def password(self):
+        return self.password_hash
+
+    @password.setter
+    def password(self, value):
+        self.password_hash = value
+
 
 def ensure_user_account_schema():
     if db.engine.dialect.name != "sqlite":
@@ -136,7 +147,26 @@ def ensure_user_account_schema():
 
     for statement in statements:
         db.session.execute(text(statement))
-    if statements:
+    migrated_passwords = 0
+    if rows and "password" in existing_columns:
+        password_rows = db.session.execute(
+            text('SELECT id, password FROM "user" WHERE password IS NOT NULL')
+        ).fetchall()
+        for user_id, stored_password in password_rows:
+            if (
+                stored_password
+                and not stored_password.startswith(PASSWORD_HASH_PREFIXES)
+                and len(stored_password) <= LEGACY_PLAINTEXT_PASSWORD_MAX_LENGTH
+            ):
+                db.session.execute(
+                    text('UPDATE "user" SET password = :password WHERE id = :user_id'),
+                    {
+                        "password": generate_password_hash(stored_password),
+                        "user_id": user_id,
+                    },
+                )
+                migrated_passwords += 1
+    if statements or migrated_passwords:
         db.session.commit()
 
 

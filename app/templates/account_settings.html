@@ -25,6 +25,7 @@
         <div class="form-card">
           <h2>更改邮箱</h2>
           <form method="post" action="{{ url_for('auth.change_email') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="next" value="{{ url_for('auth.account_settings') }}">
             <div class="form-group">
               <label class="form-label" for="email">新邮箱</label>
@@ -58,6 +59,7 @@
         <div class="form-card">
           <h2>更改密码</h2>
           <form method="post" action="{{ url_for('auth.change_password') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="next" value="{{ url_for('auth.account_settings') }}">
             <div class="form-group">
               <label class="form-label" for="change_password_current_password">当前密码</label>
@@ -112,6 +114,7 @@
           <h2>注销账号</h2>
           <p>注销后无法恢复。你的帖子、评论、回复和其他历史记录会保留，并统一显示为“已注销用户”。</p>
           <form method="post" action="{{ url_for('auth.delete_account') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
               <label class="form-label" for="current_password">当前密码</label>
               <input class="form-input" id="current_password" name="current_password" type="password" autocomplete="current-password" required>
