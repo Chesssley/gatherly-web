@@ -7923,7 +7923,7 @@ textarea.form-input {
 }
 
 .meetup-home .recommended-section {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .home-feed-heading {
@@ -7957,6 +7957,9 @@ textarea.form-input {
 .home-for-you-track {
   gap: 24px;
   padding-bottom: 14px;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .home-event-card {
@@ -8011,17 +8014,24 @@ textarea.form-input {
 
 .home-scroll-button {
   top: 80px;
+  z-index: 20;
+  border: 1px solid rgba(255, 255, 255, 0.75);
   width: 42px;
   height: 42px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
   font-size: 20px;
 }
 
 .home-scroll-button.is-previous {
-  left: -21px;
+  left: 8px;
 }
 
 .home-scroll-button.is-next {
-  right: -21px;
+  right: 8px;
+}
+
+.home-scroll-button[hidden] {
+  display: none;
 }
 
 .home-today-filter {
