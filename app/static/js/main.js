@@ -1242,6 +1242,266 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  const initMessageChat = () => {
+    const chat = document.querySelector("[data-message-chat]");
+    if (!chat) {
+      return;
+    }
+
+    const thread = chat.querySelector(".message-thread");
+    const form = chat.querySelector("[data-message-form]");
+    const input = chat.querySelector("[data-message-input]");
+    const submitButton = chat.querySelector("[data-message-submit]");
+    const fileInput = form?.querySelector('input[type="file"][name="image"]');
+    const notice = chat.querySelector("[data-message-notice]");
+    const noticeText = chat.querySelector("[data-message-notice-text]");
+    const followAction = chat.querySelector("[data-message-follow-action]");
+    const blockReason = chat.querySelector("[data-message-block-reason]");
+    const formError = chat.querySelector("[data-message-form-error]");
+    const statusText = chat.querySelector("[data-message-status]");
+
+    if (!thread || !form || !input || !submitButton) {
+      return;
+    }
+
+    const seenMessageIds = new Set(
+      Array.from(thread.querySelectorAll("[data-message-id]"))
+        .map(item => Number(item.dataset.messageId))
+        .filter(Number.isFinite)
+    );
+    let lastMessageId = Number(chat.dataset.lastMessageId || 0);
+    let retryDelay = 3000;
+    let pollTimer = null;
+    let isPolling = false;
+
+    const clearFormError = () => {
+      if (formError) {
+        formError.textContent = "";
+        formError.hidden = true;
+      }
+    };
+
+    const showFormError = message => {
+      if (!formError) {
+        return;
+      }
+      formError.textContent = message;
+      formError.hidden = !message;
+    };
+
+    const isNearBottom = () => (
+      thread.scrollHeight - thread.scrollTop - thread.clientHeight < 96
+    );
+
+    const scrollToBottom = () => {
+      thread.scrollTop = thread.scrollHeight;
+    };
+
+    const removeEmptyState = () => {
+      thread.querySelector("[data-message-empty]")?.remove();
+    };
+
+    const appendMessage = message => {
+      const messageId = Number(message.id);
+      if (!Number.isFinite(messageId) || seenMessageIds.has(messageId)) {
+        return;
+      }
+
+      const shouldStickToBottom = isNearBottom() || Boolean(message.is_mine);
+      removeEmptyState();
+
+      const article = document.createElement("article");
+      article.className = `message-bubble${message.is_mine ? " is-mine" : ""}`;
+      article.dataset.messageId = String(messageId);
+
+      const inner = document.createElement("div");
+      inner.className = "message-bubble-inner";
+
+      if (message.image_url) {
+        const link = document.createElement("a");
+        link.href = message.image_url;
+        link.target = "_blank";
+        link.rel = "noopener";
+
+        const image = document.createElement("img");
+        image.src = message.image_url;
+        image.alt = "私信图片";
+        link.appendChild(image);
+        inner.appendChild(link);
+      }
+
+      if (message.content) {
+        const content = document.createElement("p");
+        content.textContent = message.content;
+        inner.appendChild(content);
+      }
+
+      const time = document.createElement("time");
+      time.textContent = message.created_at || "";
+
+      article.appendChild(inner);
+      article.appendChild(time);
+      thread.appendChild(article);
+
+      seenMessageIds.add(messageId);
+      lastMessageId = Math.max(lastMessageId, messageId);
+      chat.dataset.lastMessageId = String(lastMessageId);
+
+      if (shouldStickToBottom) {
+        scrollToBottom();
+      }
+    };
+
+    const applyPermissionState = data => {
+      const canSend = Boolean(data.can_send);
+      input.disabled = !canSend;
+      submitButton.disabled = !canSend;
+      if (fileInput) {
+        fileInput.disabled = !canSend;
+      }
+
+      if (blockReason) {
+        blockReason.textContent = data.send_block_reason || "暂时不能发送私信。";
+        blockReason.hidden = canSend;
+      }
+
+      if (notice && noticeText) {
+        const noticeMessage = data.notice || data.send_block_reason || "";
+        noticeText.textContent = noticeMessage;
+        notice.hidden = !noticeMessage;
+        notice.classList.toggle("info", Boolean(data.show_follow_suggestion));
+        notice.classList.toggle("warning", !data.show_follow_suggestion);
+        notice.classList.toggle("message-follow-suggestion", Boolean(data.show_follow_suggestion));
+      }
+
+      if (followAction) {
+        followAction.hidden = !data.show_follow_suggestion;
+      }
+
+      if (statusText) {
+        if (data.mutual_follow) {
+          statusText.textContent = "已互相关注";
+        } else if (data.has_both_sides_replied) {
+          statusText.textContent = "已可继续聊天";
+        } else {
+          statusText.textContent = "未互相关注，仅可发送一条私信";
+        }
+      }
+    };
+
+    const csrfToken = () => (
+      document.querySelector('meta[name="csrf-token"]')?.content
+      || form.querySelector('input[name="csrf_token"]')?.value
+      || ""
+    );
+
+    const schedulePoll = delay => {
+      window.clearTimeout(pollTimer);
+      pollTimer = window.setTimeout(poll, delay);
+    };
+
+    const nextNormalDelay = () => (document.hidden ? 12000 : 3000);
+
+    async function poll() {
+      if (isPolling) {
+        schedulePoll(nextNormalDelay());
+        return;
+      }
+
+      isPolling = true;
+      try {
+        const url = new URL(chat.dataset.pollUrl, window.location.origin);
+        url.searchParams.set("after_id", String(lastMessageId));
+        const response = await fetch(url.toString(), {
+          credentials: "same-origin",
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || "私信更新失败。");
+        }
+
+        (data.messages || []).forEach(appendMessage);
+        if (Number.isFinite(Number(data.last_message_id))) {
+          lastMessageId = Math.max(lastMessageId, Number(data.last_message_id));
+          chat.dataset.lastMessageId = String(lastMessageId);
+        }
+        applyPermissionState(data);
+        retryDelay = 3000;
+        schedulePoll(nextNormalDelay());
+      } catch (error) {
+        retryDelay = retryDelay < 5000 ? 5000 : Math.min(retryDelay * 2, 30000);
+        schedulePoll(retryDelay);
+      } finally {
+        isPolling = false;
+      }
+    }
+
+    form.addEventListener("submit", async event => {
+      const hasImage = Boolean(fileInput?.files?.length);
+      if (hasImage) {
+        return;
+      }
+
+      event.preventDefault();
+      clearFormError();
+
+      const content = input.value.trim();
+      const maxLength = Number(chat.dataset.textMaxLength || 0);
+      if (!content) {
+        showFormError("请输入私信内容。");
+        input.focus();
+        return;
+      }
+      if (maxLength && content.length > maxLength) {
+        showFormError(`私信文字不能超过 ${maxLength} 个字符。`);
+        input.focus();
+        return;
+      }
+
+      submitButton.disabled = true;
+      try {
+        const headers = { "Content-Type": "application/json" };
+        const token = csrfToken();
+        if (token) {
+          headers["X-CSRFToken"] = token;
+          headers["X-CSRF-Token"] = token;
+        }
+
+        const response = await fetch(chat.dataset.sendUrl, {
+          method: "POST",
+          credentials: "same-origin",
+          headers,
+          body: JSON.stringify({ content }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          if (Object.prototype.hasOwnProperty.call(data, "can_send")) {
+            applyPermissionState(data);
+          }
+          throw new Error(data.error || "私信发送失败，请稍后重试。");
+        }
+
+        appendMessage(data.message);
+        input.value = "";
+        applyPermissionState(data);
+      } catch (error) {
+        showFormError(error.message || "私信发送失败，请稍后重试。");
+        if (!input.disabled) {
+          submitButton.disabled = false;
+        }
+      }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      schedulePoll(document.hidden ? 12000 : 500);
+    });
+
+    window.requestAnimationFrame(scrollToBottom);
+    schedulePoll(nextNormalDelay());
+  };
+
+  initMessageChat();
+
   document.addEventListener("keydown", event => {
     if (event.key === "Escape") {
       closeNavigationPanels();

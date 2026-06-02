@@ -44,7 +44,19 @@
         </div>
       </aside>
 
-      <section class="message-detail" aria-label="私信详情">
+      <section
+        class="message-detail"
+        aria-label="私信详情"
+        {% if active_user %}
+        data-message-chat
+        data-conversation-id="{{ active_user.id }}"
+        data-current-user-id="{{ session.get('user_id') }}"
+        data-last-message-id="{{ last_message_id }}"
+        data-poll-url="{{ url_for('messages.poll_conversation', user_id=active_user.id) }}"
+        data-send-url="{{ url_for('messages.send_conversation_message', user_id=active_user.id) }}"
+        data-text-max-length="{{ text_max_length }}"
+        {% endif %}
+      >
         {% if active_user %}
         <header class="message-detail-header">
           <a class="message-detail-user" href="{{ url_for('profile.view_profile', user_id=active_user.id) }}">
@@ -57,14 +69,22 @@
             </span>
             <span>
               <strong>{{ active_display_name }}</strong>
-              <small>{% if is_mutual_follow %}已互相关注{% else %}未互相关注，仅可发送一条私信{% endif %}</small>
+              <small data-message-status>{% if is_mutual_follow %}已互相关注{% elif has_both_sides_replied %}已可继续聊天{% else %}未互相关注，仅可发送一条私信{% endif %}</small>
             </span>
           </a>
         </header>
 
+        <div class="message-notice {% if show_follow_suggestion %}info message-follow-suggestion{% else %}warning{% endif %}" data-message-notice {% if not message_notice %}hidden{% endif %}>
+          <span data-message-notice-text>{{ message_notice }}</span>
+          <form class="message-follow-form" method="post" action="{{ url_for('profile.follow_user', user_id=active_user.id) }}" data-message-follow-action {% if not show_follow_suggestion %}hidden{% endif %}>
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <button class="button button-small button-secondary" type="submit">关注对方</button>
+          </form>
+        </div>
+
         <div class="message-thread">
           {% for message in messages %}
-          <article class="message-bubble {% if message.sender_id == session.get('user_id') %}is-mine{% endif %}">
+          <article class="message-bubble {% if message.sender_id == session.get('user_id') %}is-mine{% endif %}" data-message-id="{{ message.id }}">
             <div class="message-bubble-inner">
               {% if message.image_path %}
               <a href="{{ url_for('static', filename=message.image_path) }}" target="_blank" rel="noopener">
@@ -76,7 +96,7 @@
             <time>{{ message.created_at.strftime('%Y-%m-%d %H:%M') if message.created_at else '' }}</time>
           </article>
           {% else %}
-          <div class="message-empty-state">
+          <div class="message-empty-state" data-message-empty>
             <div class="message-empty-illustration" aria-hidden="true">✉</div>
             <h2>这里还没有消息</h2>
             <p>发送第一条私信，开始两人的聊天。</p>
@@ -84,19 +104,18 @@
           {% endfor %}
         </div>
 
-        <form class="message-form" method="post" enctype="multipart/form-data">
-          {% if not can_send_message %}
-          <p class="message-limit-note">未互相关注前只能发送一条私信，请互相关注后继续聊天。</p>
-          {% endif %}
+        <form class="message-form" method="post" enctype="multipart/form-data" data-message-form>
+          <p class="message-limit-note" data-message-block-reason {% if can_send_message %}hidden{% endif %}>{{ send_block_reason or "暂时不能发送私信。" }}</p>
+          <p class="message-form-error" data-message-form-error hidden></p>
           <label class="sr-only" for="message-content">输入私信</label>
-          <textarea id="message-content" name="content" rows="2" maxlength="{{ text_max_length }}" placeholder="输入私信内容" {% if not can_send_message %}disabled{% endif %}></textarea>
+          <textarea id="message-content" name="content" rows="2" maxlength="{{ text_max_length }}" placeholder="输入私信内容" data-message-input {% if not can_send_message %}disabled{% endif %}></textarea>
           <div class="message-form-actions">
             <label class="message-image-picker">
               <input type="file" name="image" accept="image/jpeg,image/png,image/webp" data-image-upload data-file-count-target="message-image-count" data-max-count="1" data-max-bytes="{{ image_max_kb * 1024 }}" {% if not can_send_message %}disabled{% endif %}>
               <span>图片</span>
             </label>
             <span id="message-image-count" class="message-file-count">未选择图片</span>
-            <button class="button" type="submit" {% if not can_send_message %}disabled{% endif %}>发送</button>
+            <button class="button" type="submit" data-message-submit {% if not can_send_message %}disabled{% endif %}>发送</button>
           </div>
           <p class="message-retention-note">图片大小需小于 {{ image_max_kb }}KB。私信会定期清理，请保存重要信息。</p>
         </form>
