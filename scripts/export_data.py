@@ -17,6 +17,11 @@ from app.models import db
 
 
 EXPORT_PATH = ROOT_DIR / "gatherly_export.json"
+SYSTEM_TABLES = {"alembic_version", "sqlite_sequence"}
+
+
+def log(message):
+    print(message, flush=True)
 
 
 def serialize_value(value):
@@ -59,6 +64,7 @@ def table_rows(table):
 
 
 def main():
+    log("Starting export script")
     app = create_app()
 
     with app.app_context():
@@ -67,8 +73,11 @@ def main():
         exported_tables = []
 
         for table in sorted_metadata_tables():
+            if table.name in SYSTEM_TABLES:
+                log(f"{table.name}: skipped (system table)")
+                continue
             if table.name not in existing_tables:
-                print(f"{table.name}: skipped (table does not exist)")
+                log(f"{table.name}: skipped (table does not exist)")
                 continue
 
             rows = table_rows(table)
@@ -79,7 +88,7 @@ def main():
                     "rows": rows,
                 }
             )
-            print(f"{table.name}: exported {len(rows)} rows")
+            log(f"{table.name}: exported {len(rows)} rows")
 
         payload = {
             "format": "gatherly-sqlalchemy-json-v1",
@@ -89,7 +98,7 @@ def main():
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        print(f"Export complete: {EXPORT_PATH}")
+        log(f"Export complete: {EXPORT_PATH}")
 
 
 if __name__ == "__main__":
