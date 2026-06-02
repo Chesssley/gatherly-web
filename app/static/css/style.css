@@ -7,6 +7,8 @@
   --color-primary-dark: #24564d;
   --color-border: #ded8cf;
   --font-body: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  --card-hover-transform: scale(0.985);
+  --card-hover-transition: transform 0.18s ease;
 }
 
 * {
@@ -3279,7 +3281,7 @@ textarea.form-input {
 }
 
 .circle-related-activity-card:hover {
-  transform: translateY(-2px);
+  transform: var(--card-hover-transform);
   box-shadow: 0 14px 30px rgba(31, 44, 38, 0.12);
 }
 
@@ -3415,7 +3417,7 @@ textarea.form-input {
 
 .circle-card:hover {
   box-shadow: 0 12px 28px rgba(34, 34, 34, 0.13);
-  transform: translateY(-3px);
+  transform: var(--card-hover-transform);
 }
 
 .circle-card-cover {
@@ -3933,7 +3935,7 @@ textarea.form-input {
 
 .circle-discovery-card:hover {
   box-shadow: 0 8px 18px rgba(34, 34, 34, 0.1);
-  transform: translateY(-2px);
+  transform: var(--card-hover-transform);
 }
 
 .circle-discovery-card .circle-card-cover {
@@ -5659,7 +5661,7 @@ textarea.form-input {
 
 .my-events-card:hover {
   box-shadow: 0 12px 28px rgba(34, 34, 34, 0.13);
-  transform: translateY(-3px);
+  transform: var(--card-hover-transform);
 }
 
 .my-events-card-link {
@@ -6118,7 +6120,7 @@ textarea.form-input {
   border-color: #c8d9d3;
   box-shadow: 0 10px 24px rgba(34, 34, 34, 0.1);
   outline: 0;
-  transform: translateY(-2px);
+  transform: var(--card-hover-transform);
 }
 
 .recommended-card-image {
@@ -6576,7 +6578,7 @@ textarea.form-input {
 
 .discover-card:hover {
   box-shadow: 0 12px 28px rgba(34, 34, 34, 0.13);
-  transform: translateY(-3px);
+  transform: var(--card-hover-transform);
 }
 
 .discover-card .card-image {
@@ -6841,6 +6843,10 @@ textarea.form-input {
   border-radius: 18px;
   background: #ffffff;
   box-shadow: 0 5px 14px rgba(34, 34, 34, 0.06);
+}
+
+.popular-circle-card {
+  transition: var(--card-hover-transition);
 }
 
 .circle-card-icon,
@@ -7456,6 +7462,7 @@ textarea.form-input {
   align-items: center;
   min-width: 0;
   color: var(--color-text);
+  transition: var(--card-hover-transition);
 }
 
 .home-mini-event {
@@ -10149,7 +10156,7 @@ textarea.form-input {
 }
 
 .circle-group-home .circle-related-activity-card:hover {
-  transform: translateY(-2px);
+  transform: var(--card-hover-transform);
   box-shadow: 0 14px 28px rgba(31, 44, 38, 0.1);
 }
 
@@ -11531,7 +11538,7 @@ body.circle-modal-open {
 }
 
 .my-group-card:hover {
-  transform: translateY(-2px);
+  transform: var(--card-hover-transform);
   box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
 }
 
@@ -11881,6 +11888,215 @@ body.circle-modal-open {
 
 .circle-wizard-actions .button {
   min-width: 136px;
+}
+
+/* UI-15: shared hover shrink for activity and circle cards */
+.activity-card,
+.discover-card,
+.recommended-card,
+.circle-card,
+.circle-discovery-card,
+.circle-related-activity-card,
+.home-event-card,
+.home-group-event,
+.home-mini-event,
+.home-mini-group,
+.my-events-card,
+.meetup-detail-circle-card,
+.popular-circle-card,
+.my-group-card {
+  transform-origin: center center;
+  transition: var(--card-hover-transition);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .activity-card:hover,
+  .activity-card:focus-visible,
+  .discover-card:hover,
+  .discover-card:focus-visible,
+  .recommended-card:hover,
+  .recommended-card:focus-visible,
+  .circle-card:hover,
+  .circle-card:focus-visible,
+  .circle-discovery-card:hover,
+  .circle-discovery-card:focus-visible,
+  .circle-related-activity-card:hover,
+  .circle-related-activity-card:focus-visible,
+  .home-event-card:hover,
+  .home-event-card:focus-visible,
+  .home-group-event:hover,
+  .home-group-event:focus-visible,
+  .home-mini-event:hover,
+  .home-mini-event:focus-visible,
+  .home-mini-group:hover,
+  .home-mini-group:focus-visible,
+  .my-events-card:hover,
+  .my-events-card:focus-visible,
+  .meetup-detail-circle-card:hover,
+  .meetup-detail-circle-card:focus-visible,
+  .popular-circle-card:hover,
+  .popular-circle-card:focus-visible,
+  .my-group-card:hover,
+  .my-group-card:focus-visible,
+  .home-event-card.discover-card:hover,
+  .home-group-event.discover-card:hover,
+  .activity-discovery-grid > .discover-card:hover,
+  .circle-discovery-grid > .circle-discovery-card:hover,
+  .search-results-page.discover-section .activity-discovery-grid > .discover-card:hover,
+  .circle-group-home .circle-related-activity-card:hover {
+    transform: var(--card-hover-transform);
+  }
+
+  .activity-card:hover,
+  .activity-card:focus-visible {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .discover-card:hover,
+  .discover-card:focus-visible {
+    box-shadow: 0 6px 16px rgba(34, 34, 34, 0.07);
+  }
+
+  .recommended-card:hover,
+  .recommended-card:focus-visible {
+    box-shadow: 0 6px 16px rgba(34, 34, 34, 0.06);
+  }
+
+  .circle-card:hover,
+  .circle-card:focus-visible {
+    box-shadow: 0 5px 16px rgba(34, 34, 34, 0.07);
+  }
+
+  .circle-related-activity-card:hover,
+  .circle-related-activity-card:focus-visible {
+    box-shadow: 0 10px 24px rgba(31, 44, 38, 0.08);
+  }
+
+  .my-events-card:hover,
+  .my-events-card:focus-visible {
+    box-shadow: 0 6px 16px rgba(34, 34, 34, 0.07);
+  }
+
+  .my-group-card:hover,
+  .my-group-card:focus-visible {
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+  }
+
+  .popular-circle-card:hover,
+  .popular-circle-card:focus-visible {
+    box-shadow: 0 5px 14px rgba(34, 34, 34, 0.06);
+  }
+
+  .home-event-card:hover,
+  .home-event-card:focus-visible,
+  .home-group-event:hover,
+  .home-group-event:focus-visible,
+  .home-mini-event:hover,
+  .home-mini-event:focus-visible,
+  .home-mini-group:hover,
+  .home-mini-group:focus-visible,
+  .meetup-detail-circle-card:hover,
+  .meetup-detail-circle-card:focus-visible,
+  .home-event-card.discover-card:hover,
+  .home-group-event.discover-card:hover,
+  .activity-discovery-grid > .discover-card:hover,
+  .circle-discovery-grid > .circle-discovery-card:hover,
+  .search-results-page.discover-section .activity-discovery-grid > .discover-card:hover,
+  .circle-group-home .circle-related-activity-card:hover {
+    box-shadow: none;
+  }
+
+  .circle-card:hover .circle-card-cover img,
+  .circle-related-activity-card:hover .circle-event-image img {
+    transform: none;
+  }
+}
+
+@media (hover: none), (pointer: coarse), (max-width: 720px) {
+  .activity-card:hover,
+  .discover-card:hover,
+  .recommended-card:hover,
+  .circle-card:hover,
+  .circle-discovery-card:hover,
+  .circle-related-activity-card:hover,
+  .home-event-card:hover,
+  .home-group-event:hover,
+  .home-mini-event:hover,
+  .home-mini-group:hover,
+  .my-events-card:hover,
+  .meetup-detail-circle-card:hover,
+  .popular-circle-card:hover,
+  .my-group-card:hover,
+  .home-event-card.discover-card:hover,
+  .home-group-event.discover-card:hover,
+  .activity-discovery-grid > .discover-card:hover,
+  .circle-discovery-grid > .circle-discovery-card:hover,
+  .search-results-page.discover-section .activity-discovery-grid > .discover-card:hover,
+  .circle-group-home .circle-related-activity-card:hover,
+  .circle-card:hover .circle-card-cover img,
+  .circle-related-activity-card:hover .circle-event-image img {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-card,
+  .discover-card,
+  .recommended-card,
+  .circle-card,
+  .circle-discovery-card,
+  .circle-related-activity-card,
+  .home-event-card,
+  .home-group-event,
+  .home-mini-event,
+  .home-mini-group,
+  .my-events-card,
+  .meetup-detail-circle-card,
+  .popular-circle-card,
+  .my-group-card,
+  .circle-card-cover img,
+  .circle-event-image img {
+    transition-duration: 0.01ms;
+  }
+
+  .activity-card:hover,
+  .activity-card:focus-visible,
+  .discover-card:hover,
+  .discover-card:focus-visible,
+  .recommended-card:hover,
+  .recommended-card:focus-visible,
+  .circle-card:hover,
+  .circle-card:focus-visible,
+  .circle-discovery-card:hover,
+  .circle-discovery-card:focus-visible,
+  .circle-related-activity-card:hover,
+  .circle-related-activity-card:focus-visible,
+  .home-event-card:hover,
+  .home-event-card:focus-visible,
+  .home-group-event:hover,
+  .home-group-event:focus-visible,
+  .home-mini-event:hover,
+  .home-mini-event:focus-visible,
+  .home-mini-group:hover,
+  .home-mini-group:focus-visible,
+  .my-events-card:hover,
+  .my-events-card:focus-visible,
+  .meetup-detail-circle-card:hover,
+  .meetup-detail-circle-card:focus-visible,
+  .popular-circle-card:hover,
+  .popular-circle-card:focus-visible,
+  .my-group-card:hover,
+  .my-group-card:focus-visible,
+  .home-event-card.discover-card:hover,
+  .home-group-event.discover-card:hover,
+  .activity-discovery-grid > .discover-card:hover,
+  .circle-discovery-grid > .circle-discovery-card:hover,
+  .search-results-page.discover-section .activity-discovery-grid > .discover-card:hover,
+  .circle-group-home .circle-related-activity-card:hover,
+  .circle-card:hover .circle-card-cover img,
+  .circle-related-activity-card:hover .circle-event-image img {
+    transform: none;
+  }
 }
 
 @media (max-width: 860px) {
