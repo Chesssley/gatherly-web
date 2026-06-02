@@ -55,20 +55,9 @@
         <p class="form-hint">用于个人主页展示和活动同城优先排序，可留空。</p>
       </div>
       <div class="form-group nearby-setting">
-        <label class="tag-checkbox">
-          <input type="checkbox" name="nearby_enabled" value="1" {% if user.nearby_enabled %}checked{% endif %}>
-          <span>附近的人：{{ '开启' if user.nearby_enabled else '关闭' }}</span>
-        </label>
-        {% if user.nearby_enabled %}
-        <p class="form-hint">附近的人基于 IP 所属地区粗略匹配，不会展示精确位置。</p>
-        {% else %}
-        <p class="form-hint">附近的人：关闭。关闭后，其他用户不会在附近的人列表中看到你。</p>
-        {% endif %}
-        {% if user.detected_city or user.detected_region %}
-        <p class="form-hint">当前 IP 粗略地区：{{ user.detected_city or user.detected_region }}</p>
-        {% else %}
-        <p class="form-hint">暂无 IP 地区信息，本地开发或检测失败时不会影响使用。</p>
-        {% endif %}
+        <label class="form-label">附近的人</label>
+        <p class="form-hint">当前{{ '已开启' if user.nearby_enabled else '已关闭' }}。请到“附近的人”页面开启或关闭，避免在保存资料时误改状态。</p>
+        <a class="button button-secondary" href="{{ url_for('profile.nearby_users') }}">前往附近的人</a>
       </div>
       <div class="form-group">
         <label class="form-label" for="bio">个人简介</label>
