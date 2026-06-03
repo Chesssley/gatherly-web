@@ -562,7 +562,8 @@ def cleanup_expired_direct_messages(now=None):
 
 
 def ensure_direct_message_schema():
-    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    # Production schema should be managed by Flask-Migrate / Alembic migrations.
+    # This helper only protects local SQLite fallback databases.
     if skip_non_sqlite_schema_helper("ensure_direct_message_schema"):
         return
 
@@ -663,7 +664,8 @@ class MerchantVerification(db.Model):
 
 
 def ensure_merchant_verification_schema():
-    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    # Production schema should be managed by Flask-Migrate / Alembic migrations.
+    # This helper only protects local SQLite fallback databases.
     if skip_non_sqlite_schema_helper("ensure_merchant_verification_schema"):
         return
 

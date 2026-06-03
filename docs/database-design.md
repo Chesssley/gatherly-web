@@ -62,7 +62,9 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 | `DirectMessage.image_url` | 私信图片 URL。 |
 | `MerchantVerification.document_url` | 认证材料 URL。 |
 
-迁移记录：`b2c6f7e8a9d0_rename_media_path_fields_to_url.py` 将历史 `image_path` / `document_path` 列原地重命名为 `image_url` / `document_url`，不新建列丢弃旧数据。
+迁移记录：`b2c6f7e8a9d0_rename_media_path_fields_to_url.py` 将历史 `image_path` / `document_path` 列原地重命名为 `image_url` / `document_url`，不新建列丢弃旧数据。`c4d5e6f7a8b9_repair_media_url_columns.py` 兜底修复已 stamp 到旧 head 或混合字段状态的数据库：旧列存在时先重命名或复制旧值，再确保 `document_url` / `image_url` 可查询。
+
+执行 `flask db upgrade` 后，数据库才会拥有当前模型查询所需的 `post_image.image_url`、`comment_image.image_url`、`direct_message.image_url` 和 `merchant_verification.document_url`。Render / Neon PostgreSQL 必须对 Neon Direct URL 执行升级；本地 SQLite fallback 如果出现 `no such column`，应先执行 `flask db upgrade`，历史未 stamp 的本地库可由 SQLite 兼容 helper 在应用启动时补齐字段。
 
 ### 上传限制与压缩策略
 

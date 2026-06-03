@@ -390,10 +390,12 @@ def _ensure_circle_columns():
 @circle_bp.before_app_request
 def ensure_circle_schema():
     _ensure_circle_columns()
+    _ensure_circle_image_tables()
 
 
 def _ensure_circle_image_tables():
-    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    # Production schema should be managed by Flask-Migrate / Alembic migrations.
+    # This helper only protects local SQLite fallback databases.
     if skip_non_sqlite_schema_helper("_ensure_circle_image_tables"):
         return
 
