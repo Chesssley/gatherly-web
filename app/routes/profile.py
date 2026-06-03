@@ -25,7 +25,7 @@ from app.models import (
 )
 from app.utils.location_utils import (
     detect_current_request_location,
-    format_ip_region_label,
+    format_ip_region,
     location_values,
     locations_match,
     update_user_detected_location,
@@ -293,7 +293,7 @@ def _profile_context(user, visibility, is_owner=True, ip_region=None):
             "interactions": is_owner,
             "trust_score": _scope_is_visible(visibility.trust_score_scope, is_owner),
         },
-        "ip_region_label": format_ip_region_label(ip_region),
+        "ip_region_label": format_ip_region(ip_region),
         "interests": _split_interests(user.interests) if (is_owner or bool(visibility.show_interests)) else [],
         "profile_stats": {
             "circles": circle_count if is_owner or visibility.circle_scope == PUBLIC_SCOPE else None,
@@ -683,9 +683,9 @@ def nearby_users():
         location_notice=location_notice,
         nearby_mode=True,
         nearby_user=current_user,
-        nearby_location_label=format_ip_region_label(current_ip_region),
+        nearby_location_label=format_ip_region(current_ip_region),
         nearby_ip_region_labels={
-            user.id: format_ip_region_label(current_ip_region) for user in users
+            user.id: format_ip_region(user) for user in users
         },
     )
 
