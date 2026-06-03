@@ -22,6 +22,7 @@ from app.utils.email_verification import (
     send_verification_code,
     verify_email_code,
 )
+from app.utils.location_utils import get_client_ip
 from app.utils.upload_limits import upload_limit
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_upload_files
 
@@ -112,10 +113,7 @@ def _record_session_email_code_attempt():
 
 
 def _client_ip():
-    forwarded_for = request.headers.get("X-Forwarded-For", "")
-    if forwarded_for:
-        return forwarded_for.split(",", 1)[0].strip()
-    return request.remote_addr or "unknown"
+    return get_client_ip() or "unknown"
 
 
 def _login_failure_keys(identifier):

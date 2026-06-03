@@ -1,6 +1,4 @@
-import re
 from functools import wraps
-from ipaddress import ip_address
 from urllib.parse import urlencode
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
@@ -25,7 +23,13 @@ from app.models import (
     get_user_display_name,
     skip_non_sqlite_schema_helper,
 )
-from app.utils.location_utils import locations_match, update_user_detected_location
+from app.utils.location_utils import (
+    detect_current_request_location,
+    format_ip_region_label,
+    location_values,
+    locations_match,
+    update_user_detected_location,
+)
 from app.utils.upload_limits import upload_limit
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_upload_files
 
@@ -38,9 +42,6 @@ BIO_MAX_LENGTH = 300
 INTERESTS_MAX_LENGTH = 500
 AVATAR_UPLOAD_SUBDIR = "avatars"
 AVATAR_LIMIT = upload_limit("avatar")
-UNKNOWN_LOCATION_LABELS = {"未知地区", "未知"}
-IP_REGION_SPLIT_PATTERN = re.compile(r"\s*(?:/|／|,|，|、|\|)\s*")
-COORDINATE_PATTERN = re.compile(r"^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$")
 
 
 def _section_filters(prefix):
@@ -167,10 +168,20 @@ def _safe_all(query):
 
 def _refresh_detected_location(user):
     try:
-        update_user_detected_location(user)
+        detected = update_user_detected_location(user)
         db.session.commit()
+        return detected
     except Exception:
         db.session.rollback()
+        return None
+
+
+def _current_request_ip_region(user_to_update=None):
+    if user_to_update:
+        detected = _refresh_detected_location(user_to_update)
+        if detected:
+            return detected
+    return detect_current_request_location()
 
 
 def _activity_label(activity_id):
@@ -248,7 +259,8 @@ def _owner_profile_or_404():
     return user, visibility
 
 
-def _profile_context(user, visibility, is_owner=True):
+def _profile_context(user, visibility, is_owner=True, ip_region=None):
+    ip_region = ip_region or detect_current_request_location()
     circle_count = CircleMember.query.filter_by(user_id=user.id, status="active").count()
     registration_count = Registration.query.filter(
         Registration.user_id == user.id,
@@ -281,7 +293,7 @@ def _profile_context(user, visibility, is_owner=True):
             "interactions": is_owner,
             "trust_score": _scope_is_visible(visibility.trust_score_scope, is_owner),
         },
-        "ip_region_label": _format_ip_region(user),
+        "ip_region_label": format_ip_region_label(ip_region),
         "interests": _split_interests(user.interests) if (is_owner or bool(visibility.show_interests)) else [],
         "profile_stats": {
             "circles": circle_count if is_owner or visibility.circle_scope == PUBLIC_SCOPE else None,
@@ -293,47 +305,6 @@ def _profile_context(user, visibility, is_owner=True):
     }
 
 
-def _is_ip_address(value):
-    try:
-        ip_address(value)
-    except ValueError:
-        return False
-    return True
-
-
-def _usable_ip_region_value(value):
-    value = (value or "").strip()
-    if (
-        not value
-        or value in UNKNOWN_LOCATION_LABELS
-        or _is_ip_address(value)
-        or COORDINATE_PATTERN.match(value)
-    ):
-        return None
-    return value
-
-
-def _ip_region_parts(value):
-    clean_value = _usable_ip_region_value(value)
-    if not clean_value:
-        return []
-    return [
-        part
-        for part in (
-            _usable_ip_region_value(part)
-            for part in IP_REGION_SPLIT_PATTERN.split(clean_value)
-        )
-        if part
-    ]
-
-
-def _format_ip_region(user):
-    for value in (user.city, user.detected_city, user.detected_region):
-        for clean_value in _ip_region_parts(value):
-            return clean_value
-    return "未知"
-
-
 def _nearby_match_score(current_user, candidate):
     for current_index, current_location in enumerate(_nearby_location_values(current_user)):
         for candidate_index, candidate_location in enumerate(_nearby_location_values(candidate)):
@@ -342,17 +313,8 @@ def _nearby_match_score(current_user, candidate):
     return 9
 
 
-def _usable_nearby_location(value):
-    return _usable_ip_region_value(value)
-
-
 def _nearby_location_values(user):
-    values = []
-    for value in (user.city, user.detected_city, user.detected_region):
-        clean_value = _usable_nearby_location(value)
-        if clean_value and clean_value not in values:
-            values.append(clean_value)
-    return values
+    return location_values(user)
 
 
 def _nearby_locations_match(current_user, candidate):
@@ -602,13 +564,17 @@ def view_profile(user_id):
         return render_template("profile.html", user=user, display_name=display_name)
 
     is_owner = session.get("user_id") == user.id
-    if is_owner:
-        _refresh_detected_location(user)
+    current_ip_region = _current_request_ip_region(user if is_owner else None)
     visibility = _get_or_create_visibility(user)
 
     if visibility.profile_scope == PRIVATE_SCOPE and not is_owner:
         abort(404)
-    context = _profile_context(user, visibility, is_owner=is_owner)
+    context = _profile_context(
+        user,
+        visibility,
+        is_owner=is_owner,
+        ip_region=current_ip_region,
+    )
 
     default_filters = _empty_filters()
     circles = _circle_items(user, default_filters) if context["permissions"]["circles"] else []
@@ -675,8 +641,8 @@ def user_search():
 @login_required
 def nearby_users():
     current_user = User.query.get_or_404(session["user_id"])
-    _refresh_detected_location(current_user)
-    current_locations = _nearby_location_values(current_user)
+    current_ip_region = _current_request_ip_region(current_user)
+    current_locations = location_values(current_ip_region)
     following_ids = {
         row.followed_id
         for row in UserFollow.query.filter_by(follower_id=current_user.id).all()
@@ -717,8 +683,10 @@ def nearby_users():
         location_notice=location_notice,
         nearby_mode=True,
         nearby_user=current_user,
-        nearby_location_label=_format_ip_region(current_user),
-        nearby_ip_region_labels={user.id: _format_ip_region(user) for user in users},
+        nearby_location_label=format_ip_region_label(current_ip_region),
+        nearby_ip_region_labels={
+            user.id: format_ip_region_label(current_ip_region) for user in users
+        },
     )
 
 
@@ -752,6 +720,7 @@ def followers(user_id):
     user = User.query.get_or_404(user_id)
     visibility = _get_or_create_visibility(user)
     is_owner = session.get("user_id") == user.id
+    current_ip_region = _current_request_ip_region(user if is_owner else None)
     if visibility.profile_scope == PRIVATE_SCOPE and not is_owner:
         abort(404)
     query_text = request.args.get("q", "").strip()
@@ -763,7 +732,12 @@ def followers(user_id):
     }
     return render_template(
         "follows.html",
-        **_profile_context(user, visibility, is_owner=is_owner),
+        **_profile_context(
+            user,
+            visibility,
+            is_owner=is_owner,
+            ip_region=current_ip_region,
+        ),
         page_title=f"{get_user_display_name(user)} 的粉丝",
         heading="粉丝",
         query=query_text,
@@ -779,6 +753,7 @@ def following(user_id):
     user = User.query.get_or_404(user_id)
     visibility = _get_or_create_visibility(user)
     is_owner = session.get("user_id") == user.id
+    current_ip_region = _current_request_ip_region(user if is_owner else None)
     if visibility.profile_scope == PRIVATE_SCOPE and not is_owner:
         abort(404)
     query_text = request.args.get("q", "").strip()
@@ -790,7 +765,12 @@ def following(user_id):
     }
     return render_template(
         "follows.html",
-        **_profile_context(user, visibility, is_owner=is_owner),
+        **_profile_context(
+            user,
+            visibility,
+            is_owner=is_owner,
+            ip_region=current_ip_region,
+        ),
         page_title=f"{get_user_display_name(user)} 的关注",
         heading="关注",
         query=query_text,
@@ -806,6 +786,7 @@ def user_circles(user_id):
     user = User.query.get_or_404(user_id)
     visibility = _get_or_create_visibility(user)
     is_owner = session.get("user_id") == user.id
+    current_ip_region = _current_request_ip_region(user if is_owner else None)
     if visibility.profile_scope == PRIVATE_SCOPE and not is_owner:
         abort(404)
     if not (is_owner or visibility.circle_scope == PUBLIC_SCOPE):
@@ -813,7 +794,12 @@ def user_circles(user_id):
     filters = _section_filters("circle")
     return render_template(
         "user_circles.html",
-        **_profile_context(user, visibility, is_owner=is_owner),
+        **_profile_context(
+            user,
+            visibility,
+            is_owner=is_owner,
+            ip_region=current_ip_region,
+        ),
         page_title=f"{get_user_display_name(user)} 加入的同好圈",
         items=_circle_items(user, filters),
         filters=filters,
@@ -859,7 +845,13 @@ def unfollow_user(user_id):
 
 def _render_profile_section(section_key, template_title, heading, items, filter_prefix, status_options, type_options):
     user, visibility = _owner_profile_or_404()
-    context = _profile_context(user, visibility, is_owner=True)
+    current_ip_region = _current_request_ip_region(user)
+    context = _profile_context(
+        user,
+        visibility,
+        is_owner=True,
+        ip_region=current_ip_region,
+    )
     filters = _section_filters(filter_prefix)
     return render_template(
         "profile_section.html",

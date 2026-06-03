@@ -1,13 +1,21 @@
-from datetime import datetime, timedelta
+import re
+from datetime import datetime
 from ipaddress import ip_address
 
 from flask import request
 
 
 LOCAL_IPS = {"127.0.0.1", "::1", "localhost"}
-LOCAL_DEVELOPMENT_LOCATION = {"city": "本地开发环境", "region": "本地开发环境"}
 UNKNOWN_LOCATION = {"city": None, "region": "未知地区"}
-LOCATION_REFRESH_INTERVAL = timedelta(hours=12)
+UNKNOWN_REGION_LABEL = "未知"
+UNKNOWN_LOCATION_LABELS = {"未知", "未知地区"}
+IP_REGION_SPLIT_PATTERN = re.compile(r"\s*(?:/|／|,|，|、|\|)\s*")
+COORDINATE_PATTERN = re.compile(r"^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$")
+CLIENT_IP_HEADERS = (
+    "CF-Connecting-IP",
+    "X-Forwarded-For",
+    "X-Real-IP",
+)
 CITY_HEADERS = (
     "X-Forwarded-City",
     "X-Appengine-City",
@@ -65,16 +73,25 @@ def _country_name(value):
 
 
 def get_client_ip():
-    forwarded_for = request.headers.get("X-Forwarded-For", "")
-    if forwarded_for:
-        for item in forwarded_for.split(","):
-            candidate = item.strip()
-            if candidate:
-                return candidate
-
-    real_ip = request.headers.get("X-Real-IP", "").strip()
-    if real_ip:
-        return real_ip
+    """
+    Return the current request client's public-facing IP.
+    In Render production, requests arrive through proxies that pass the client
+    address in forwarded headers; prefer those trusted proxy headers here.
+    Do not expose this raw IP in templates.
+    """
+    for header in CLIENT_IP_HEADERS:
+        value = request.headers.get(header, "")
+        if not value:
+            continue
+        if header == "X-Forwarded-For":
+            for item in value.split(","):
+                candidate = item.strip()
+                if candidate:
+                    return candidate
+            continue
+        candidate = value.strip()
+        if candidate:
+            return candidate
 
     return (request.remote_addr or "").strip() or None
 
@@ -95,17 +112,6 @@ def _is_private_or_local_ip(ip):
     )
 
 
-def _is_local_development_ip(ip):
-    if not ip:
-        return False
-    if ip in LOCAL_IPS:
-        return True
-    try:
-        return ip_address(ip).is_loopback
-    except ValueError:
-        return False
-
-
 def _header_location():
     city = None
     region = None
@@ -123,7 +129,7 @@ def _header_location():
         if country:
             break
     if city or region or country:
-        return {"city": city, "region": region or country}
+        return {"city": city, "region": region, "country": country}
     return None
 
 
@@ -134,13 +140,14 @@ def detect_city_from_ip(ip):
     if header_location:
         return header_location
 
-    if _is_local_development_ip(ip):
-        return LOCAL_DEVELOPMENT_LOCATION.copy()
-
     if _is_private_or_local_ip(ip):
         return UNKNOWN_LOCATION.copy()
 
     return UNKNOWN_LOCATION.copy()
+
+
+def detect_current_request_location():
+    return detect_city_from_ip(get_client_ip())
 
 
 def update_user_detected_location(user, force=False):
@@ -149,21 +156,77 @@ def update_user_detected_location(user, force=False):
 
     now = datetime.utcnow()
     client_ip = get_client_ip()
-    if hasattr(user, "last_ip"):
-        user.last_ip = client_ip
-    if (
-        not force
-        and user.last_location_detected_at
-        and now - user.last_location_detected_at < LOCATION_REFRESH_INTERVAL
-    ):
-        return {"city": user.detected_city, "region": user.detected_region}
-
     detected = detect_city_from_ip(client_ip)
     user.last_location_detected_at = now
     if detected:
-        user.detected_city = detected.get("city")
-        user.detected_region = detected.get("region")
+        detected_city = detected.get("city")
+        detected_region = detected.get("region") or detected.get("country")
+        if user.detected_city != detected_city:
+            user.detected_city = detected_city
+        if user.detected_region != detected_region:
+            user.detected_region = detected_region
     return detected
+
+
+def _is_ip_address(value):
+    try:
+        ip_address(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _usable_region_value(value):
+    value = (value or "").strip()
+    if (
+        not value
+        or value in UNKNOWN_LOCATION_LABELS
+        or _is_ip_address(value)
+        or COORDINATE_PATTERN.match(value)
+    ):
+        return None
+    return value
+
+
+def _region_parts(value):
+    clean_value = _usable_region_value(value)
+    if not clean_value:
+        return []
+    return [
+        part
+        for part in (
+            _usable_region_value(part)
+            for part in IP_REGION_SPLIT_PATTERN.split(clean_value)
+        )
+        if part
+    ]
+
+
+def format_ip_region_label(location_or_user):
+    if not location_or_user:
+        return UNKNOWN_REGION_LABEL
+
+    if isinstance(location_or_user, dict):
+        values = (
+            location_or_user.get("city"),
+            location_or_user.get("region"),
+            location_or_user.get("country"),
+        )
+    else:
+        values = (
+            getattr(location_or_user, "detected_city", None),
+            getattr(location_or_user, "detected_region", None),
+        )
+
+    for value in values:
+        for clean_value in _region_parts(value):
+            return clean_value
+    return UNKNOWN_REGION_LABEL
+
+
+def location_values(location_or_user):
+    label = format_ip_region_label(location_or_user)
+    return [] if label == UNKNOWN_REGION_LABEL else [label]
 
 
 def normalize_city(value):

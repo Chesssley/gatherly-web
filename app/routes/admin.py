@@ -22,6 +22,7 @@ from app.models import (
     skip_non_sqlite_schema_helper,
 )
 from app.utils.email_verification import verify_email_code
+from app.utils.location_utils import get_client_ip
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -115,7 +116,7 @@ def log_admin_action(admin_id, action, target_type, target_id, detail=None):
             target_type=target_type,
             target_id=target_id,
             detail=detail,
-            ip_address=request.remote_addr,
+            ip_address=get_client_ip(),
         )
     )
 
