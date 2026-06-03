@@ -20,9 +20,9 @@
         <h2 id="nearby-status-title">附近的人</h2>
         <p class="nearby-status-text">{{ '当前已开启' if nearby_user.nearby_enabled else '当前已关闭' }}</p>
         {% if nearby_location_label %}
-          <p class="nearby-location-hint">当前用于匹配的粗略地区：{{ nearby_location_label }}</p>
+          <p class="nearby-location-hint">当前用于匹配的粗略 IP 地区：{{ nearby_location_label }}</p>
         {% else %}
-          <p class="nearby-location-hint">暂时无法识别你的地区，请开启附近的人后刷新或完善城市信息。</p>
+          <p class="nearby-location-hint">暂时无法识别你的 IP 地区，请开启附近的人后刷新或完善城市信息。</p>
         {% endif %}
       </div>
       <form class="nearby-toggle-form" method="post" action="{{ url_for('profile.toggle_nearby') }}">
@@ -32,7 +32,7 @@
     </section>
     <div class="nearby-privacy-note">
       <strong>列表规则</strong>
-      <p>只显示主动开启“附近的人”、且与你处于同城 / 同地区的用户；不会展示真实 IP 或精确地址。</p>
+      <p>附近的人开关只影响是否出现在匹配列表中；个人主页会固定展示粗略 IP 地区。不会展示真实 IP 或精确地址。</p>
     </div>
     {% endif %}
 

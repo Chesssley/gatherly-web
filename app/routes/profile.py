@@ -1,4 +1,5 @@
 from functools import wraps
+from ipaddress import ip_address
 from urllib.parse import urlencode
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
@@ -36,7 +37,7 @@ BIO_MAX_LENGTH = 300
 INTERESTS_MAX_LENGTH = 500
 AVATAR_UPLOAD_SUBDIR = "avatars"
 AVATAR_LIMIT = upload_limit("avatar")
-UNKNOWN_LOCATION_LABELS = {"未知地区"}
+UNKNOWN_LOCATION_LABELS = {"未知地区", "未知"}
 
 
 def _section_filters(prefix):
@@ -277,6 +278,7 @@ def _profile_context(user, visibility, is_owner=True):
             "interactions": is_owner,
             "trust_score": _scope_is_visible(visibility.trust_score_scope, is_owner),
         },
+        "ip_region_label": _format_ip_region(user),
         "interests": _split_interests(user.interests) if (is_owner or bool(visibility.show_interests)) else [],
         "profile_stats": {
             "circles": circle_count if is_owner or visibility.circle_scope == PUBLIC_SCOPE else None,
@@ -288,6 +290,30 @@ def _profile_context(user, visibility, is_owner=True):
     }
 
 
+def _is_ip_address(value):
+    try:
+        ip_address(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _usable_ip_region_value(value):
+    value = (value or "").strip()
+    if not value or value in UNKNOWN_LOCATION_LABELS or _is_ip_address(value):
+        return None
+    return value
+
+
+def _format_ip_region(user):
+    values = []
+    for value in (user.city, user.detected_city, user.detected_region):
+        clean_value = _usable_ip_region_value(value)
+        if clean_value and clean_value not in values:
+            values.append(clean_value)
+    return " / ".join(values) if values else "未知"
+
+
 def _nearby_match_score(current_user, candidate):
     for current_index, current_location in enumerate(_nearby_location_values(current_user)):
         for candidate_index, candidate_location in enumerate(_nearby_location_values(candidate)):
@@ -297,10 +323,7 @@ def _nearby_match_score(current_user, candidate):
 
 
 def _usable_nearby_location(value):
-    value = (value or "").strip()
-    if not value or value in UNKNOWN_LOCATION_LABELS:
-        return None
-    return value
+    return _usable_ip_region_value(value)
 
 
 def _nearby_location_values(user):
@@ -661,7 +684,7 @@ def nearby_users():
             ),
         )[:60]
     else:
-        location_notice = "暂时无法识别你的地区，请开启附近的人后刷新或完善城市信息。"
+        location_notice = "暂时无法识别你的 IP 地区，请开启附近的人后刷新或完善城市信息。"
 
     return render_template(
         "users.html",
@@ -675,6 +698,7 @@ def nearby_users():
         nearby_mode=True,
         nearby_user=current_user,
         nearby_location_label=" / ".join(current_locations),
+        nearby_ip_region_labels={user.id: _format_ip_region(user) for user in users},
     )
 
 
