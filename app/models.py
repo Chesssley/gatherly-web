@@ -442,7 +442,7 @@ class DirectMessage(db.Model):
     recipient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     content = db.Column(db.Text)
     message_type = db.Column(db.String(20), default="text", nullable=False)
-    image_path = db.Column(db.String(255))
+    image_url = db.Column(db.String(255))
     read_at = db.Column(db.DateTime, index=True)
     expires_at = db.Column(db.DateTime, nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -551,8 +551,13 @@ def ensure_direct_message_schema():
                 "VARCHAR(20) NOT NULL DEFAULT 'text'"
             )
         )
-    if rows and "image_path" not in existing_columns:
-        db.session.execute(text("ALTER TABLE direct_message ADD COLUMN image_path VARCHAR(255)"))
+    if rows and "image_url" not in existing_columns:
+        if "image_path" in existing_columns:
+            db.session.execute(
+                text("ALTER TABLE direct_message RENAME COLUMN image_path TO image_url")
+            )
+        else:
+            db.session.execute(text("ALTER TABLE direct_message ADD COLUMN image_url VARCHAR(255)"))
     if rows and "expires_at" not in existing_columns:
         db.session.execute(text("ALTER TABLE direct_message ADD COLUMN expires_at DATETIME"))
         db.session.execute(
@@ -602,7 +607,7 @@ class MerchantVerification(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     business_name = db.Column(db.String(120), nullable=False)
     license_number = db.Column(db.String(120))
-    document_path = db.Column(db.String(255))
+    document_url = db.Column(db.String(255))
     reason = db.Column(db.Text)
     contact = db.Column(db.String(160))
     status = db.Column(db.String(20), default="pending", nullable=False)
@@ -637,8 +642,13 @@ def ensure_merchant_verification_schema():
     rows = db.session.execute(text("PRAGMA table_info(merchant_verification)")).fetchall()
     existing_columns = {row[1] for row in rows}
     statements = []
-    if rows and "document_path" not in existing_columns:
-        statements.append("ALTER TABLE merchant_verification ADD COLUMN document_path VARCHAR(255)")
+    if rows and "document_url" not in existing_columns:
+        if "document_path" in existing_columns:
+            statements.append(
+                "ALTER TABLE merchant_verification RENAME COLUMN document_path TO document_url"
+            )
+        else:
+            statements.append("ALTER TABLE merchant_verification ADD COLUMN document_url VARCHAR(255)")
     if rows and "reason" not in existing_columns:
         statements.append("ALTER TABLE merchant_verification ADD COLUMN reason TEXT")
     if rows and "contact" not in existing_columns:
@@ -756,7 +766,7 @@ class Post(db.Model):
 class PostImage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     post_id = db.Column(db.Integer, db.ForeignKey("post.id"), nullable=False)
-    image_path = db.Column(db.String(255), nullable=False)
+    image_url = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     post = db.relationship("Post", back_populates="images")
@@ -943,7 +953,7 @@ class Comment(db.Model):
 class CommentImage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     comment_id = db.Column(db.Integer, db.ForeignKey("comment.id"), nullable=False)
-    image_path = db.Column(db.String(255), nullable=False)
+    image_url = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     comment = db.relationship("Comment", back_populates="images")

@@ -15,8 +15,8 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="{{ merchant_verification_id_prefix }}document">营业执照 / 商家证明图片 <span class="form-required">*</span></label>
-      <input class="form-input" id="{{ merchant_verification_id_prefix }}document" name="document" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required>
-      <p class="form-hint">支持 JPG、PNG、WebP，图片必须小于 800KB。</p>
+      <input class="form-input" id="{{ merchant_verification_id_prefix }}document" name="document" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" required>
+      <p class="form-hint">支持 JPG、PNG、WebP 或 PDF，单个文件必须小于 {{ merchant_document_limit.max_file_size // 1024 // 1024 }} MB；图片会压缩为 WebP，PDF 保持原格式。</p>
     </div>
     <div class="form-group">
       <label class="form-label" for="{{ merchant_verification_id_prefix }}reason">认证理由 <span class="form-required">*</span></label>

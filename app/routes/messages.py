@@ -16,13 +16,14 @@ from app.models import (
     users_are_mutual_followers,
 )
 from app.services.storage import storage_url
-from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
+from app.utils.upload_limits import upload_limit
+from app.utils.upload_utils import delete_saved_images, save_image_files, validate_upload_files
 
 
 messages_bp = Blueprint("messages", __name__, url_prefix="/messages")
 
 MESSAGE_IMAGE_UPLOAD_SUBDIR = "messages"
-MESSAGE_IMAGE_MAX_BYTES = 800 * 1024
+MESSAGE_IMAGE_LIMIT = upload_limit("message_images")
 MESSAGE_TEXT_MAX_LENGTH = 2000
 
 
@@ -284,8 +285,8 @@ def _message_to_dict(message, current_user_id):
         "content": message.content or "",
         "message_type": message.message_type,
         "image_url": (
-            storage_url(message.image_path)
-            if message.image_path
+            storage_url(message.image_url)
+            if message.image_url
             else None
         ),
         "created_at": created_at_display,
@@ -398,8 +399,9 @@ def conversation(user_id):
     if request.method == "POST":
         permission_state = _message_permission_state(current_user_id, user_id)
         text_content = request.form.get("content", "").strip()
-        image_file = request.files.get("image")
-        if not text_content and not (image_file and image_file.filename):
+        image_files = request.files.getlist("image")
+        has_image = any(file and file.filename for file in image_files)
+        if not text_content and not has_image:
             flash("请输入文字或选择图片。", "error")
             return redirect(url_for("messages.conversation", user_id=user_id))
         if len(text_content) > MESSAGE_TEXT_MAX_LENGTH:
@@ -410,26 +412,37 @@ def conversation(user_id):
             return redirect(url_for("messages.conversation", user_id=user_id))
 
         try:
-            validated_images = validate_image_files(
-                [image_file],
-                max_count=1,
-                max_bytes=MESSAGE_IMAGE_MAX_BYTES,
-            )
+            validated_images = validate_upload_files(image_files, "message_images")
             saved_paths = save_image_files(validated_images, MESSAGE_IMAGE_UPLOAD_SUBDIR)
         except ValueError as error:
             flash(str(error), "error")
             return redirect(url_for("messages.conversation", user_id=user_id))
 
         try:
-            message = DirectMessage(
-                sender_id=current_user_id,
-                recipient_id=user_id,
-                content=text_content or None,
-                message_type="image" if saved_paths else "text",
-                image_path=saved_paths[0] if saved_paths else None,
-                expires_at=datetime.utcnow() + timedelta(days=DIRECT_MESSAGE_RETENTION_DAYS),
-            )
-            db.session.add(message)
+            if saved_paths:
+                for index, image_url in enumerate(saved_paths):
+                    db.session.add(
+                        DirectMessage(
+                            sender_id=current_user_id,
+                            recipient_id=user_id,
+                            content=text_content if index == 0 and text_content else None,
+                            message_type="image",
+                            image_url=image_url,
+                            expires_at=datetime.utcnow()
+                            + timedelta(days=DIRECT_MESSAGE_RETENTION_DAYS),
+                        )
+                    )
+            else:
+                db.session.add(
+                    DirectMessage(
+                        sender_id=current_user_id,
+                        recipient_id=user_id,
+                        content=text_content,
+                        message_type="text",
+                        expires_at=datetime.utcnow()
+                        + timedelta(days=DIRECT_MESSAGE_RETENTION_DAYS),
+                    )
+                )
             db.session.commit()
             flash("私信已发送。", "success")
         except Exception:
@@ -466,7 +479,8 @@ def conversation(user_id):
         message_notice=_message_notice(permission_state),
         to_utc_iso=to_utc_iso,
         last_message_id=last_message_id,
-        image_max_kb=MESSAGE_IMAGE_MAX_BYTES // 1024,
+        image_max_kb=MESSAGE_IMAGE_LIMIT["max_file_size"] // 1024,
+        image_max_count=MESSAGE_IMAGE_LIMIT["max_files"],
         text_max_length=MESSAGE_TEXT_MAX_LENGTH,
     )
 

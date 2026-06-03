@@ -155,7 +155,7 @@
     POST_IMAGE {
         int id PK
         int post_id FK
-        string image_path
+        string image_url
         datetime created_at
     }
 
@@ -174,7 +174,7 @@
     COMMENT_IMAGE {
         int id PK
         int comment_id FK
-        string image_path
+        string image_url
         datetime created_at
     }
 
@@ -271,7 +271,7 @@
         int recipient_id FK
         text content
         string message_type
-        string image_path
+        string image_url
         datetime read_at
         datetime expires_at
         datetime created_at
@@ -318,7 +318,7 @@
         int user_id FK
         string business_name
         string license_number
-        string document_path
+        string document_url
         text reason
         string contact
         string status

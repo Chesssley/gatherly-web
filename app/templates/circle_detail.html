@@ -65,8 +65,8 @@
     {% if comment.images %}
     <div class="circle-image-grid comment-image-grid">
         {% for image in comment.images %}
-        <a href="{{ image.image_path|asset_url }}" target="_blank" rel="noopener">
-            <img src="{{ image.image_path|asset_url }}" alt="评论图片 {{ loop.index }}">
+        <a href="{{ image.image_url|asset_url }}" target="_blank" rel="noopener">
+            <img src="{{ image.image_url|asset_url }}" alt="评论图片 {{ loop.index }}">
         </a>
         {% endfor %}
     </div>
@@ -113,11 +113,11 @@
                 type="file"
                 id="reply-images-{{ comment.id }}"
                 name="images"
-                accept=".jpg,.jpeg,.png,.webp"
+                accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
                 data-file-count-target="reply-image-count-{{ comment.id }}"
                 data-image-upload
-                data-max-count="1"
-                data-max-bytes="512000"
+                data-max-count="{{ comment_image_limit.max_files }}"
+                data-max-bytes="{{ comment_image_limit.max_file_size }}"
             >
             <label class="file-upload-button" for="reply-images-{{ comment.id }}">选择图片</label>
             <span class="file-upload-count" id="reply-image-count-{{ comment.id }}">未选择图片</span>
@@ -345,7 +345,7 @@
                         {% for item in photo_items %}
                         <div class="circle-photo-item">
                             <a href="#post-{{ item.post.id }}">
-                                <img src="{{ item.image.image_path|asset_url }}" alt="{{ item.post.title }} 图片">
+                                <img src="{{ item.image.image_url|asset_url }}" alt="{{ item.post.title }} 图片">
                             </a>
                             {% if item.can_delete %}
                             <form method="POST" action="{{ url_for('circle.delete_post_image', image_id=item.image.id) }}" onsubmit="return confirm('确定删除这张照片吗？');">
@@ -412,8 +412,8 @@
                                 {% if post.images %}
                                 <div class="circle-image-grid">
                                     {% for image in post.images %}
-                                    <a href="{{ image.image_path|asset_url }}" target="_blank" rel="noopener">
-                                        <img src="{{ image.image_path|asset_url }}" alt="{{ post.title }} 图片 {{ loop.index }}">
+                                    <a href="{{ image.image_url|asset_url }}" target="_blank" rel="noopener">
+                                        <img src="{{ image.image_url|asset_url }}" alt="{{ post.title }} 图片 {{ loop.index }}">
                                     </a>
                                     {% endfor %}
                                 </div>
@@ -477,11 +477,11 @@
                                             type="file"
                                             id="comment-images-{{ post.id }}"
                                             name="images"
-                                            accept=".jpg,.jpeg,.png,.webp"
+                                            accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
                                             data-file-count-target="comment-image-count-{{ post.id }}"
                                             data-image-upload
-                                            data-max-count="1"
-                                            data-max-bytes="512000"
+                                            data-max-count="{{ comment_image_limit.max_files }}"
+                                            data-max-bytes="{{ comment_image_limit.max_file_size }}"
                                         >
                                         <label class="file-upload-button" for="comment-images-{{ post.id }}">选择图片</label>
                                         <span class="file-upload-count" id="comment-image-count-{{ post.id }}">未选择图片</span>
@@ -592,7 +592,7 @@
 
                     <section class="management-card">
                         <h2 class="circle-management-title">修改圈子封面</h2>
-                        <p class="form-hint">支持 jpg、jpeg、png、webp，单张图片需小于 800KB。</p>
+                        <p class="form-hint">支持 jpg、jpeg、png、webp，单张图片需小于 {{ circle_cover_limit.max_file_size // 1024 // 1024 }} MB，上传后会压缩为 WebP。</p>
                         <form method="POST" action="{{ url_for('circle.update_circle_cover', circle_id=circle.id) }}" enctype="multipart/form-data">
                             <div class="file-upload-control">
                                 <input
@@ -604,8 +604,8 @@
                                     required
                                     data-file-count-target="circle-cover-image-count"
                                     data-image-upload
-                                    data-max-count="1"
-                                    data-max-bytes="819200"
+                                    data-max-count="{{ circle_cover_limit.max_files }}"
+                                    data-max-bytes="{{ circle_cover_limit.max_file_size }}"
                                 >
                                 <label class="file-upload-button" for="circle-cover-image">选择封面</label>
                                 <span class="file-upload-count" id="circle-cover-image-count">未选择图片</span>

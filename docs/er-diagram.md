@@ -4,7 +4,7 @@
 
 本 ER 图根据当前 `app/models.py` 整理。当前正式数据库是 Neon PostgreSQL，数据库结构由 SQLAlchemy models + Flask-Migrate / Alembic migrations 管理。
 
-图片文件本体存储在 Cloudflare R2。图中的 `avatar`、`image`、`cover_image`、`image_path`、`document_path` 都是当前代码里的真实字段名；它们在生产语义上保存 URL / object key，不表示生产环境保存本地文件路径。
+图片文件本体存储在 Cloudflare R2。图中的 `avatar`、`image`、`cover_image`、`image_url`、`document_url` 都是当前代码里的真实字段名；它们在生产语义上保存 URL，不表示生产环境保存本地文件路径。
 
 ## 实体与表名
 
@@ -192,7 +192,7 @@ erDiagram
     POST_IMAGE {
         int id PK
         int post_id FK
-        string image_path
+        string image_url
         datetime created_at
     }
 
@@ -211,7 +211,7 @@ erDiagram
     COMMENT_IMAGE {
         int id PK
         int comment_id FK
-        string image_path
+        string image_url
         datetime created_at
     }
 
@@ -308,7 +308,7 @@ erDiagram
         int recipient_id FK
         text content
         string message_type
-        string image_path
+        string image_url
         datetime read_at
         datetime expires_at
         datetime created_at
@@ -355,7 +355,7 @@ erDiagram
         int user_id FK
         string business_name
         string license_number
-        string document_path
+        string document_url
         text reason
         string contact
         string status

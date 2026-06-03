@@ -164,18 +164,18 @@
                                         type="file"
                                         id="image"
                                         name="image"
-                                        accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                                        accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
                                         data-file-count-target="activity-image-count"
                                         data-image-upload
                                         data-activity-image-preview
-                                        data-max-count="1"
-                                        data-max-bytes="819200"
+                                        data-max-count="{{ activity_image_limit.max_files }}"
+                                        data-max-bytes="{{ activity_image_limit.max_file_size }}"
                                         required
                                     >
                                     <label class="file-upload-button" for="image">选择图片</label>
                                     <span class="file-upload-count" id="activity-image-count">未选择图片</span>
                                 </div>
-                                <p class="form-hint">支持 JPG、PNG、WebP，单张图片小于 800KB。继续复用后端已有上传校验。</p>
+                                <p class="form-hint">支持 JPG、PNG、WebP、GIF，单张图片小于 {{ activity_image_limit.max_file_size // 1024 // 1024 }} MB，上传后会压缩为 WebP。</p>
                             </div>
 
                             <fieldset class="form-group">

@@ -26,7 +26,8 @@ from app.models import (
     is_verified_merchant,
 )
 from app.services.storage import storage_url
-from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
+from app.utils.upload_limits import upload_limit
+from app.utils.upload_utils import delete_saved_images, save_image_files, validate_upload_files
 from app.utils.location_utils import locations_match, normalize_city
 
 def login_required(f):
@@ -57,7 +58,7 @@ CANCEL_REASON_LABELS = {
     "other": "其他",
 }
 TRUST_SCORE_THRESHOLD = 60
-ACTIVITY_IMAGE_MAX_BYTES = 800 * 1024
+ACTIVITY_IMAGE_LIMIT = upload_limit("activity_cover")
 ACTIVITY_IMAGE_UPLOAD_SUBDIR = "activities"
 ACTIVITY_CARD_AVATAR_LIMIT = 4
 ACTIVITY_ATTENDEE_DISPLAY_LIMIT = 7
@@ -1480,6 +1481,7 @@ def create_activity():
             interest_tags=OFFICIAL_INTEREST_TAGS,
             circles=_available_activity_circles(),
             can_publish_verified_activity=can_publish_verified_activity,
+            activity_image_limit=ACTIVITY_IMAGE_LIMIT,
         )
 
     title = request.form.get("title", "").strip()
@@ -1550,10 +1552,9 @@ def create_activity():
 
     validated_images = []
     try:
-        validated_images = validate_image_files(
+        validated_images = validate_upload_files(
             [request.files.get("image")],
-            max_count=1,
-            max_bytes=ACTIVITY_IMAGE_MAX_BYTES,
+            "activity_cover",
         )
         if not validated_images:
             errors.append("请上传一张活动图片。")
@@ -1569,6 +1570,7 @@ def create_activity():
             interest_tags=OFFICIAL_INTEREST_TAGS,
             circles=_available_activity_circles(),
             can_publish_verified_activity=can_publish_verified_activity,
+            activity_image_limit=ACTIVITY_IMAGE_LIMIT,
         ), 400
 
     saved_paths = []
@@ -1619,6 +1621,7 @@ def create_activity():
             interest_tags=OFFICIAL_INTEREST_TAGS,
             circles=_available_activity_circles(),
             can_publish_verified_activity=can_publish_verified_activity,
+            activity_image_limit=ACTIVITY_IMAGE_LIMIT,
         ), 500
 
     flash("活动发布成功。", "success")

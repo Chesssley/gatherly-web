@@ -51,13 +51,13 @@
                             accept=".jpg,.jpeg,.png,.webp"
                             data-file-count-target="circle-cover-count"
                             data-image-upload
-                            data-max-count="1"
-                            data-max-bytes="819200"
+                            data-max-count="{{ circle_cover_limit.max_files }}"
+                            data-max-bytes="{{ circle_cover_limit.max_file_size }}"
                         >
                         <label class="file-upload-button" for="cover_image">选择封面</label>
                         <span class="file-upload-count" id="circle-cover-count">未选择图片</span>
                     </div>
-                    <p class="form-hint">可选。支持 jpg、jpeg、png、webp，单张图片必须小于 800KB。</p>
+                    <p class="form-hint">可选。支持 jpg、jpeg、png、webp，单张图片必须小于 {{ circle_cover_limit.max_file_size // 1024 // 1024 }} MB，上传后会压缩为 WebP。</p>
                 </div>
                 <button class="button" type="submit">创建同好圈</button>
                 <a class="button button-secondary" href="{{ url_for('circle.circles') }}">返回列表</a>

@@ -23,7 +23,8 @@ from app.models import (
     get_user_display_name,
 )
 from app.utils.location_utils import locations_match, update_user_detected_location
-from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
+from app.utils.upload_limits import upload_limit
+from app.utils.upload_utils import delete_saved_images, save_image_files, validate_upload_files
 
 profile_bp = Blueprint("profile", __name__, url_prefix="/profile")
 
@@ -33,7 +34,7 @@ SORT_OPTIONS = {"newest", "oldest"}
 BIO_MAX_LENGTH = 300
 INTERESTS_MAX_LENGTH = 500
 AVATAR_UPLOAD_SUBDIR = "avatars"
-AVATAR_MAX_BYTES = 700 * 1024
+AVATAR_LIMIT = upload_limit("avatar")
 UNKNOWN_LOCATION_LABELS = {"未知地区"}
 
 
@@ -141,7 +142,7 @@ def _save_avatar(file):
     if not file or not file.filename:
         return None
 
-    validated_images = validate_image_files([file], max_count=1, max_bytes=AVATAR_MAX_BYTES)
+    validated_images = validate_upload_files([file], "avatar")
     saved_paths = save_image_files(validated_images, AVATAR_UPLOAD_SUBDIR)
     return saved_paths[0] if saved_paths else None
 
