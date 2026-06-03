@@ -1,4 +1,4 @@
-{% macro list_filters(endpoint, filters, status_options=(), type_options=(), prefix='', reset_url='', anchor='', show_empty_filters=false) %}
+{% macro list_filters(endpoint, filters, status_options=(), type_options=(), prefix='', reset_url='', anchor='', show_empty_filters=false, search_placeholder='搜索标题、正文、用户名、地点、标签或圈子名') %}
 {% set field_prefix = prefix ~ '_' if prefix else '' %}
 {% set field_id = prefix if prefix else endpoint|replace('.', '-') %}
 <form class="list-filter-card" method="get" action="{{ request.path }}{% if anchor %}#{{ anchor }}{% endif %}">
@@ -11,7 +11,7 @@
   {% endif %}
   <div class="list-filter-field list-filter-search">
     <label for="{{ field_id }}-q">搜索</label>
-    <input class="form-input" id="{{ field_id }}-q" name="{{ field_prefix }}q" type="search" value="{{ filters.q }}" placeholder="搜索标题、正文、用户名、地点、标签或圈子名">
+    <input class="form-input" id="{{ field_id }}-q" name="{{ field_prefix }}q" type="search" value="{{ filters.q }}" placeholder="{{ search_placeholder }}">
   </div>
   {% if status_options or show_empty_filters %}
   <div class="list-filter-field">

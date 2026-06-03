@@ -1,5 +1,6 @@
 from datetime import datetime
 from functools import wraps
+from ipaddress import ip_address
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import func, or_, text
@@ -22,7 +23,7 @@ from app.models import (
     skip_non_sqlite_schema_helper,
 )
 from app.utils.email_verification import verify_email_code
-from app.utils.location_utils import get_client_ip
+from app.utils.location_utils import COUNTRY_NAME_MAP, format_ip_region, get_client_ip
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -49,6 +50,71 @@ def _apply_sort(query, created_at, item_id):
     if request.args.get("sort") == "oldest":
         return query.order_by(created_at.asc(), item_id.asc())
     return query.order_by(created_at.desc(), item_id.desc())
+
+
+def _mask_ip_address(value):
+    value = (value or "").strip()
+    if not value or value.lower() == "unknown":
+        return ""
+    try:
+        parsed_ip = ip_address(value)
+    except ValueError:
+        return ""
+    if parsed_ip.version == 4:
+        parts = value.split(".")
+        if len(parts) == 4:
+            return f"{parts[0]}.{parts[1]}.*.*"
+    parts = parsed_ip.exploded.split(":")
+    return f"{parts[0]}:{parts[1]}:*:*:*:*:*:*"
+
+
+def _admin_user_ip_region_label(user):
+    return format_ip_region(user) or "未知"
+
+
+def _country_search_terms(query_text):
+    query_text = (query_text or "").strip()
+    if not query_text:
+        return set()
+    normalized_query = query_text.casefold()
+    terms = {query_text}
+    for raw_value, label in COUNTRY_NAME_MAP.items():
+        if normalized_query in raw_value.casefold() or normalized_query in label.casefold():
+            terms.add(raw_value)
+            terms.add(label)
+    return terms
+
+
+def _admin_user_matches_search(user, query_text):
+    normalized_query = (query_text or "").strip().casefold()
+    if not normalized_query:
+        return True
+
+    generic_values = (
+        user.username,
+        user.nickname,
+        user.email,
+        user.city,
+        user.interests,
+        user.detected_city,
+        user.detected_region,
+        _admin_user_ip_region_label(user),
+        user.last_ip,
+        _mask_ip_address(user.last_ip),
+    )
+    if any(normalized_query in (value or "").casefold() for value in generic_values):
+        return True
+
+    region_values = (
+        user.detected_city,
+        user.detected_region,
+        _admin_user_ip_region_label(user),
+    )
+    return any(
+        term.casefold() in (value or "").casefold()
+        for term in _country_search_terms(query_text)
+        for value in region_values
+    )
 
 
 def get_current_user():
@@ -293,21 +359,13 @@ def admin_users():
     _ensure_admin_schema()
     filters = _list_filters()
     query = User.query
-    if filters["q"]:
-        pattern = f"%{filters['q']}%"
-        query = query.filter(
-            or_(
-                User.username.ilike(pattern),
-                User.nickname.ilike(pattern),
-                User.email.ilike(pattern),
-                User.interests.ilike(pattern),
-            )
-        )
     if filters["status"]:
         query = query.filter(User.status == filters["status"])
     if filters["type"]:
         query = query.filter(User.role == filters["type"])
     users = _apply_sort(query, User.created_at, User.id).all()
+    if filters["q"]:
+        users = [user for user in users if _admin_user_matches_search(user, filters["q"])]
     verified_merchant_user_ids = {
         row[0]
         for row in db.session.query(MerchantVerification.user_id)
@@ -318,6 +376,8 @@ def admin_users():
     return render_template(
         "admin_users.html",
         users=users,
+        ip_region_labels={user.id: _admin_user_ip_region_label(user) for user in users},
+        masked_ip_addresses={user.id: _mask_ip_address(user.last_ip) for user in users},
         verified_merchant_user_ids=verified_merchant_user_ids,
         filters=filters,
         status_options=sorted(USER_STATUSES | {"deleted"}),
