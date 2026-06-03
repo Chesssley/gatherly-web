@@ -1,168 +1,207 @@
 # 项目结构
 
-最后更新时间：2026-06-04
+最后更新：2026-06-04
 
-本文根据当前仓库真实文件结构整理。不要以旧文档中的目录为准。
+本文根据当前仓库真实结构整理。当前正式部署架构为 Render + Neon PostgreSQL + Cloudflare R2 + GitHub。
 
-## 当前目录树
+## 当前根目录
 
 ```text
 gatherly-web/
-├── .gitignore
-├── README.md
-├── gatherly_export.json
-├── gatherly_uploads_backup.zip
-├── init_db.py
-├── requirements.txt
-├── run.py
-├── seed_data.py
-├── wsgi.py
-├── app/
-│   ├── __init__.py
-│   ├── forms.py
-│   ├── models.py
-│   ├── routes/
-│   │   ├── __init__.py
-│   │   ├── activity.py
-│   │   ├── admin.py
-│   │   ├── auth.py
-│   │   ├── circle.py
-│   │   ├── messages.py
-│   │   ├── notifications.py
-│   │   └── profile.py
-│   ├── services/
-│   │   ├── __init__.py
-│   │   └── storage.py
-│   ├── static/
-│   │   ├── css/
-│   │   │   └── style.css
-│   │   ├── js/
-│   │   │   ├── avatar-crop.js
-│   │   │   ├── circle.js
-│   │   │   └── main.js
-│   │   └── images/
-│   │       ├── activities/
-│   │       ├── circle_covers/
-│   │       ├── circles/
-│   │       ├── favicon.ico
-│   │       └── placeholder-activity.jpg
-│   ├── templates/
-│   │   ├── base.html
-│   │   ├── index.html
-│   │   ├── activity_detail.html
-│   │   ├── activity_create.html
-│   │   ├── circle.html
-│   │   ├── circle_detail.html
-│   │   ├── create_circle.html
-│   │   ├── create_post.html
-│   │   ├── login.html
-│   │   ├── register.html
-│   │   ├── profile.html
-│   │   ├── messages.html
-│   │   ├── notifications.html
-│   │   └── admin_*.html
-│   └── utils/
-│       ├── email_verification.py
-│       ├── location_utils.py
-│       └── upload_utils.py
-├── docs/
-│   ├── README.md
-│   ├── project-overview.md
-│   ├── project-structure.md
-│   ├── requirements.md
-│   ├── product-backlog.md
-│   ├── database-design.md
-│   ├── er-diagram.md
-│   ├── er-diagram.mmd
-│   ├── github-workflow.md
-│   ├── issue-management.md
-│   ├── development-guide.md
-│   ├── style-guide.md
-│   ├── test-report.md
-│   ├── meeting-notes.md
-│   ├── deployment-guide.md
-│   ├── screenshots/
-│   └── archive/
-├── migrations/
-│   ├── alembic.ini
-│   ├── env.py
-│   └── versions/
-└── scripts/
-    ├── add_nickname_column.py
-    ├── backfill_circle_covers.py
-    ├── export_data.py
-    ├── import_data.py
-    └── migrate_uploads_to_r2.py
+|-- .gitignore
+|-- README.md
+|-- gatherly_export.json
+|-- gatherly_uploads_backup.zip
+|-- init_db.py
+|-- requirements.txt
+|-- run.py
+|-- seed_data.py
+|-- wsgi.py
+|-- app/
+|-- docs/
+|-- instance/
+|-- migrations/
+`-- scripts/
 ```
 
-## 关键目录说明
+说明：
+
+- 当前仓库没有 `render.yaml`。Render 配置以 Render Dashboard 中的 Web Service 设置为准。
+- 根目录存在 `gatherly_export.json` 和 `gatherly_uploads_backup.zip`，它们看起来像历史迁移/备份文件。真实数据库备份和图片备份不应提交到 GitHub，建议另开清理 Issue 处理。
+
+## app/
+
+```text
+app/
+|-- __init__.py
+|-- forms.py
+|-- models.py
+|-- routes/
+|   |-- __init__.py
+|   |-- activity.py
+|   |-- admin.py
+|   |-- auth.py
+|   |-- circle.py
+|   |-- messages.py
+|   |-- notifications.py
+|   `-- profile.py
+|-- services/
+|   |-- __init__.py
+|   `-- storage.py
+|-- static/
+|   |-- css/
+|   |   `-- style.css
+|   |-- images/
+|   |   |-- activities/
+|   |   |-- circle_covers/
+|   |   |-- circles/
+|   |   |-- favicon.ico
+|   |   `-- placeholder-activity.jpg
+|   |-- js/
+|   |   |-- avatar-crop.js
+|   |   |-- circle.js
+|   |   `-- main.js
+|   `-- uploads/
+|       |-- avatars/
+|       |-- circle/
+|       |-- comments/
+|       `-- messages/
+|-- templates/
+`-- utils/
+    |-- email_verification.py
+    |-- location_utils.py
+    `-- upload_utils.py
+```
 
 | 路径 | 说明 |
 |---|---|
-| `app/` | Flask 应用主目录，包含模型、路由、模板、静态资源、服务和工具函数 |
-| `app/routes/` | Flask Blueprint 路由模块，按业务域拆分 |
-| `app/templates/` | Jinja2 HTML 模板目录 |
-| `app/static/css/` | CSS 样式目录，当前主要文件为 `style.css` |
-| `app/static/js/` | 原生 JavaScript 文件目录 |
-| `app/static/images/` | 本地图片、活动图片、圈子图片、favicon 和占位图 |
-| `app/services/` | 服务层辅助代码，当前包含 Cloudflare R2 对象存储 URL 和上传处理 |
-| `app/utils/` | 上传、定位、邮箱验证码等工具函数 |
-| `docs/` | 项目文档、ER 图、测试报告、会议记录和归档 |
-| `docs/screenshots/` | 课程交付截图目录，已有截图不要删除 |
-| `docs/archive/` | 历史文档归档目录 |
-| `migrations/` | Flask-Migrate / Alembic 数据库迁移目录 |
-| `scripts/` | 数据导入导出、Neon 数据迁移、R2 上传迁移、圈子封面补齐等脚本 |
-| `instance/` | Flask instance 目录，本地 SQLite 数据库通常位于这里；一般不提交数据库文件 |
+| `app/__init__.py` | Flask app factory，初始化数据库、Flask-Migrate、CSRF、模板过滤器和蓝图。`DATABASE_URL` 存在时连接对应数据库；否则本地 fallback 到 SQLite。 |
+| `app/models.py` | 所有 SQLAlchemy 模型、关系、约束和部分 SQLite 兼容 helper。高风险文件。 |
+| `app/routes/` | 按业务域拆分的 Flask Blueprint 路由。 |
+| `app/services/storage.py` | Cloudflare R2 上传、删除、URL 处理和本地 fallback 逻辑。生产环境必须配置 R2。 |
+| `app/utils/upload_utils.py` | 图片类型校验、大小校验、上传保存和删除封装。 |
+| `app/static/images/` | 代码内置静态图片、默认图、favicon 和课程演示图片。不是用户真实上传图片的生产存储。 |
+| `app/static/uploads/` | 当前仓库存在的历史上传目录 / 本地开发 fallback。Render 生产环境不能把它当作持久化存储；生产上传应进入 Cloudflare R2。 |
+| `app/templates/` | Jinja2 HTML 模板。 |
 
-## 关键文件说明
+## docs/
 
-| 文件 | 作用 | 风险 |
-|---|---|---|
-| `app/__init__.py` | 创建 Flask app、配置数据库、CSRF、迁移、模板过滤器，并注册所有蓝图 | 高风险 |
-| `app/models.py` | 定义所有 SQLAlchemy 数据模型、关系、约束和部分 schema 兼容函数 | 高风险 |
-| `app/forms.py` | WTForms 表单定义 | 中风险 |
-| `app/routes/activity.py` | 首页、搜索、活动详情、发布、报名、收藏、评论、评分和我的活动 | 中高风险 |
-| `app/routes/auth.py` | 注册、登录、退出、邮箱验证码、账号设置和密码相关流程 | 中高风险 |
-| `app/routes/circle.py` | 同好圈、成员、帖子、评论、图片和互动 | 中高风险 |
-| `app/routes/profile.py` | 个人主页、用户搜索、附近的人、关注、个人内容管理 | 中高风险 |
-| `app/routes/messages.py` | 私信会话、轮询、发送、隐藏和删除会话 | 中风险 |
-| `app/routes/notifications.py` | 通知列表、未读数量、标记已读 | 中风险 |
-| `app/routes/admin.py` | 管理员后台、用户/活动/圈子/帖子/评论/认证/日志管理 | 中高风险 |
-| `app/templates/base.html` | 全站基础模板、导航栏、flash 消息和公共布局 | 中风险 |
-| `app/static/css/style.css` | 全站主要样式文件，体量较大，影响所有页面视觉 | 中风险 |
-| `app/static/js/main.js` | 全站主要交互脚本，影响搜索、消息、提示等交互 | 中风险 |
-| `requirements.txt` | Python 依赖列表 | 高风险 |
-| `run.py` | 本地启动入口，调用 `create_app()` 并启动 Flask debug server | 高风险 |
-| `wsgi.py` | WSGI 部署入口 | 中风险 |
-| `scripts/export_data.py` | 从当前数据库导出 `gatherly_export.json`，用于迁移到 Neon | 中风险 |
-| `scripts/import_data.py` | 将 `gatherly_export.json` 导入 PostgreSQL / Neon，并修复 sequence | 中高风险 |
-| `scripts/migrate_uploads_to_r2.py` | 将本地 `app/static/uploads/` 文件迁移到 Cloudflare R2 并更新数据库 URL | 中高风险 |
-| `init_db.py` | 初始化数据库和部分基础数据 | 中高风险 |
-| `.gitignore` | 控制哪些文件不进入 Git | 高风险 |
+```text
+docs/
+|-- README.md
+|-- project-overview.md
+|-- project-structure.md
+|-- requirements.md
+|-- product-backlog.md
+|-- database-design.md
+|-- er-diagram.md
+|-- er-diagram.mmd
+|-- deployment-guide.md
+|-- development-guide.md
+|-- maintenance-guide.md
+|-- github-workflow.md
+|-- issue-management.md
+|-- test-report.md
+|-- meeting-notes.md
+|-- style-guide.md
+|-- screenshots/
+`-- archive/
+```
 
-## 高风险文件说明
+| 路径 | 说明 |
+|---|---|
+| `docs/database-design.md` | 当前真实数据库模型说明，正式数据库为 Neon PostgreSQL。 |
+| `docs/er-diagram.md` | 当前模型 Mermaid ER 图。 |
+| `docs/er-diagram.mmd` | Mermaid 源文件。 |
+| `docs/deployment-guide.md` | Render + Neon + R2 正式部署指南。 |
+| `docs/development-guide.md` | 本地开发、迁移、PR 和安全规则。 |
+| `docs/maintenance-guide.md` | 日常维护、数据库维护、R2、Render、GitHub 和泄露处理。 |
+| `docs/archive/` | 历史阶段文档。旧 PythonAnywhere / SQLite / 本地上传说明只能作为历史材料保留。 |
+| `docs/screenshots/er-diagram.png` | 历史 ER 图截图；当前事实来源以 `er-diagram.md` 和 `er-diagram.mmd` 为准。 |
 
-以下文件不要随便改：
+## migrations/
 
-- `app/models.py`
-- `app/__init__.py`
-- `run.py`
-- `requirements.txt`
-- `.gitignore`
+```text
+migrations/
+|-- README
+|-- alembic.ini
+|-- env.py
+|-- script.py.mako
+`-- versions/
+    `-- 52ce70c39825_initial_schema.py
+```
 
-原因：
+`migrations/` 是 Flask-Migrate / Alembic 数据库迁移版本目录。它是数据库 schema 的正式版本记录，必须随 `app/models.py` 的字段变更一起提交。
 
-- `app/models.py` 改动会影响数据库字段、外键、关系和迁移。
-- `app/__init__.py` 改动会影响应用是否能启动、蓝图是否注册、数据库和 CSRF 是否正常。
-- `run.py` 是本地运行入口，改错会导致新手无法启动项目。
-- `requirements.txt` 改动会影响所有成员安装依赖，不应随意新增技术栈。
-- `.gitignore` 改错可能导致数据库、缓存、上传文件或环境文件被误提交。
+生产 schema 变更流程：
 
-## 新手修改建议
+```powershell
+$env:FLASK_APP='wsgi:app'
+$env:DATABASE_URL='<Neon Direct URL, not the pooler URL>'
+flask db migrate -m "describe schema change"
+flask db upgrade
+```
 
-1. 只改自己 Issue 对应的文件。
-2. 修改前先确认当前分支，不要直接在 `main` 开发。
-3. 改模板前先看 `base.html` 是否已有公共结构。
-4. 改 CSS 前先搜索现有类名，优先复用当前样式。
-5. 改模型前必须先和组员确认，并同步更新 `database-design.md` 和 `er-diagram.md`。
-6. 不要引入 React、Vue、Bootstrap、新数据库或新依赖。
+不要依赖 `db.create_all()` 作为生产 schema 更新方式。
+
+## scripts/
+
+```text
+scripts/
+|-- add_nickname_column.py
+|-- backfill_circle_covers.py
+|-- export_data.py
+|-- import_data.py
+`-- migrate_uploads_to_r2.py
+```
+
+| 脚本 | 说明 |
+|---|---|
+| `scripts/export_data.py` | 导出当前数据库数据，用于迁移准备。 |
+| `scripts/import_data.py` | 导入导出的 JSON 到 PostgreSQL / Neon，并修复 sequence。 |
+| `scripts/migrate_uploads_to_r2.py` | 将历史本地上传文件迁移到 Cloudflare R2，并更新数据库中的 URL。 |
+| `scripts/backfill_circle_covers.py` | 补齐圈子封面。 |
+| `scripts/add_nickname_column.py` | 历史字段辅助脚本；当前正式 schema 应以 migrations 为准。 |
+
+脚本可能处理真实数据。导出的 JSON、数据库备份和图片备份不要提交到 GitHub。
+
+## instance/
+
+`instance/` 是 Flask instance 目录。当前代码在未设置 `DATABASE_URL` 时，SQLite fallback 通常会在该目录下创建 `gatherly.db`。
+
+这只适用于本地开发：
+
+- `instance/` 不是正式生产数据目录。
+- Render 不应长期保存 SQLite 数据库。
+- 生产用户数据必须保存到 Neon PostgreSQL。
+
+## 入口文件
+
+| 文件 | 说明 |
+|---|---|
+| `wsgi.py` | Render / gunicorn 生产入口：`app = create_app()`。 |
+| `run.py` | 本地开发入口，debug server。 |
+| `init_db.py` | 本地初始化和演示数据初始化脚本；生产 schema 变更以 migrations 为准。 |
+| `seed_data.py` | 示例数据脚本。 |
+| `requirements.txt` | Python 依赖，包含 Flask、Flask-SQLAlchemy、Flask-Migrate、gunicorn、psycopg2-binary、boto3 等。 |
+
+## 高风险文件
+
+| 文件 | 风险 |
+|---|---|
+| `app/models.py` | 改动会影响数据库 schema，需要 migration。 |
+| `migrations/` | 影响 Neon PostgreSQL schema，必须审查。 |
+| `app/__init__.py` | 影响数据库连接、迁移初始化、蓝图注册和安全配置。 |
+| `app/services/storage.py` | 影响 R2 上传、删除和本地 fallback。 |
+| `requirements.txt` | 影响 Render build 和所有开发环境。 |
+| `.gitignore` | 改错可能导致 `.env`、数据库或上传备份被提交。 |
+
+## 存储边界
+
+| 内容 | 应存放位置 |
+|---|---|
+| 源码、模板、CSS、JS、README、docs、migrations | GitHub |
+| 用户账号、活动、报名、评分、私信、通知、日志、图片 URL | Neon PostgreSQL |
+| 用户上传图片和认证材料文件本体 | Cloudflare R2 |
+| 环境变量和密钥 | Render Environment / 本地 `.env` |
+| Render runtime | 只运行应用，不作为持久化数据存储 |
