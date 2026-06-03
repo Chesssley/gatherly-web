@@ -9,6 +9,7 @@ LOCAL_IPS = {"127.0.0.1", "::1", "localhost"}
 UNKNOWN_LOCATION = {"city": None, "region": "未知地区"}
 UNKNOWN_REGION_LABEL = "未知"
 UNKNOWN_LOCATION_LABELS = {"未知", "未知地区"}
+_MISSING = object()
 IP_REGION_SPLIT_PATTERN = re.compile(r"\s*(?:/|／|,|，|、|\|)\s*")
 COORDINATE_PATTERN = re.compile(r"^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$")
 CLIENT_IP_HEADERS = (
@@ -133,6 +134,33 @@ def _header_location():
     return None
 
 
+def _single_region_label(*values):
+    for value in values:
+        for clean_value in _region_parts(value):
+            return clean_value
+    return UNKNOWN_REGION_LABEL
+
+
+def resolve_ip_region(ip):
+    """
+    Return one display-safe region label for the current request IP.
+    This project has no bundled IP database yet, so real IP lookup only works
+    when a trusted proxy/CDN provides geo headers for the same request.
+    """
+    header_location = _header_location()
+    if header_location:
+        return _single_region_label(
+            header_location.get("city"),
+            header_location.get("region"),
+            header_location.get("country"),
+        )
+
+    if _is_private_or_local_ip(ip):
+        return UNKNOWN_REGION_LABEL
+
+    return UNKNOWN_REGION_LABEL
+
+
 def detect_city_from_ip(ip):
     # Some deployment platforms or reverse proxies can provide coarse geo headers.
     # Without such headers, keep this dependency-free and fail closed.
@@ -202,30 +230,32 @@ def _region_parts(value):
     ]
 
 
-def format_ip_region_label(location_or_user):
+def format_ip_region(location_or_user=_MISSING):
+    if location_or_user is _MISSING:
+        return resolve_ip_region(get_client_ip())
+
     if not location_or_user:
         return UNKNOWN_REGION_LABEL
 
     if isinstance(location_or_user, dict):
-        values = (
+        return _single_region_label(
             location_or_user.get("city"),
             location_or_user.get("region"),
             location_or_user.get("country"),
         )
     else:
-        values = (
+        return _single_region_label(
             getattr(location_or_user, "detected_city", None),
             getattr(location_or_user, "detected_region", None),
         )
 
-    for value in values:
-        for clean_value in _region_parts(value):
-            return clean_value
-    return UNKNOWN_REGION_LABEL
+
+def format_ip_region_label(location_or_user):
+    return format_ip_region(location_or_user)
 
 
 def location_values(location_or_user):
-    label = format_ip_region_label(location_or_user)
+    label = format_ip_region(location_or_user)
     return [] if label == UNKNOWN_REGION_LABEL else [label]
 
 
