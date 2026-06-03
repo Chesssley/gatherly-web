@@ -5,7 +5,7 @@
 {% block content %}
 <section class="section message-page">
   <div class="container">
-    <div class="message-shell">
+    <div class="message-shell {% if active_user %}has-active-chat{% endif %}">
       <aside class="message-sidebar" aria-label="私信列表">
         <div class="message-sidebar-heading">
           <div>
