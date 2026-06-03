@@ -1,3 +1,4 @@
+import re
 from functools import wraps
 from ipaddress import ip_address
 from urllib.parse import urlencode
@@ -38,6 +39,8 @@ INTERESTS_MAX_LENGTH = 500
 AVATAR_UPLOAD_SUBDIR = "avatars"
 AVATAR_LIMIT = upload_limit("avatar")
 UNKNOWN_LOCATION_LABELS = {"未知地区", "未知"}
+IP_REGION_SPLIT_PATTERN = re.compile(r"\s*(?:/|／|,|，|、|\|)\s*")
+COORDINATE_PATTERN = re.compile(r"^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$")
 
 
 def _section_filters(prefix):
@@ -300,18 +303,35 @@ def _is_ip_address(value):
 
 def _usable_ip_region_value(value):
     value = (value or "").strip()
-    if not value or value in UNKNOWN_LOCATION_LABELS or _is_ip_address(value):
+    if (
+        not value
+        or value in UNKNOWN_LOCATION_LABELS
+        or _is_ip_address(value)
+        or COORDINATE_PATTERN.match(value)
+    ):
         return None
     return value
 
 
+def _ip_region_parts(value):
+    clean_value = _usable_ip_region_value(value)
+    if not clean_value:
+        return []
+    return [
+        part
+        for part in (
+            _usable_ip_region_value(part)
+            for part in IP_REGION_SPLIT_PATTERN.split(clean_value)
+        )
+        if part
+    ]
+
+
 def _format_ip_region(user):
-    values = []
     for value in (user.city, user.detected_city, user.detected_region):
-        clean_value = _usable_ip_region_value(value)
-        if clean_value and clean_value not in values:
-            values.append(clean_value)
-    return " / ".join(values) if values else "未知"
+        for clean_value in _ip_region_parts(value):
+            return clean_value
+    return "未知"
 
 
 def _nearby_match_score(current_user, candidate):
@@ -697,7 +717,7 @@ def nearby_users():
         location_notice=location_notice,
         nearby_mode=True,
         nearby_user=current_user,
-        nearby_location_label=" / ".join(current_locations),
+        nearby_location_label=_format_ip_region(current_user),
         nearby_ip_region_labels={user.id: _format_ip_region(user) for user in users},
     )
 
@@ -715,7 +735,7 @@ def toggle_nearby():
             user = User.query.get_or_404(session["user_id"])
             user.nearby_enabled = True
             db.session.commit()
-            flash("已开启附近的人，但暂时无法更新粗略地区。", "warning")
+            flash("已开启附近的人，但暂时无法更新 IP 地区。", "warning")
             return redirect(url_for("profile.nearby_users"))
 
     db.session.commit()
