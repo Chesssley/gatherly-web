@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}使用条款 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section page-container">
+  <div class="container">
+    <header class="page-heading">
+      <p class="eyebrow">Legal</p>
+      <h1>使用条款</h1>
+      <p>本页面是课程演示版简化说明，用于约定 Gatherly Web 的基本使用边界。</p>
+    </header>
+
+    <article class="info-card">
+      <ul class="info-list">
+        <li>用户应遵守社区规则，保持真实、友好、尊重的交流方式。</li>
+        <li>不得发布违法、虚假、骚扰、歧视、欺诈或恶意引流内容。</li>
+        <li>活动信息由发布者负责，包括时间、地点、费用、人数上限和准备事项。</li>
+        <li>平台功能仍处于课程项目演示阶段，部分流程不代表正式商业服务能力。</li>
+        <li>如果项目后续正式上线，需要补充完整使用条款、责任边界和争议处理规则。</li>
+      </ul>
+
+      <div class="page-actions">
+        <a class="button" href="{{ url_for('pages.community_guidelines') }}">查看社区规则</a>
+        <a class="button button-secondary" href="{{ url_for('pages.privacy') }}">查看隐私政策</a>
+      </div>
+    </article>
+  </div>
+</section>
+{% endblock %}

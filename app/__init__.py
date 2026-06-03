@@ -86,6 +86,7 @@ def create_app(test_config=None):
     from app.routes.circle import circle_bp
     from app.routes.messages import messages_bp
     from app.routes.notifications import notifications_bp
+    from app.routes.pages import pages_bp
     from app.routes.profile import profile_bp
 
     csrf.exempt(activity_bp)
@@ -101,6 +102,7 @@ def create_app(test_config=None):
     app.register_blueprint(profile_bp)
     app.register_blueprint(messages_bp)
     app.register_blueprint(notifications_bp)
+    app.register_blueprint(pages_bp)
     app.register_blueprint(admin_bp)
 
     @app.errorhandler(RequestEntityTooLarge)

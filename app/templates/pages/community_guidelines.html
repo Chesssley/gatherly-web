@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}社区规则 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section page-container">
+  <div class="container">
+    <header class="page-heading">
+      <p class="eyebrow">Community</p>
+      <h1>社区规则</h1>
+      <p>Gatherly 聚场鼓励真实、友好、尊重的小众兴趣交流，让线下活动和同好圈都能保持清晰可信的社区氛围。</p>
+    </header>
+
+    <article class="info-card">
+      <ul class="info-list">
+        <li>鼓励围绕真实兴趣交流，尊重不同经验、审美和参与节奏。</li>
+        <li>同好圈不鼓励硬广、刷屏、恶意引流或与圈子主题无关的重复内容。</li>
+        <li>发布活动时应提供真实时间、地点、人数上限、费用、准备事项和必要风险提示。</li>
+        <li>禁止骚扰、辱骂、歧视、人身攻击或恶意私信。</li>
+        <li>禁止发布违法、危险、欺诈、虚假活动或误导性报名信息。</li>
+        <li>尊重他人隐私，不公开他人联系方式、照片、聊天内容或其他个人信息。</li>
+        <li>评分与评价应基于真实参加体验，不刷分、不恶意差评。</li>
+        <li>遇到页面错误、活动争议或社区问题，可以通过问题反馈页面提交反馈。</li>
+      </ul>
+
+      <div class="page-actions">
+        <a class="button" href="{{ url_for('pages.feedback') }}">提交反馈</a>
+        <a class="button button-secondary" href="{{ url_for('pages.safety_tips') }}">查看安全提示</a>
+      </div>
+    </article>
+  </div>
+</section>
+{% endblock %}

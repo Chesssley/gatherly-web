@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}联系我们 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section page-container">
+  <div class="container">
+    <header class="page-heading">
+      <p class="eyebrow">Contact</p>
+      <h1>联系我们</h1>
+      <p>Gatherly Web Team 是课程项目开发团队。我们会把普通功能建议、页面错误、活动和圈子问题集中到反馈流程中查看。</p>
+    </header>
+
+    <article class="info-card">
+      <div class="info-section">
+        <h2>反馈入口</h2>
+        <p>普通功能建议、页面显示错误、活动报名问题、同好圈或帖子问题，都可以通过问题反馈页面提交。</p>
+      </div>
+      <div class="info-section">
+        <h2>项目协作</h2>
+        <p>项目开发相关问题可以通过 GitHub Repository 或 Issues 查看代码、文档和协作记录。</p>
+      </div>
+      <div class="page-actions">
+        <a class="button" href="{{ url_for('pages.feedback') }}">提交反馈</a>
+        <a class="button button-secondary" href="https://github.com/Chesssley/gatherly-web" target="_blank" rel="noopener noreferrer">查看 GitHub</a>
+      </div>
+    </article>
+  </div>
+</section>
+{% endblock %}
