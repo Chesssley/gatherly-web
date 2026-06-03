@@ -657,46 +657,50 @@ def nearby_users():
     current_ip_region = _current_request_ip_region(current_user)
     current_ip_region_label = format_ip_region(current_ip_region)
     profile_region = _profile_region_value(current_user)
+    nearby_enabled = bool(current_user.nearby_enabled)
     following_ids = {
         row.followed_id
         for row in UserFollow.query.filter_by(follower_id=current_user.id).all()
     }
-    candidates = (
-        User.query.filter(
-            User.status == "active",
-            User.nearby_enabled.is_(True),
-            User.id != current_user.id,
-        )
-        .order_by(User.created_at.desc(), User.id.desc())
-        .limit(120)
-        .all()
-    )
-
     ip_matched_users = []
-    if current_ip_region_label and current_ip_region_label != "未知":
-        ip_matched_users = [
-            user for user in candidates if _nearby_locations_match(current_ip_region_label, user)
-        ]
-        ip_matched_users = sorted(
-            ip_matched_users,
-            key=lambda user: (
-                _nearby_match_score(current_ip_region_label, user),
-                -(user.created_at.timestamp() if user.created_at else 0),
-                -user.id,
-            ),
-        )[:60]
-
     profile_region_users = []
-    if profile_region:
-        profile_region_users = [
-            user
-            for user in candidates
-            if locations_match(profile_region, _profile_region_value(user))
-        ][:60]
-    nearby_ip_region_labels = {
-        user.id: format_ip_region(user)
-        for user in {user.id: user for user in [*ip_matched_users, *profile_region_users]}.values()
-    }
+    nearby_ip_region_labels = {}
+
+    if nearby_enabled:
+        candidates = (
+            User.query.filter(
+                User.status == "active",
+                User.nearby_enabled.is_(True),
+                User.id != current_user.id,
+            )
+            .order_by(User.created_at.desc(), User.id.desc())
+            .limit(120)
+            .all()
+        )
+
+        if current_ip_region_label and current_ip_region_label != "未知":
+            ip_matched_users = [
+                user for user in candidates if _nearby_locations_match(current_ip_region_label, user)
+            ]
+            ip_matched_users = sorted(
+                ip_matched_users,
+                key=lambda user: (
+                    _nearby_match_score(current_ip_region_label, user),
+                    -(user.created_at.timestamp() if user.created_at else 0),
+                    -user.id,
+                ),
+            )[:60]
+
+        if profile_region:
+            profile_region_users = [
+                user
+                for user in candidates
+                if locations_match(profile_region, _profile_region_value(user))
+            ][:60]
+        nearby_ip_region_labels = {
+            user.id: format_ip_region(user)
+            for user in {user.id: user for user in [*ip_matched_users, *profile_region_users]}.values()
+        }
 
     return render_template(
         "users.html",
@@ -708,6 +712,7 @@ def nearby_users():
         empty_message="附近暂时没有主动开启该功能的用户。",
         nearby_mode=True,
         nearby_user=current_user,
+        nearby_enabled=nearby_enabled,
         nearby_location_label=current_ip_region_label,
         ip_matched_users=ip_matched_users,
         profile_region=profile_region,

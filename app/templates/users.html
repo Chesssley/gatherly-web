@@ -19,6 +19,9 @@
         <p class="eyebrow">Nearby</p>
         <h2 id="nearby-status-title">附近的人</h2>
         <p class="nearby-status-text">{{ '当前已开启' if nearby_user.nearby_enabled else '当前已关闭' }}</p>
+        {% if not nearby_user.nearby_enabled %}
+        <p class="nearby-location-hint">开启附近的人后，你可以查看与你 IP 地区或资料地区相近的用户。</p>
+        {% endif %}
       </div>
       <form class="nearby-toggle-form" method="post" action="{{ url_for('profile.toggle_nearby') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -35,7 +38,7 @@
     </form>
     {% endif %}
 
-    {% if nearby_mode %}
+    {% if nearby_mode and nearby_user.nearby_enabled %}
     <section class="nearby-section" data-nearby-section="ip" aria-labelledby="nearby-ip-title">
       <div class="nearby-section-heading">
         <div>
@@ -85,7 +88,7 @@
       <p class="rating-empty">你还没有填写个人地区，请到个人资料中补充。</p>
       {% endif %}
     </section>
-    {% else %}
+    {% elif not nearby_mode %}
     <div class="user-card-list">
       {% for card_user in users %}
         {% include "_user_card.html" %}
