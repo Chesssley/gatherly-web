@@ -20,24 +20,12 @@
         <h2 id="nearby-status-title">附近的人</h2>
         <p class="nearby-status-text">{{ '当前已开启' if nearby_user.nearby_enabled else '当前已关闭' }}</p>
         <p class="nearby-location-hint">IP：{{ nearby_location_label|default('未知', true) }}</p>
-        {% if selected_region %}
-        <p class="nearby-filter-hint">筛选地区：{{ selected_region }}</p>
-        {% endif %}
       </div>
       <form class="nearby-toggle-form" method="post" action="{{ url_for('profile.toggle_nearby') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="button" type="submit">{{ '关闭附近的人' if nearby_user.nearby_enabled else '开启附近的人' }}</button>
       </form>
     </section>
-
-    <form class="nearby-region-form" method="get" role="search" aria-label="按地区查找附近的人">
-      <label class="form-label" for="nearby-region">输入地区</label>
-      <input id="nearby-region" name="region" type="search" maxlength="80" value="{{ selected_region or '' }}" placeholder="例如：广州、日本、美国">
-      <button class="button" type="submit">查找</button>
-      {% if selected_region %}
-      <a class="button button-secondary" href="{{ url_for('profile.nearby_users') }}">清空</a>
-      {% endif %}
-    </form>
     {% endif %}
 
     {% if not nearby_mode %}
@@ -48,17 +36,63 @@
     </form>
     {% endif %}
 
-    <div class="user-card-list{% if nearby_mode %} nearby-user-list{% endif %}"{% if nearby_mode %} data-nearby-list{% endif %}>
+    {% if nearby_mode %}
+    <section class="nearby-section" data-nearby-section="ip" aria-labelledby="nearby-ip-title">
+      <div class="nearby-section-heading">
+        <div>
+          <h2 id="nearby-ip-title">IP 识别的附近用户</h2>
+          <p>根据当前网络 IP 地区匹配</p>
+        </div>
+      </div>
+      <div class="user-card-list nearby-user-list">
+        {% for card_user in ip_matched_users %}
+          {% set nearby_is_extra = loop.index > nearby_initial_visible_count %}
+          {% set nearby_card_context = 'ip' %}
+          {% include "_user_card.html" %}
+        {% else %}
+          <p class="rating-empty">当前 IP 地区暂无可展示用户。</p>
+        {% endfor %}
+      </div>
+      {% if ip_matched_users|length > nearby_initial_visible_count %}
+      <div class="nearby-list-actions">
+        <button class="button button-secondary" type="button" data-toggle-nearby-list data-target="ip" data-expanded="false">展开更多</button>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="nearby-section" data-nearby-section="profile-location" aria-labelledby="nearby-profile-title">
+      <div class="nearby-section-heading">
+        <div>
+          <h2 id="nearby-profile-title">资料地区相同的用户</h2>
+          <p>我的资料地区：{{ profile_region or '未填写' }}</p>
+        </div>
+      </div>
+      {% if profile_region %}
+      <div class="user-card-list nearby-user-list">
+        {% for card_user in profile_region_users %}
+          {% set nearby_is_extra = loop.index > nearby_initial_visible_count %}
+          {% set nearby_card_context = 'profile-location' %}
+          {% include "_user_card.html" %}
+        {% else %}
+          <p class="rating-empty">当前资料地区暂无可展示用户。</p>
+        {% endfor %}
+      </div>
+      {% if profile_region_users|length > nearby_initial_visible_count %}
+      <div class="nearby-list-actions">
+        <button class="button button-secondary" type="button" data-toggle-nearby-list data-target="profile-location" data-expanded="false">展开更多</button>
+      </div>
+      {% endif %}
+      {% else %}
+      <p class="rating-empty">你还没有填写个人地区，请到个人资料中补充。</p>
+      {% endif %}
+    </section>
+    {% else %}
+    <div class="user-card-list">
       {% for card_user in users %}
-        {% set nearby_is_extra = nearby_mode and loop.index > nearby_initial_visible_count %}
         {% include "_user_card.html" %}
       {% else %}
-        <p class="rating-empty">{{ empty_message|default('当前地区暂无可展示用户。' if nearby_mode else '暂无匹配用户。') }}</p>
+        <p class="rating-empty">{{ empty_message|default('暂无匹配用户。') }}</p>
       {% endfor %}
-    </div>
-    {% if nearby_mode and users|length > nearby_initial_visible_count %}
-    <div class="nearby-list-actions">
-      <button class="button button-secondary" type="button" data-nearby-toggle data-expanded="false">展开更多</button>
     </div>
     {% endif %}
   </div>

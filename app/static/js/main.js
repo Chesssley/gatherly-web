@@ -263,22 +263,31 @@ document.addEventListener("DOMContentLoaded", () => {
   initGlobalSearchSuggestions();
 
   const initNearbyListToggle = () => {
-    const list = document.querySelector("[data-nearby-list]");
-    const toggle = document.querySelector("[data-nearby-toggle]");
-    const extraItems = Array.from(document.querySelectorAll("[data-nearby-extra]"));
-    if (!list || !toggle || !extraItems.length) {
+    const toggles = Array.from(document.querySelectorAll("[data-toggle-nearby-list]"));
+    if (!toggles.length) {
       return;
     }
 
-    const setExpanded = (expanded) => {
-      list.classList.toggle("is-collapsed", !expanded);
-      toggle.setAttribute("data-expanded", String(expanded));
-      toggle.textContent = expanded ? "收起" : "展开更多";
-    };
+    toggles.forEach(toggle => {
+      const target = toggle.dataset.target;
+      const section = document.querySelector(`[data-nearby-section="${target}"]`);
+      const extraItems = section ? Array.from(section.querySelectorAll("[data-nearby-extra]")) : [];
+      if (!section || !extraItems.length) {
+        return;
+      }
 
-    setExpanded(false);
-    toggle.addEventListener("click", () => {
-      setExpanded(toggle.getAttribute("data-expanded") !== "true");
+      const setExpanded = (expanded) => {
+        extraItems.forEach(item => {
+          item.hidden = !expanded;
+        });
+        toggle.setAttribute("data-expanded", String(expanded));
+        toggle.textContent = expanded ? "收起" : "展开更多";
+      };
+
+      setExpanded(false);
+      toggle.addEventListener("click", () => {
+        setExpanded(toggle.getAttribute("data-expanded") !== "true");
+      });
     });
   };
 
