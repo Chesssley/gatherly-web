@@ -1521,6 +1521,390 @@ document.addEventListener("DOMContentLoaded", () => {
     return data;
   };
 
+  const createSmartPoller = options => {
+    let timer = null;
+    let inFlight = false;
+    let abortController = null;
+    let stopped = true;
+    let destroyed = false;
+
+    const clearTimer = () => {
+      if (timer) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+    };
+
+    const abortRequest = () => {
+      if (abortController) {
+        abortController.abort();
+        abortController = null;
+      }
+    };
+
+    const stop = (reason = "manual") => {
+      stopped = true;
+      clearTimer();
+      abortRequest();
+      options.onPause?.(reason);
+    };
+
+    const scheduleNext = delay => {
+      if (destroyed || stopped) {
+        return;
+      }
+      clearTimer();
+      timer = window.setTimeout(runOnce, Math.max(0, delay));
+    };
+
+    const start = (reason = "manual", immediate = false) => {
+      if (destroyed) {
+        return;
+      }
+      const pauseReason = options.getPauseReason?.() || "";
+      if (pauseReason) {
+        stop(pauseReason);
+        return;
+      }
+      stopped = false;
+      options.onResume?.(reason);
+      if (immediate) {
+        scheduleNext(0);
+      } else if (!timer && !inFlight) {
+        scheduleNext(options.getDelay());
+      }
+    };
+
+    async function runOnce() {
+      clearTimer();
+      if (destroyed || stopped) {
+        return;
+      }
+      const pauseReason = options.getPauseReason?.() || "";
+      if (pauseReason) {
+        stop(pauseReason);
+        return;
+      }
+      if (inFlight) {
+        scheduleNext(options.getDelay());
+        return;
+      }
+
+      inFlight = true;
+      abortController = typeof AbortController !== "undefined" ? new AbortController() : null;
+      try {
+        await options.run({ signal: abortController?.signal });
+        options.onSuccess?.();
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          const retryDelay = options.onError?.(error) || options.getDelay();
+          scheduleNext(retryDelay);
+        }
+        return;
+      } finally {
+        inFlight = false;
+        abortController = null;
+      }
+
+      const nextPauseReason = options.getPauseReason?.() || "";
+      if (nextPauseReason) {
+        stop(nextPauseReason);
+        return;
+      }
+      scheduleNext(options.getDelay());
+    }
+
+    const destroy = () => {
+      destroyed = true;
+      stop("destroy");
+    };
+
+    return {
+      start,
+      stop,
+      scheduleNext,
+      runOnce,
+      isPageActive: options.isPageActive,
+      destroy,
+    };
+  };
+
+  const formatBadgeCount = count => (
+    count > 99 ? "99+" : String(Math.max(0, count))
+  );
+
+  const setBadgeVisible = (badge, isVisible) => {
+    badge.hidden = !isVisible;
+    badge.style.display = isVisible ? "" : "none";
+  };
+
+  const updateCountBadges = (badges, count, dataKey) => {
+    const safeCount = Math.max(0, Number.isFinite(count) ? count : 0);
+    const displayCount = formatBadgeCount(safeCount);
+    badges.forEach(badge => {
+      badge.textContent = displayCount;
+      if (dataKey) {
+        badge.dataset[dataKey] = String(safeCount);
+      }
+      setBadgeVisible(badge, safeCount > 0);
+    });
+  };
+
+  const initLowFrequencySummaryPoller = options => {
+    const trigger = document.querySelector(options.triggerSelector);
+    if (!trigger) {
+      return;
+    }
+
+    const summaryUrl = options.getUrl(trigger);
+    const badges = Array.from(document.querySelectorAll(options.badgeSelector));
+    if (!summaryUrl || !badges.length) {
+      return;
+    }
+
+    let errorBackoffDelay = options.errorBackoffInitialMs;
+    let lastUserActiveAt = Date.now();
+    let waitingForFreshInteraction = false;
+    let idleTimer = null;
+    let resumeDebounceTimer = null;
+    let stoppedForAuth = false;
+    let warnedAboutError = false;
+    let isPollingPaused = true;
+    let poller = null;
+
+    const getPauseReason = () => {
+      if (stoppedForAuth) {
+        return "unauthorized";
+      }
+      if (navigator.onLine === false) {
+        return "offline";
+      }
+      if (document.hidden) {
+        return "hidden";
+      }
+      if (!document.hasFocus()) {
+        return "blur";
+      }
+      if (waitingForFreshInteraction) {
+        return "waiting-interaction";
+      }
+      if (Date.now() - lastUserActiveAt >= options.idleStopAfterMs) {
+        return "idle";
+      }
+      return "";
+    };
+
+    const isPageActive = () => !getPauseReason();
+
+    const runSummaryPoll = async ({ signal } = {}) => {
+      const response = await fetch(summaryUrl, {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+        signal,
+      });
+      const data = await response.json();
+      if (response.status === 401) {
+        const error = new Error(options.unauthorizedMessage);
+        error.status = 401;
+        throw error;
+      }
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || data.message || options.errorMessage);
+      }
+      options.applyData(data, badges);
+    };
+
+    poller = createSmartPoller({
+      run: runSummaryPoll,
+      getDelay: () => options.activeIntervalMs,
+      getPauseReason,
+      isPageActive,
+      onPause: () => {
+        isPollingPaused = true;
+      },
+      onResume: () => {
+        isPollingPaused = false;
+      },
+      onSuccess: () => {
+        errorBackoffDelay = options.errorBackoffInitialMs;
+        warnedAboutError = false;
+      },
+      onError: error => {
+        if (error.status === 401) {
+          stoppedForAuth = true;
+          poller?.stop("unauthorized");
+          return options.errorBackoffMaxMs;
+        }
+        if (!warnedAboutError) {
+          console.warn(options.warningMessage, error);
+          warnedAboutError = true;
+        }
+        const retryDelay = errorBackoffDelay;
+        errorBackoffDelay = Math.min(errorBackoffDelay * 2, options.errorBackoffMaxMs);
+        return retryDelay;
+      },
+    });
+
+    const scheduleIdleStop = () => {
+      if (idleTimer) {
+        window.clearTimeout(idleTimer);
+      }
+      idleTimer = window.setTimeout(() => {
+        if (getPauseReason() === "idle") {
+          poller.stop("idle");
+        }
+      }, options.idleStopAfterMs + 50);
+    };
+
+    const resumeAfterInteraction = (reason = "user-active", forceImmediate = false) => {
+      if (stoppedForAuth) {
+        return;
+      }
+      if (resumeDebounceTimer) {
+        window.clearTimeout(resumeDebounceTimer);
+      }
+      resumeDebounceTimer = window.setTimeout(() => {
+        resumeDebounceTimer = null;
+        if (!document.hidden && document.hasFocus() && navigator.onLine !== false) {
+          waitingForFreshInteraction = false;
+          poller.start(reason, forceImmediate || isPollingPaused);
+        }
+      }, options.resumeDebounceMs);
+    };
+
+    const markUserActive = () => {
+      lastUserActiveAt = Date.now();
+      resumeAfterInteraction("user-active");
+      scheduleIdleStop();
+    };
+
+    const stopForCurrentState = reason => {
+      waitingForFreshInteraction = true;
+      poller.stop(reason);
+    };
+
+    ["click", "pointerdown", "keydown", "input", "scroll", "touchstart"].forEach(eventName => {
+      document.addEventListener(eventName, markUserActive, {
+        passive: true,
+        capture: true,
+      });
+    });
+
+    if (options.refreshEventName) {
+      document.addEventListener(options.refreshEventName, () => {
+        lastUserActiveAt = Date.now();
+        resumeAfterInteraction("event", true);
+        scheduleIdleStop();
+      });
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        stopForCurrentState("hidden");
+      } else {
+        waitingForFreshInteraction = true;
+        poller.stop("waiting-interaction");
+      }
+    });
+
+    window.addEventListener("blur", () => {
+      stopForCurrentState("blur");
+    });
+
+    window.addEventListener("focus", () => {
+      if (!document.hidden) {
+        waitingForFreshInteraction = true;
+        poller.stop("waiting-interaction");
+      }
+    });
+
+    window.addEventListener("offline", () => {
+      stopForCurrentState("offline");
+    });
+
+    window.addEventListener("online", () => {
+      if (!document.hidden && document.hasFocus()) {
+        waitingForFreshInteraction = true;
+        poller.stop("waiting-interaction");
+      }
+    });
+
+    window.addEventListener("beforeunload", () => {
+      if (idleTimer) {
+        window.clearTimeout(idleTimer);
+      }
+      if (resumeDebounceTimer) {
+        window.clearTimeout(resumeDebounceTimer);
+      }
+      poller.destroy();
+    });
+
+    scheduleIdleStop();
+    poller.start("initial", true);
+  };
+
+  const initGlobalUnreadCountPoller = () => {
+    initLowFrequencySummaryPoller({
+      triggerSelector: '[data-unread-poll="true"][data-unread-count-url]',
+      badgeSelector: "[data-unread-badge]",
+      getUrl: trigger => trigger.dataset.unreadCountUrl,
+      activeIntervalMs: 60000,
+      idleStopAfterMs: 90000,
+      errorBackoffInitialMs: 30000,
+      errorBackoffMaxMs: 120000,
+      resumeDebounceMs: 500,
+      refreshEventName: "gatherly:unread-count-refresh",
+      unauthorizedMessage: "Unread count requires login.",
+      errorMessage: "Unread count refresh failed.",
+      warningMessage: "Unread count refresh failed.",
+      applyData: (data, badges) => {
+        updateCountBadges(badges, Number(data.unread_count), "unreadCount");
+      },
+    });
+  };
+
+  const initGlobalNotificationPoller = () => {
+    const updateNotificationLatest = latest => {
+      const containers = Array.from(document.querySelectorAll("[data-notification-latest]"));
+      if (!containers.length) {
+        return;
+      }
+      containers.forEach(container => {
+        container.textContent = "";
+        (Array.isArray(latest) ? latest : []).slice(0, 5).forEach(item => {
+          const link = document.createElement("a");
+          link.href = item.url || "/notifications/";
+          link.textContent = item.text || "";
+          if (item.created_at) {
+            const time = document.createElement("time");
+            time.textContent = item.created_at;
+            link.appendChild(time);
+          }
+          container.appendChild(link);
+        });
+      });
+    };
+
+    initLowFrequencySummaryPoller({
+      triggerSelector: '[data-notification-poll="true"][data-notification-summary-url]',
+      badgeSelector: "[data-notification-badge]",
+      getUrl: trigger => trigger.dataset.notificationSummaryUrl,
+      activeIntervalMs: 60000,
+      idleStopAfterMs: 90000,
+      errorBackoffInitialMs: 30000,
+      errorBackoffMaxMs: 120000,
+      resumeDebounceMs: 500,
+      refreshEventName: "gatherly:notification-summary-refresh",
+      unauthorizedMessage: "Notification summary requires login.",
+      errorMessage: "Notification summary refresh failed.",
+      warningMessage: "Notification summary refresh failed.",
+      applyData: (data, badges) => {
+        updateCountBadges(badges, Number(data.unread_count), "notificationCount");
+        updateNotificationLatest(data.latest);
+      },
+    });
+  };
+
   const initMessageConversationActions = () => {
     const list = document.querySelector(".conversation-list");
     if (!list) {
@@ -1595,6 +1979,7 @@ document.addEventListener("DOMContentLoaded", () => {
       action.disabled = true;
       try {
         const data = await postConversationAction(actionUrl);
+        document.dispatchEvent(new CustomEvent("gatherly:unread-count-refresh"));
         const activeConversationId = document.querySelector("[data-message-chat]")?.dataset.conversationId;
         const removedConversationId = row.dataset.conversationId;
         row.remove();
@@ -1875,114 +2260,6 @@ document.addEventListener("DOMContentLoaded", () => {
       burstUntil = Date.now() + BURST_DURATION_MS;
     };
 
-    const createSmartPoller = options => {
-      let timer = null;
-      let inFlight = false;
-      let abortController = null;
-      let stopped = true;
-      let destroyed = false;
-
-      const clearTimer = () => {
-        if (timer) {
-          window.clearTimeout(timer);
-          timer = null;
-        }
-      };
-
-      const abortRequest = () => {
-        if (abortController) {
-          abortController.abort();
-          abortController = null;
-        }
-      };
-
-      const stop = (reason = "manual") => {
-        stopped = true;
-        clearTimer();
-        abortRequest();
-        options.onPause?.(reason);
-      };
-
-      const scheduleNext = delay => {
-        if (destroyed || stopped) {
-          return;
-        }
-        clearTimer();
-        timer = window.setTimeout(runOnce, Math.max(0, delay));
-      };
-
-      const start = (reason = "manual", immediate = false) => {
-        if (destroyed) {
-          return;
-        }
-        const pauseReason = options.getPauseReason?.() || "";
-        if (pauseReason) {
-          stop(pauseReason);
-          return;
-        }
-        stopped = false;
-        options.onResume?.(reason);
-        if (immediate) {
-          scheduleNext(0);
-        } else if (!timer && !inFlight) {
-          scheduleNext(options.getDelay());
-        }
-      };
-
-      async function runOnce() {
-        clearTimer();
-        if (destroyed || stopped) {
-          return;
-        }
-        const pauseReason = options.getPauseReason?.() || "";
-        if (pauseReason) {
-          stop(pauseReason);
-          return;
-        }
-        if (inFlight) {
-          scheduleNext(options.getDelay());
-          return;
-        }
-
-        inFlight = true;
-        abortController = typeof AbortController !== "undefined" ? new AbortController() : null;
-        try {
-          await options.run({ signal: abortController?.signal });
-          options.onSuccess?.();
-        } catch (error) {
-          if (error.name !== "AbortError") {
-            const retryDelay = options.onError?.(error) || options.getDelay();
-            scheduleNext(retryDelay);
-          }
-          return;
-        } finally {
-          inFlight = false;
-          abortController = null;
-        }
-
-        const nextPauseReason = options.getPauseReason?.() || "";
-        if (nextPauseReason) {
-          stop(nextPauseReason);
-          return;
-        }
-        scheduleNext(options.getDelay());
-      }
-
-      const destroy = () => {
-        destroyed = true;
-        stop("destroy");
-      };
-
-      return {
-        start,
-        stop,
-        scheduleNext,
-        runOnce,
-        isPageActive: options.isPageActive,
-        destroy,
-      };
-    };
-
     const runMessagePoll = async ({ signal } = {}) => {
       const url = new URL(chat.dataset.pollUrl, window.location.origin);
       url.searchParams.set("after_id", String(lastMessageId));
@@ -2117,6 +2394,7 @@ document.addEventListener("DOMContentLoaded", () => {
         applyPermissionState(data);
         enterBurstMode();
         messagePoller.start("send-success", true);
+        document.dispatchEvent(new CustomEvent("gatherly:unread-count-refresh"));
       } catch (error) {
         pendingMessage.remove();
         showFormError(error.message || "私信发送失败，请稍后重试。");
@@ -2170,6 +2448,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   initMessageConversationActions();
+  initGlobalUnreadCountPoller();
+  initGlobalNotificationPoller();
   initMessageChat();
 
   document.addEventListener("keydown", event => {

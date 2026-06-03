@@ -313,28 +313,59 @@ def _active_message_user_or_404(user_id):
     return User.query.filter(User.id == user_id, User.status != "deleted").first_or_404()
 
 
+def _unread_direct_message_count(user_id):
+    state = DirectMessageConversationState
+    cleared_at = db.func.coalesce(state.cleared_at, state.deleted_at)
+    visible_state_filter = or_(
+        state.id.is_(None),
+        and_(
+            state.is_hidden.is_(False),
+            or_(state.is_deleted.is_(False), cleared_at.isnot(None)),
+            or_(cleared_at.is_(None), DirectMessage.created_at > cleared_at),
+        ),
+    )
+
+    return (
+        DirectMessage.query.outerjoin(
+            state,
+            and_(
+                state.user_id == user_id,
+                state.other_user_id == DirectMessage.sender_id,
+            ),
+        )
+        .filter(
+            DirectMessage.recipient_id == user_id,
+            DirectMessage.read_at.is_(None),
+            visible_state_filter,
+        )
+        .with_entities(db.func.count(DirectMessage.id))
+        .scalar()
+        or 0
+    )
+
+
 @messages_bp.app_context_processor
 def inject_unread_direct_message_count():
     user_id = session.get("user_id")
     if not user_id:
         return {"unread_direct_message_count": 0}
-    unread_messages = DirectMessage.query.filter_by(recipient_id=user_id, read_at=None).all()
-    hidden_state_by_user_id = _conversation_state_lookup(
-        user_id,
-        {message.sender_id for message in unread_messages},
-    )
-    count = 0
-    for message in unread_messages:
-        state = hidden_state_by_user_id.get(message.sender_id)
-        if state and state.is_hidden:
-            continue
-        cleared_at = _state_cleared_at(state)
-        if state and state.is_deleted and not cleared_at:
-            continue
-        if cleared_at and message.created_at and message.created_at <= cleared_at:
-            continue
-        count += 1
-    return {"unread_direct_message_count": count}
+    return {"unread_direct_message_count": _unread_direct_message_count(user_id)}
+
+
+@messages_bp.route("/unread-count")
+def unread_count():
+    login_error = _json_login_required()
+    if login_error:
+        return login_error
+
+    count = _unread_direct_message_count(session["user_id"])
+    return jsonify(
+        {
+            "ok": True,
+            "unread_count": count,
+            "has_unread": count > 0,
+        }
+    ), 200
 
 
 @messages_bp.route("/")
