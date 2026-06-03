@@ -1,8 +1,8 @@
-"""rename media path fields to url
+"""repair media url columns
 
-Revision ID: b2c6f7e8a9d0
-Revises: 910bb336a36d
-Create Date: 2026-06-04 03:00:00.000000
+Revision ID: c4d5e6f7a8b9
+Revises: b2c6f7e8a9d0
+Create Date: 2026-06-04 03:40:00.000000
 
 """
 from alembic import op
@@ -11,10 +11,24 @@ from sqlalchemy import inspect, text
 
 
 # revision identifiers, used by Alembic.
-revision = "b2c6f7e8a9d0"
-down_revision = "910bb336a36d"
+revision = "c4d5e6f7a8b9"
+down_revision = "b2c6f7e8a9d0"
 branch_labels = None
 depends_on = None
+
+
+MEDIA_COLUMNS = (
+    ("direct_message", "image_path", "image_url", sa.String(length=255), True),
+    (
+        "merchant_verification",
+        "document_path",
+        "document_url",
+        sa.String(length=255),
+        True,
+    ),
+    ("post_image", "image_path", "image_url", sa.String(length=255), False),
+    ("comment_image", "image_path", "image_url", sa.String(length=255), False),
+)
 
 
 def _column_names(table_name):
@@ -54,38 +68,14 @@ def _rename_or_repair_column(table_name, old_column, new_column, column_type, nu
 
 
 def upgrade():
-    _rename_or_repair_column(
-        "direct_message", "image_path", "image_url", sa.String(length=255), True
-    )
-    _rename_or_repair_column(
-        "merchant_verification",
-        "document_path",
-        "document_url",
-        sa.String(length=255),
-        True,
-    )
-    _rename_or_repair_column(
-        "post_image", "image_path", "image_url", sa.String(length=255), False
-    )
-    _rename_or_repair_column(
-        "comment_image", "image_path", "image_url", sa.String(length=255), False
-    )
+    for table_name, old_column, new_column, column_type, nullable in MEDIA_COLUMNS:
+        _rename_or_repair_column(
+            table_name, old_column, new_column, column_type, nullable
+        )
 
 
 def downgrade():
-    _rename_or_repair_column(
-        "comment_image", "image_url", "image_path", sa.String(length=255), False
-    )
-    _rename_or_repair_column(
-        "post_image", "image_url", "image_path", sa.String(length=255), False
-    )
-    _rename_or_repair_column(
-        "merchant_verification",
-        "document_url",
-        "document_path",
-        sa.String(length=255),
-        True,
-    )
-    _rename_or_repair_column(
-        "direct_message", "image_url", "image_path", sa.String(length=255), True
-    )
+    for table_name, old_column, new_column, column_type, nullable in reversed(MEDIA_COLUMNS):
+        _rename_or_repair_column(
+            table_name, new_column, old_column, column_type, nullable
+        )

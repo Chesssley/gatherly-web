@@ -12,6 +12,7 @@ from app.models import (
     User,
     create_notification,
     db,
+    ensure_merchant_verification_schema,
     ensure_user_account_schema,
 )
 from app.forms import RegistrationForm
@@ -41,6 +42,7 @@ _login_failure_attempts = {}
 @auth_bp.before_app_request
 def ensure_account_schema():
     ensure_user_account_schema()
+    ensure_merchant_verification_schema()
 
 
 def _get_session_user():

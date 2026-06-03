@@ -12,6 +12,7 @@ from app.models import (
     User,
     cleanup_expired_direct_messages,
     db,
+    ensure_direct_message_schema,
     get_user_display_name,
     users_are_mutual_followers,
 )
@@ -40,6 +41,11 @@ def login_required(view):
 def _cleanup_expired():
     if cleanup_expired_direct_messages():
         db.session.commit()
+
+
+@messages_bp.before_app_request
+def ensure_messages_schema():
+    ensure_direct_message_schema()
 
 
 def _conversation_query(current_user_id, other_user_id):
