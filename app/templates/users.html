@@ -20,12 +20,24 @@
         <h2 id="nearby-status-title">附近的人</h2>
         <p class="nearby-status-text">{{ '当前已开启' if nearby_user.nearby_enabled else '当前已关闭' }}</p>
         <p class="nearby-location-hint">IP：{{ nearby_location_label|default('未知', true) }}</p>
+        {% if selected_region %}
+        <p class="nearby-filter-hint">筛选地区：{{ selected_region }}</p>
+        {% endif %}
       </div>
       <form class="nearby-toggle-form" method="post" action="{{ url_for('profile.toggle_nearby') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="button" type="submit">{{ '关闭附近的人' if nearby_user.nearby_enabled else '开启附近的人' }}</button>
       </form>
     </section>
+
+    <form class="nearby-region-form" method="get" role="search" aria-label="按地区查找附近的人">
+      <label class="form-label" for="nearby-region">输入地区</label>
+      <input id="nearby-region" name="region" type="search" maxlength="80" value="{{ selected_region or '' }}" placeholder="例如：广州、日本、美国">
+      <button class="button" type="submit">查找</button>
+      {% if selected_region %}
+      <a class="button button-secondary" href="{{ url_for('profile.nearby_users') }}">清空</a>
+      {% endif %}
+    </form>
     {% endif %}
 
     {% if not nearby_mode %}
@@ -36,13 +48,19 @@
     </form>
     {% endif %}
 
-    <div class="user-card-list">
+    <div class="user-card-list{% if nearby_mode %} nearby-user-list{% endif %}"{% if nearby_mode %} data-nearby-list{% endif %}>
       {% for card_user in users %}
+        {% set nearby_is_extra = nearby_mode and loop.index > nearby_initial_visible_count %}
         {% include "_user_card.html" %}
       {% else %}
-        <p class="rating-empty">{{ empty_message|default('暂无匹配用户。') }}</p>
+        <p class="rating-empty">{{ empty_message|default('当前地区暂无可展示用户。' if nearby_mode else '暂无匹配用户。') }}</p>
       {% endfor %}
     </div>
+    {% if nearby_mode and users|length > nearby_initial_visible_count %}
+    <div class="nearby-list-actions">
+      <button class="button button-secondary" type="button" data-nearby-toggle data-expanded="false">展开更多</button>
+    </div>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

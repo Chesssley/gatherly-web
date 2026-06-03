@@ -262,6 +262,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initGlobalSearchSuggestions();
 
+  const initNearbyListToggle = () => {
+    const list = document.querySelector("[data-nearby-list]");
+    const toggle = document.querySelector("[data-nearby-toggle]");
+    const extraItems = Array.from(document.querySelectorAll("[data-nearby-extra]"));
+    if (!list || !toggle || !extraItems.length) {
+      return;
+    }
+
+    const setExpanded = (expanded) => {
+      list.classList.toggle("is-collapsed", !expanded);
+      toggle.setAttribute("data-expanded", String(expanded));
+      toggle.textContent = expanded ? "收起" : "展开更多";
+    };
+
+    setExpanded(false);
+    toggle.addEventListener("click", () => {
+      setExpanded(toggle.getAttribute("data-expanded") !== "true");
+    });
+  };
+
+  initNearbyListToggle();
+
   const dismissedBannerKey = "gatherlyDiscoveryBannerDismissed";
   const isBannerDismissed = () => {
     try {

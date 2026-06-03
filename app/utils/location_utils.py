@@ -1,6 +1,12 @@
+import json
+import os
 import re
+import time
 from datetime import datetime
 from ipaddress import ip_address
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import urlopen
 
 from flask import request
 
@@ -38,25 +44,56 @@ COUNTRY_HEADERS = (
     "CloudFront-Viewer-Country",
     "X-Geo-Country",
 )
-COUNTRY_CODE_NAMES = {
+COUNTRY_NAME_MAP = {
     "CN": "中国",
-    "HK": "中国香港",
-    "MO": "中国澳门",
-    "TW": "中国台湾",
+    "China": "中国",
+    "People's Republic of China": "中国",
+    "HK": "香港",
+    "Hong Kong": "香港",
+    "MO": "澳门",
+    "Macao": "澳门",
+    "Macau": "澳门",
+    "TW": "台湾",
+    "Taiwan": "台湾",
     "US": "美国",
+    "USA": "美国",
+    "United States": "美国",
+    "United States of America": "美国",
     "CA": "加拿大",
+    "Canada": "加拿大",
     "GB": "英国",
+    "UK": "英国",
+    "United Kingdom": "英国",
+    "Great Britain": "英国",
     "JP": "日本",
+    "Japan": "日本",
     "KR": "韩国",
+    "South Korea": "韩国",
+    "Korea, Republic of": "韩国",
     "SG": "新加坡",
+    "Singapore": "新加坡",
     "AU": "澳大利亚",
+    "Australia": "澳大利亚",
     "DE": "德国",
+    "Germany": "德国",
     "FR": "法国",
+    "France": "法国",
     "IT": "意大利",
+    "Italy": "意大利",
     "ES": "西班牙",
+    "Spain": "西班牙",
     "NL": "荷兰",
+    "Netherlands": "荷兰",
     "IN": "印度",
+    "India": "印度",
 }
+COUNTRY_CODE_NAMES = COUNTRY_NAME_MAP
+CHINA_COUNTRY_LABELS = {"中国"}
+COUNTRY_LEVEL_REGION_LABELS = {"香港", "澳门", "台湾"}
+IP_GEO_LOOKUP_URL = os.environ.get("IP_GEO_LOOKUP_URL", "https://ipwho.is/{ip}?lang=zh-CN")
+IP_GEO_LOOKUP_TIMEOUT_SECONDS = 1.5
+IP_GEO_CACHE_TTL_SECONDS = 1800
+_IP_GEO_CACHE = {}
 
 
 def _clean_location_value(value, max_length=80):
@@ -70,7 +107,22 @@ def _country_name(value):
     value = _clean_location_value(value)
     if not value:
         return None
-    return COUNTRY_CODE_NAMES.get(value.upper(), value)
+    return COUNTRY_NAME_MAP.get(value.upper()) or COUNTRY_NAME_MAP.get(value) or value
+
+
+def _is_china_country(country_code=None, country=None):
+    country_label = _country_name(country_code) or _country_name(country)
+    return country_label in CHINA_COUNTRY_LABELS
+
+
+def _display_region_label(city=None, region=None, country=None, country_code=None):
+    country_label = _country_name(country_code) or _country_name(country)
+    if country_label and (
+        (country_code and not _is_china_country(country_code, country))
+        or country_label in COUNTRY_LEVEL_REGION_LABELS
+    ):
+        return _single_region_label(country_label)
+    return _single_region_label(city, region, country_label)
 
 
 def get_client_ip():
@@ -117,6 +169,7 @@ def _header_location():
     city = None
     region = None
     country = None
+    country_code = None
     for header in CITY_HEADERS:
         city = _clean_location_value(request.headers.get(header))
         if city:
@@ -126,11 +179,12 @@ def _header_location():
         if region:
             break
     for header in COUNTRY_HEADERS:
-        country = _country_name(request.headers.get(header))
+        country_code = _clean_location_value(request.headers.get(header))
+        country = _country_name(country_code)
         if country:
             break
     if city or region or country:
-        return {"city": city, "region": region, "country": country}
+        return {"city": city, "region": region, "country": country, "country_code": country_code}
     return None
 
 
@@ -141,23 +195,84 @@ def _single_region_label(*values):
     return UNKNOWN_REGION_LABEL
 
 
+def _ip_geo_lookup_enabled():
+    value = os.environ.get("IP_GEO_LOOKUP_ENABLED")
+    if value is None:
+        return True
+    return value.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _lookup_public_ip_location(ip):
+    if not ip or not _ip_geo_lookup_enabled():
+        return None
+
+    cached = _IP_GEO_CACHE.get(ip)
+    now = time.time()
+    if cached and now - cached["time"] < IP_GEO_CACHE_TTL_SECONDS:
+        return cached["location"]
+
+    url = IP_GEO_LOOKUP_URL.format(ip=quote(ip, safe=""))
+    try:
+        with urlopen(url, timeout=IP_GEO_LOOKUP_TIMEOUT_SECONDS) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError):
+        _IP_GEO_CACHE[ip] = {"time": now, "location": None}
+        return None
+
+    if not isinstance(payload, dict) or payload.get("success") is False:
+        _IP_GEO_CACHE[ip] = {"time": now, "location": None}
+        return None
+
+    location = {
+        "city": _clean_location_value(payload.get("city")),
+        "region": _clean_location_value(payload.get("region")),
+        "country": _country_name(payload.get("country")),
+        "country_code": _clean_location_value(payload.get("country_code")),
+    }
+    if not any(location.values()):
+        location = None
+    _IP_GEO_CACHE[ip] = {"time": now, "location": location}
+    return location
+
+
+def _stored_location_values(detected):
+    label = format_ip_region(detected)
+    if label == UNKNOWN_REGION_LABEL:
+        return None, None
+    city = detected.get("city") if isinstance(detected, dict) else None
+    region = detected.get("region") if isinstance(detected, dict) else None
+    country = detected.get("country") if isinstance(detected, dict) else None
+    if city and locations_match(city, label):
+        return city, region or country
+    return None, label
+
+
 def resolve_ip_region(ip):
     """
     Return one display-safe region label for the current request IP.
-    This project has no bundled IP database yet, so real IP lookup only works
-    when a trusted proxy/CDN provides geo headers for the same request.
+    Prefer trusted proxy/CDN geo headers from the same request, then fall back
+    to a short-timeout public IP lookup for the current public exit IP.
     """
     header_location = _header_location()
     if header_location:
-        return _single_region_label(
+        return _display_region_label(
             header_location.get("city"),
             header_location.get("region"),
             header_location.get("country"),
+            header_location.get("country_code"),
         )
 
     if _is_private_or_local_ip(ip):
         return UNKNOWN_REGION_LABEL
 
+    public_location = _lookup_public_ip_location(ip)
+    if public_location:
+        return _display_region_label(
+            public_location.get("city"),
+            public_location.get("region"),
+            public_location.get("country"),
+            public_location.get("country_code"),
+        )
     return UNKNOWN_REGION_LABEL
 
 
@@ -170,6 +285,10 @@ def detect_city_from_ip(ip):
 
     if _is_private_or_local_ip(ip):
         return UNKNOWN_LOCATION.copy()
+
+    public_location = _lookup_public_ip_location(ip)
+    if public_location:
+        return public_location
 
     return UNKNOWN_LOCATION.copy()
 
@@ -187,8 +306,7 @@ def update_user_detected_location(user, force=False):
     detected = detect_city_from_ip(client_ip)
     user.last_location_detected_at = now
     if detected:
-        detected_city = detected.get("city")
-        detected_region = detected.get("region") or detected.get("country")
+        detected_city, detected_region = _stored_location_values(detected)
         if user.detected_city != detected_city:
             user.detected_city = detected_city
         if user.detected_region != detected_region:
@@ -238,15 +356,17 @@ def format_ip_region(location_or_user=_MISSING):
         return UNKNOWN_REGION_LABEL
 
     if isinstance(location_or_user, dict):
-        return _single_region_label(
+        return _display_region_label(
             location_or_user.get("city"),
             location_or_user.get("region"),
             location_or_user.get("country"),
+            location_or_user.get("country_code"),
         )
     else:
         return _single_region_label(
             getattr(location_or_user, "detected_city", None),
-            getattr(location_or_user, "detected_region", None),
+            _country_name(getattr(location_or_user, "detected_region", None))
+            or getattr(location_or_user, "detected_region", None),
         )
 
 
