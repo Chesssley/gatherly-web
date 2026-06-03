@@ -1,8 +1,9 @@
 import os
 
-from flask import Flask, flash, redirect, request, url_for
+from flask import Flask, flash, jsonify, redirect, request, url_for
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
+from sqlalchemy import text
 from dotenv import load_dotenv
 from werkzeug.exceptions import RequestEntityTooLarge
 
@@ -23,6 +24,19 @@ def _database_uri():
             database_url = database_url.replace("postgres://", "postgresql://", 1)
         return database_url
     return "sqlite:///gatherly.db"
+
+
+def _sqlalchemy_engine_options(database_uri):
+    if not database_uri.startswith(("postgresql://", "postgresql+")):
+        return {}
+    return {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+        "pool_timeout": 30,
+        "connect_args": {
+            "connect_timeout": 10,
+        },
+    }
 
 
 def _env_flag(name, default=False):
@@ -56,6 +70,10 @@ def create_app(test_config=None):
     )
     if test_config:
         app.config.update(test_config)
+    app.config.setdefault(
+        "SQLALCHEMY_ENGINE_OPTIONS",
+        _sqlalchemy_engine_options(app.config["SQLALCHEMY_DATABASE_URI"]),
+    )
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -89,5 +107,19 @@ def create_app(test_config=None):
     def handle_request_entity_too_large(error):
         flash("上传内容过大，请压缩图片或减少图片数量后重试。", "error")
         return redirect(request.referrer or url_for("activity.index"))
+
+    @app.route("/healthz")
+    def healthz():
+        return jsonify({"ok": True}), 200
+
+    @app.route("/healthz/db")
+    def healthz_db():
+        try:
+            db.session.execute(text("SELECT 1"))
+        except Exception:
+            db.session.rollback()
+            app.logger.exception("Database health check failed")
+            return jsonify({"ok": False}), 503
+        return jsonify({"ok": True}), 200
 
     return app

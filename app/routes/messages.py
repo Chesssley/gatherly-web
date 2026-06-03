@@ -2,8 +2,9 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 import os
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from sqlalchemy import and_, or_
+from sqlalchemy.exc import OperationalError
 
 from app.models import (
     DIRECT_MESSAGE_RETENTION_DAYS,
@@ -356,7 +357,13 @@ def inject_unread_direct_message_count():
     user_id = session.get("user_id")
     if not user_id:
         return {"unread_direct_message_count": 0}
-    return {"unread_direct_message_count": _unread_direct_message_count(user_id)}
+    try:
+        count = _unread_direct_message_count(user_id)
+    except OperationalError:
+        db.session.rollback()
+        current_app.logger.exception("Unread direct message count query failed")
+        count = 0
+    return {"unread_direct_message_count": count}
 
 
 @messages_bp.route("/unread-count")
@@ -365,7 +372,12 @@ def unread_count():
     if login_error:
         return login_error
 
-    count = _unread_direct_message_count(session["user_id"])
+    try:
+        count = _unread_direct_message_count(session["user_id"])
+    except OperationalError:
+        db.session.rollback()
+        current_app.logger.exception("Unread direct message count API query failed")
+        count = 0
     return jsonify(
         {
             "ok": True,

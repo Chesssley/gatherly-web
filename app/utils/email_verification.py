@@ -3,16 +3,14 @@
 
 import hashlib
 import hmac
-import json
 import os
 import secrets
 import smtplib
-import urllib.error
-import urllib.request
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 
 from flask import current_app
+import requests
 
 from app.models import EmailVerificationCode, db
 
@@ -46,9 +44,30 @@ def _mail_bool(name):
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _is_production_env():
+    value = (
+        os.environ.get("APP_ENV")
+        or os.environ.get("FLASK_ENV")
+        or os.environ.get("ENV")
+        or ""
+    )
+    return value.strip().lower() in {"production", "prod"}
+
+
 def _email_provider():
     provider = os.environ.get("EMAIL_PROVIDER", "").strip().lower()
-    return provider or "console"
+    if provider:
+        return provider
+    if (
+        os.environ.get("BREVO_API_KEY")
+        or os.environ.get("BREVO_SENDER_EMAIL")
+        or os.environ.get("MAIL_SENDER_EMAIL")
+        or os.environ.get("MAIL_FROM")
+        or os.environ.get("RENDER")
+        or _is_production_env()
+    ):
+        return "brevo"
+    return "console"
 
 
 def is_console_email_provider():
@@ -92,8 +111,47 @@ def _mail_config():
         "username": os.environ.get("MAIL_USERNAME", "").strip(),
         "password": os.environ.get("MAIL_PASSWORD", ""),
         "use_tls": _mail_bool("MAIL_USE_TLS"),
-        "sender": os.environ.get("MAIL_DEFAULT_SENDER", "").strip(),
+        "sender": _first_env_value("MAIL_DEFAULT_SENDER", "MAIL_FROM"),
     }
+
+
+def _first_env_value(*names):
+    for name in names:
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def email_configuration_error():
+    provider = _email_provider()
+    if provider == "brevo":
+        missing = []
+        if not os.environ.get("BREVO_API_KEY", "").strip():
+            missing.append("BREVO_API_KEY")
+        if not _first_env_value("BREVO_SENDER_EMAIL", "MAIL_SENDER_EMAIL", "MAIL_FROM"):
+            missing.append("BREVO_SENDER_EMAIL or MAIL_SENDER_EMAIL or MAIL_FROM")
+        if missing:
+            return (
+                "邮件服务配置缺失，请联系管理员检查 Render 环境变量："
+                + ", ".join(missing)
+            )
+    if provider == "smtp":
+        config = _mail_config()
+        missing = [
+            name
+            for name, value in (
+                ("MAIL_SERVER", config["server"]),
+                ("MAIL_DEFAULT_SENDER or MAIL_FROM", config["sender"]),
+            )
+            if not value
+        ]
+        if missing:
+            return (
+                "邮件服务配置缺失，请联系管理员检查 Render 环境变量："
+                + ", ".join(missing)
+            )
+    return None
 
 
 def _smtp_ready(config):
@@ -103,6 +161,18 @@ def _smtp_ready(config):
 def _send_mail_smtp(to_email, subject, body):
     config = _mail_config()
     if not _smtp_ready(config):
+        missing = [
+            name
+            for name, value in (
+                ("MAIL_SERVER", config["server"]),
+                ("MAIL_DEFAULT_SENDER or MAIL_FROM", config["sender"]),
+            )
+            if not value
+        ]
+        current_app.logger.error(
+            "SMTP email is not configured; missing environment variable(s): %s",
+            ", ".join(missing),
+        )
         return False
 
     message = EmailMessage()
@@ -122,13 +192,22 @@ def _send_mail_smtp(to_email, subject, body):
 
 def _send_mail_brevo(to_email, subject, body):
     api_key = os.environ.get("BREVO_API_KEY", "").strip()
-    sender_email = os.environ.get("BREVO_SENDER_EMAIL", "").strip()
-    sender_name = os.environ.get("BREVO_SENDER_NAME", "").strip() or "Gatherly"
+    sender_email = _first_env_value(
+        "BREVO_SENDER_EMAIL",
+        "MAIL_SENDER_EMAIL",
+        "MAIL_FROM",
+    )
+    sender_name = _first_env_value("BREVO_SENDER_NAME", "MAIL_SENDER_NAME") or "Gatherly"
 
     if not api_key or not sender_email:
+        missing = []
+        if not api_key:
+            missing.append("BREVO_API_KEY")
+        if not sender_email:
+            missing.append("BREVO_SENDER_EMAIL or MAIL_SENDER_EMAIL or MAIL_FROM")
         current_app.logger.error(
-            "Brevo email API is not configured; BREVO_API_KEY and "
-            "BREVO_SENDER_EMAIL are required"
+            "Brevo email API is not configured; missing environment variable(s): %s",
+            ", ".join(missing),
         )
         return False
 
@@ -145,46 +224,42 @@ def _send_mail_brevo(to_email, subject, body):
         "subject": subject,
         "textContent": body,
     }
-    request = urllib.request.Request(
-        BREVO_API_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "api-key": api_key,
-            "accept": "application/json",
-            "content-type": "application/json",
-        },
-        method="POST",
-    )
-
     try:
-        with urllib.request.urlopen(request, timeout=_email_api_timeout()) as response:
-            status = response.getcode()
-            if status in {200, 201, 202}:
-                return True
-            response_body = response.read(500).decode("utf-8", errors="replace")
-            current_app.logger.error(
-                "Brevo email API returned unexpected status %s for %s: %s",
-                status,
-                to_email,
-                response_body,
-            )
-    except urllib.error.HTTPError as exc:
-        response_body = exc.read(500).decode("utf-8", errors="replace")
-        current_app.logger.error(
-            "Brevo email API returned HTTP %s for %s: %s",
-            exc.code,
-            to_email,
-            response_body,
+        response = requests.post(
+            BREVO_API_URL,
+            json=payload,
+            headers={
+                "api-key": api_key,
+                "accept": "application/json",
+                "content-type": "application/json",
+            },
+            timeout=_email_api_timeout(),
         )
-    except urllib.error.URLError as exc:
-        current_app.logger.error(
-            "Brevo email API request failed for %s: %s", to_email, exc.reason
-        )
-    except OSError as exc:
-        current_app.logger.error(
-            "Brevo email API request failed for %s: %s", to_email, exc
-        )
+    except requests.RequestException:
+        current_app.logger.exception("Brevo email API request failed for %s", to_email)
+        return False
+
+    if 200 <= response.status_code < 300:
+        return True
+
+    current_app.logger.error(
+        "Brevo email API returned HTTP %s for %s: %s",
+        response.status_code,
+        to_email,
+        response.text[:500],
+    )
     return False
+
+
+def _send_mail_console(to_email, purpose, code):
+    current_app.logger.info(
+        "Console email provider; verification code for %s/%s is %s",
+        purpose,
+        to_email,
+        code,
+    )
+    print(f"[DEV EMAIL CODE] {purpose} {to_email}: {code}")
+    return True
 
 
 def _send_mail(to_email, subject, body):
@@ -192,9 +267,13 @@ def _send_mail(to_email, subject, body):
     if provider == "brevo":
         return _send_mail_brevo(to_email, subject, body)
     if provider == "smtp":
-        return _send_mail_smtp(to_email, subject, body)
+        try:
+            return _send_mail_smtp(to_email, subject, body)
+        except (OSError, smtplib.SMTPException):
+            current_app.logger.exception("SMTP email send failed for %s", to_email)
+            return False
     if provider == "console":
-        return False
+        return None
 
     current_app.logger.error(
         "Unsupported EMAIL_PROVIDER=%r; expected brevo, smtp, or console", provider
@@ -213,6 +292,19 @@ def send_verification_code(email, purpose, user=None):
     now = datetime.utcnow()
     user_id = user.id if user else None
 
+    label = PURPOSE_LABELS.get(purpose, "邮箱确认")
+    subject = f"Gatherly {label}验证码"
+    body = (
+        f"你的 Gatherly {label}验证码是：{code}\n\n"
+        f"验证码 {EMAIL_CODE_TTL_MINUTES} 分钟内有效，请勿转发给他人。"
+    )
+    sent = _send_mail(email, subject, body)
+    if sent is None and is_console_email_provider():
+        sent = _send_mail_console(email, purpose, code)
+    if not sent:
+        db.session.rollback()
+        return False
+
     EmailVerificationCode.query.filter_by(
         email=email,
         purpose=purpose,
@@ -228,26 +320,8 @@ def send_verification_code(email, purpose, user=None):
         expires_at=now + timedelta(minutes=EMAIL_CODE_TTL_MINUTES),
     )
     db.session.add(verification)
-    db.session.flush()
-
-    label = PURPOSE_LABELS.get(purpose, "邮箱确认")
-    subject = f"Gatherly {label}验证码"
-    body = (
-        f"你的 Gatherly {label}验证码是：{code}\n\n"
-        f"验证码 {EMAIL_CODE_TTL_MINUTES} 分钟内有效，请勿转发给他人。"
-    )
-    sent = _send_mail(email, subject, body)
-    if not sent and is_console_email_provider():
-        current_app.logger.info(
-            "Console email provider; verification code for %s/%s is %s",
-            purpose,
-            email,
-            code,
-        )
-        print(f"[DEV EMAIL CODE] {purpose} {email}: {code}")
-
     db.session.commit()
-    return sent
+    return True
 
 
 def verify_email_code(email, purpose, code, user=None):
