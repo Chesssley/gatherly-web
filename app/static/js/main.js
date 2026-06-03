@@ -1649,9 +1649,18 @@ document.addEventListener("DOMContentLoaded", () => {
         .filter(Number.isFinite)
     );
     let lastMessageId = Number(chat.dataset.lastMessageId || 0);
-    let retryDelay = 3000;
-    let pollTimer = null;
-    let isPolling = false;
+    const pauseNotice = chat.querySelector("[data-message-poll-paused]");
+    const MESSAGE_ACTIVE_INTERVAL_MS = 5000;
+    const MESSAGE_BURST_INTERVAL_MS = 3000;
+    const BURST_DURATION_MS = 60000;
+    const IDLE_AFTER_MS = 90000;
+    const ERROR_BACKOFF_INITIAL_MS = 30000;
+    const ERROR_BACKOFF_MAX_MS = 120000;
+    let errorBackoffDelay = ERROR_BACKOFF_INITIAL_MS;
+    let burstUntil = Date.now() + BURST_DURATION_MS;
+    let lastUserActiveAt = Date.now();
+    let waitingForFreshInteraction = false;
+    let idleTimer = null;
 
     const clearFormError = () => {
       if (formError) {
@@ -1698,7 +1707,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const appendMessage = message => {
       const messageId = Number(message.id);
       if (!Number.isFinite(messageId) || seenMessageIds.has(messageId)) {
-        return;
+        return false;
       }
 
       const shouldStickToBottom = isNearBottom() || Boolean(message.is_mine);
@@ -1753,6 +1762,34 @@ document.addEventListener("DOMContentLoaded", () => {
       if (shouldStickToBottom) {
         scrollMessagesToBottom(true);
       }
+
+      return true;
+    };
+
+    const appendPendingMessage = content => {
+      removeEmptyState();
+
+      const article = document.createElement("article");
+      article.className = "message-bubble is-mine is-pending";
+      article.dataset.tempMessage = "true";
+
+      const inner = document.createElement("div");
+      inner.className = "message-bubble-inner";
+
+      const text = document.createElement("p");
+      text.textContent = content;
+      inner.appendChild(text);
+
+      const time = document.createElement("time");
+      time.className = "message-time";
+      time.textContent = "发送中";
+
+      article.appendChild(inner);
+      article.appendChild(time);
+      thread.appendChild(article);
+      scrollMessagesToBottom(true);
+
+      return article;
     };
 
     const applyPermissionState = data => {
@@ -1796,51 +1833,236 @@ document.addEventListener("DOMContentLoaded", () => {
       getCsrfToken()
     );
 
-    const schedulePoll = delay => {
-      window.clearTimeout(pollTimer);
-      pollTimer = window.setTimeout(poll, delay);
-    };
-
-    const nextNormalDelay = () => (document.hidden ? 12000 : 3000);
-
-    async function poll() {
-      if (isPolling) {
-        schedulePoll(nextNormalDelay());
+    const showPauseNotice = reason => {
+      if (!pauseNotice) {
         return;
       }
+      pauseNotice.hidden = !(reason === "idle" || reason === "waiting-interaction");
+    };
 
-      isPolling = true;
-      try {
-        const url = new URL(chat.dataset.pollUrl, window.location.origin);
-        url.searchParams.set("after_id", String(lastMessageId));
-        const response = await fetch(url.toString(), {
-          credentials: "same-origin",
-        });
-        const data = await response.json();
-        if (!response.ok || !data.ok) {
-          throw new Error(data.error || "私信更新失败。");
-        }
-
-        const incomingMessages = data.messages || [];
-        const shouldStickToBottom = isNearBottom();
-        incomingMessages.forEach(appendMessage);
-        if (incomingMessages.length && shouldStickToBottom) {
-          scrollMessagesToBottom(true);
-        }
-        if (Number.isFinite(Number(data.last_message_id))) {
-          lastMessageId = Math.max(lastMessageId, Number(data.last_message_id));
-          chat.dataset.lastMessageId = String(lastMessageId);
-        }
-        applyPermissionState(data);
-        retryDelay = 3000;
-        schedulePoll(nextNormalDelay());
-      } catch (error) {
-        retryDelay = retryDelay < 5000 ? 5000 : Math.min(retryDelay * 2, 30000);
-        schedulePoll(retryDelay);
-      } finally {
-        isPolling = false;
+    const hidePauseNotice = () => {
+      if (pauseNotice) {
+        pauseNotice.hidden = true;
       }
-    }
+    };
+
+    const getPauseReason = () => {
+      if (navigator.onLine === false) {
+        return "offline";
+      }
+      if (document.hidden) {
+        return "hidden";
+      }
+      if (!document.hasFocus()) {
+        return "blur";
+      }
+      if (waitingForFreshInteraction) {
+        return "waiting-interaction";
+      }
+      if (Date.now() - lastUserActiveAt >= IDLE_AFTER_MS) {
+        return "idle";
+      }
+      return "";
+    };
+
+    const isPageActive = () => !getPauseReason();
+
+    const getNextPollDelay = () => (
+      Date.now() < burstUntil ? MESSAGE_BURST_INTERVAL_MS : MESSAGE_ACTIVE_INTERVAL_MS
+    );
+
+    const enterBurstMode = () => {
+      burstUntil = Date.now() + BURST_DURATION_MS;
+    };
+
+    const createSmartPoller = options => {
+      let timer = null;
+      let inFlight = false;
+      let abortController = null;
+      let stopped = true;
+      let destroyed = false;
+
+      const clearTimer = () => {
+        if (timer) {
+          window.clearTimeout(timer);
+          timer = null;
+        }
+      };
+
+      const abortRequest = () => {
+        if (abortController) {
+          abortController.abort();
+          abortController = null;
+        }
+      };
+
+      const stop = (reason = "manual") => {
+        stopped = true;
+        clearTimer();
+        abortRequest();
+        options.onPause?.(reason);
+      };
+
+      const scheduleNext = delay => {
+        if (destroyed || stopped) {
+          return;
+        }
+        clearTimer();
+        timer = window.setTimeout(runOnce, Math.max(0, delay));
+      };
+
+      const start = (reason = "manual", immediate = false) => {
+        if (destroyed) {
+          return;
+        }
+        const pauseReason = options.getPauseReason?.() || "";
+        if (pauseReason) {
+          stop(pauseReason);
+          return;
+        }
+        stopped = false;
+        options.onResume?.(reason);
+        if (immediate) {
+          scheduleNext(0);
+        } else if (!timer && !inFlight) {
+          scheduleNext(options.getDelay());
+        }
+      };
+
+      async function runOnce() {
+        clearTimer();
+        if (destroyed || stopped) {
+          return;
+        }
+        const pauseReason = options.getPauseReason?.() || "";
+        if (pauseReason) {
+          stop(pauseReason);
+          return;
+        }
+        if (inFlight) {
+          scheduleNext(options.getDelay());
+          return;
+        }
+
+        inFlight = true;
+        abortController = typeof AbortController !== "undefined" ? new AbortController() : null;
+        try {
+          await options.run({ signal: abortController?.signal });
+          options.onSuccess?.();
+        } catch (error) {
+          if (error.name !== "AbortError") {
+            const retryDelay = options.onError?.(error) || options.getDelay();
+            scheduleNext(retryDelay);
+          }
+          return;
+        } finally {
+          inFlight = false;
+          abortController = null;
+        }
+
+        const nextPauseReason = options.getPauseReason?.() || "";
+        if (nextPauseReason) {
+          stop(nextPauseReason);
+          return;
+        }
+        scheduleNext(options.getDelay());
+      }
+
+      const destroy = () => {
+        destroyed = true;
+        stop("destroy");
+      };
+
+      return {
+        start,
+        stop,
+        scheduleNext,
+        runOnce,
+        isPageActive: options.isPageActive,
+        destroy,
+      };
+    };
+
+    const runMessagePoll = async ({ signal } = {}) => {
+      const url = new URL(chat.dataset.pollUrl, window.location.origin);
+      url.searchParams.set("after_id", String(lastMessageId));
+      const response = await fetch(url.toString(), {
+        credentials: "same-origin",
+        signal,
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "私信更新失败。");
+      }
+
+      const incomingMessages = data.messages || [];
+      const shouldStickToBottom = isNearBottom();
+      let appendedNewMessage = false;
+      incomingMessages.forEach(message => {
+        appendedNewMessage = appendMessage(message) || appendedNewMessage;
+      });
+      if (incomingMessages.length && shouldStickToBottom) {
+        scrollMessagesToBottom(true);
+      }
+      if (Number.isFinite(Number(data.last_message_id))) {
+        lastMessageId = Math.max(lastMessageId, Number(data.last_message_id));
+        chat.dataset.lastMessageId = String(lastMessageId);
+      }
+      if (appendedNewMessage) {
+        enterBurstMode();
+      }
+      applyPermissionState(data);
+    };
+
+    const messagePoller = createSmartPoller({
+      run: runMessagePoll,
+      getDelay: getNextPollDelay,
+      getPauseReason,
+      isPageActive,
+      onPause: showPauseNotice,
+      onResume: hidePauseNotice,
+      onSuccess: () => {
+        errorBackoffDelay = ERROR_BACKOFF_INITIAL_MS;
+      },
+      onError: () => {
+        const retryDelay = errorBackoffDelay;
+        errorBackoffDelay = Math.min(errorBackoffDelay * 2, ERROR_BACKOFF_MAX_MS);
+        return retryDelay;
+      },
+    });
+
+    const scheduleIdleStop = () => {
+      if (idleTimer) {
+        window.clearTimeout(idleTimer);
+      }
+      // 用户长时间不操作时暂停轮询，避免后台页面持续唤醒 Neon compute。
+      idleTimer = window.setTimeout(() => {
+        if (getPauseReason() === "idle") {
+          messagePoller.stop("idle");
+        }
+      }, IDLE_AFTER_MS + 50);
+    };
+
+    const markUserActive = () => {
+      lastUserActiveAt = Date.now();
+      if (!document.hidden && document.hasFocus() && navigator.onLine !== false) {
+        waitingForFreshInteraction = false;
+        messagePoller.start("user-active", true);
+      }
+      scheduleIdleStop();
+    };
+
+    const stopForCurrentState = reason => {
+      waitingForFreshInteraction = true;
+      messagePoller.stop(reason);
+    };
+
+    ["click", "pointerdown", "keydown", "scroll", "touchstart"].forEach(eventName => {
+      document.addEventListener(eventName, markUserActive, {
+        passive: true,
+        capture: true,
+      });
+    });
 
     form.addEventListener("submit", async event => {
       const hasImage = Boolean(fileInput?.files?.length);
@@ -1865,6 +2087,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       submitButton.disabled = true;
+      const pendingMessage = appendPendingMessage(content);
       try {
         const headers = { "Content-Type": "application/json" };
         const token = csrfToken();
@@ -1887,11 +2110,15 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error(data.error || "私信发送失败，请稍后重试。");
         }
 
+        pendingMessage.remove();
         appendMessage(data.message);
         scrollMessagesToBottom(true);
         input.value = "";
         applyPermissionState(data);
+        enterBurstMode();
+        messagePoller.start("send-success", true);
       } catch (error) {
+        pendingMessage.remove();
         showFormError(error.message || "私信发送失败，请稍后重试。");
         if (!input.disabled) {
           submitButton.disabled = false;
@@ -1900,11 +2127,46 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.addEventListener("visibilitychange", () => {
-      schedulePoll(document.hidden ? 12000 : 500);
+      if (document.hidden) {
+        stopForCurrentState("hidden");
+      } else {
+        waitingForFreshInteraction = true;
+        messagePoller.stop("waiting-interaction");
+      }
+    });
+
+    window.addEventListener("blur", () => {
+      stopForCurrentState("blur");
+    });
+
+    window.addEventListener("focus", () => {
+      if (!document.hidden) {
+        waitingForFreshInteraction = true;
+        messagePoller.stop("waiting-interaction");
+      }
+    });
+
+    window.addEventListener("offline", () => {
+      stopForCurrentState("offline");
+    });
+
+    window.addEventListener("online", () => {
+      if (!document.hidden && document.hasFocus()) {
+        waitingForFreshInteraction = true;
+        messagePoller.stop("waiting-interaction");
+      }
+    });
+
+    window.addEventListener("beforeunload", () => {
+      if (idleTimer) {
+        window.clearTimeout(idleTimer);
+      }
+      messagePoller.destroy();
     });
 
     window.requestAnimationFrame(() => scrollMessagesToBottom(true));
-    schedulePoll(nextNormalDelay());
+    scheduleIdleStop();
+    messagePoller.start("initial", true);
   };
 
   initMessageConversationActions();

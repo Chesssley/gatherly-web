@@ -100,6 +100,7 @@
         </div>
 
         <div class="message-thread message-list-scroll" id="messageList">
+          <div class="message-poll-paused" data-message-poll-paused hidden>长时间未操作，消息自动刷新已暂停；点击页面后恢复。</div>
           {% for message in messages %}
           <article class="message-bubble {% if message.sender_id == session.get('user_id') %}is-mine{% endif %}" data-message-id="{{ message.id }}">
             <div class="message-bubble-inner">

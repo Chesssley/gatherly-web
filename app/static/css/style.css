@@ -5279,6 +5279,23 @@ textarea.form-input {
   overflow-y: auto;
 }
 
+.message-poll-paused {
+  align-self: center;
+  max-width: min(100%, 520px);
+  padding: 8px 12px;
+  border: 1px solid #d7dbe1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.message-poll-paused[hidden] {
+  display: none;
+}
+
 .message-bubble {
   display: grid;
   max-width: min(72%, 520px);
@@ -5289,6 +5306,14 @@ textarea.form-input {
 .message-bubble.is-mine {
   align-self: end;
   justify-items: end;
+}
+
+.message-bubble.is-pending .message-bubble-inner {
+  opacity: 0.72;
+}
+
+.message-bubble.is-pending time {
+  color: var(--color-muted);
 }
 
 .message-bubble-inner {
