@@ -284,6 +284,14 @@ def ensure_activity_schema():
 
 
 class Registration(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id",
+            "activity_id",
+            name="uq_registration_user_activity",
+        ),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)

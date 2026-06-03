@@ -134,8 +134,8 @@ erDiagram
 
     REGISTRATION {
         int id PK
-        int user_id FK
-        int activity_id FK
+        int user_id FK "UK uq_registration_user_activity"
+        int activity_id FK "UK uq_registration_user_activity"
         string status
         text cancel_reason
         datetime cancelled_at
