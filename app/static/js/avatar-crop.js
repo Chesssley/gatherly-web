@@ -4,8 +4,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  const MAX_SOURCE_BYTES = 3 * 1024 * 1024;
-  const MAX_AVATAR_BYTES = 700 * 1024;
+  const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
+  const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
   const OUTPUT_SIZE = 512;
   const sourceInput = document.getElementById("avatar-source");
   const uploadInput = document.getElementById("avatar-file");
@@ -67,7 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (file.size > MAX_SOURCE_BYTES) {
       sourceInput.value = "";
       cropPanel.hidden = true;
-      showError("原图不能超过 3MB。");
+      showError("原图不能超过 2MB。");
       return;
     }
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {

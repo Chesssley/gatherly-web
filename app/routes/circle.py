@@ -7,14 +7,13 @@ from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.models import Activity, Circle, CircleMember, Comment, CommentImage, Interaction, Post, PostImage, Registration, User, create_notification, db
-from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
+from app.utils.upload_limits import upload_limit
+from app.utils.upload_utils import delete_saved_images, save_image_files, validate_upload_files
 
 circle_bp = Blueprint("circle", __name__)
 
-POST_IMAGE_MAX_BYTES = 800 * 1024
-POST_IMAGE_MAX_COUNT = 3
-COMMENT_IMAGE_MAX_BYTES = 500 * 1024
-COMMENT_IMAGE_MAX_COUNT = 1
+POST_IMAGE_LIMIT = upload_limit("post_images")
+COMMENT_IMAGE_LIMIT = upload_limit("comment_images")
 POST_UPLOAD_SUBDIR = "posts"
 COMMENT_UPLOAD_SUBDIR = "comments"
 CIRCLE_COVER_ASSET_SUBDIR = "images/circle_covers/"
@@ -22,7 +21,7 @@ CIRCLE_COVER_UPLOAD_SUBDIR = "circles"
 CIRCLE_COVER_UPLOAD_PREFIX = "images/circles/"
 CIRCLE_COVER_ALLOWED_SUBDIRS = (CIRCLE_COVER_ASSET_SUBDIR, CIRCLE_COVER_UPLOAD_PREFIX)
 DEFAULT_CIRCLE_COVER = f"{CIRCLE_COVER_ASSET_SUBDIR}default.webp"
-CIRCLE_COVER_MAX_BYTES = 800 * 1024
+CIRCLE_COVER_LIMIT = upload_limit("circle_cover")
 OFFICIAL_CIRCLE_COVER_MAX_BYTES = 500 * 1024
 CIRCLE_COVER_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".svg"}
 HOT_CIRCLE_MEMBER_THRESHOLD = 200
@@ -140,7 +139,7 @@ def _circle_cover_image(circle):
     max_bytes = (
         OFFICIAL_CIRCLE_COVER_MAX_BYTES
         if cover_image.startswith(CIRCLE_COVER_ASSET_SUBDIR)
-        else CIRCLE_COVER_MAX_BYTES
+        else CIRCLE_COVER_LIMIT["max_file_size"]
     )
     if os.path.getsize(cover_path) >= max_bytes:
         return DEFAULT_CIRCLE_COVER
@@ -150,14 +149,9 @@ def _circle_cover_image(circle):
 def _save_circle_cover(file):
     if not file or not file.filename:
         return None
-    content = file.stream.read(CIRCLE_COVER_MAX_BYTES)
-    file.stream.seek(0)
-    if len(content) >= CIRCLE_COVER_MAX_BYTES:
-        raise ValueError("圈子封面必须小于 800KB。")
-    validated_images = validate_image_files(
+    validated_images = validate_upload_files(
         [file],
-        max_count=1,
-        max_bytes=CIRCLE_COVER_MAX_BYTES,
+        "circle_cover",
     )
     image_paths = save_image_files(validated_images, CIRCLE_COVER_UPLOAD_SUBDIR)
     return image_paths[0] if image_paths else None
@@ -184,6 +178,14 @@ def _delete_uploaded_circle_cover(image_path):
 
 def _can_edit_circle_cover(user, circle):
     return bool(user and (user.role == "admin" or circle.owner_id == user.id))
+
+
+def _upload_limit_context():
+    return {
+        "post_image_limit": POST_IMAGE_LIMIT,
+        "comment_image_limit": COMMENT_IMAGE_LIMIT,
+        "circle_cover_limit": CIRCLE_COVER_LIMIT,
+    }
 
 
 def _official_description(tag):
@@ -261,6 +263,7 @@ def _create_circle_template_context(is_admin):
         "create_mode": True,
         "is_admin": is_admin,
         "interest_categories": CIRCLE_CREATE_INTEREST_CATEGORIES,
+        **_upload_limit_context(),
     }
 
 
@@ -377,6 +380,27 @@ def ensure_circle_schema():
 def _ensure_circle_image_tables():
     PostImage.__table__.create(db.engine, checkfirst=True)
     CommentImage.__table__.create(db.engine, checkfirst=True)
+    if db.engine.dialect.name != "sqlite":
+        return
+
+    statements = []
+    for table_name in ("post_image", "comment_image"):
+        rows = db.session.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+        existing_columns = {row[1] for row in rows}
+        if rows and "image_url" not in existing_columns:
+            if "image_path" in existing_columns:
+                statements.append(
+                    f"ALTER TABLE {table_name} RENAME COLUMN image_path TO image_url"
+                )
+            else:
+                statements.append(
+                    f"ALTER TABLE {table_name} ADD COLUMN image_url VARCHAR(255)"
+                )
+
+    for statement in statements:
+        db.session.execute(text(statement))
+    if statements:
+        db.session.commit()
 
 
 def _ensure_post_status_column():
@@ -785,7 +809,7 @@ def circles():
         ),
         reverse=True,
     )
-    return render_template("circle.html", circles=decorated)
+    return render_template("circle.html", circles=decorated, **_upload_limit_context())
 
 
 @circle_bp.route("/circle")
@@ -958,6 +982,7 @@ def circle_detail(circle_id):
                 is_circle_owner=False,
                 circle_members=[],
                 pending_members=[],
+                **_upload_limit_context(),
             )
         flash("同好圈不存在或暂不可见。", "error")
         return redirect(url_for("circle.circles"))
@@ -1112,6 +1137,7 @@ def circle_detail(circle_id):
         pending_members=pending_members,
         private_request_mode=False,
         pending_request=None,
+        **_upload_limit_context(),
     )
 
 
@@ -1443,7 +1469,7 @@ def create_post(circle_id):
         return redirect(url_for("circle.circle_detail", circle_id=circle.id))
 
     if request.method == "GET":
-        return render_template("create_post.html", circle=circle)
+        return render_template("create_post.html", circle=circle, **_upload_limit_context())
 
     title = request.form.get("title", "").strip()
     content = request.form.get("content", "").strip()
@@ -1451,28 +1477,27 @@ def create_post(circle_id):
 
     if not title or not content:
         flash("标题和内容不能为空。", "error")
-        return render_template("create_post.html", circle=circle)
+        return render_template("create_post.html", circle=circle, **_upload_limit_context())
     if len(title) > 100:
         flash("标题长度不能超过 100 个字符。", "error")
-        return render_template("create_post.html", circle=circle)
+        return render_template("create_post.html", circle=circle, **_upload_limit_context())
 
     try:
-        validated_images = validate_image_files(
+        validated_images = validate_upload_files(
             request.files.getlist("images"),
-            max_count=POST_IMAGE_MAX_COUNT,
-            max_bytes=POST_IMAGE_MAX_BYTES,
+            "post_images",
         )
         image_paths = save_image_files(validated_images, POST_UPLOAD_SUBDIR)
     except ValueError as exc:
         flash(str(exc), "error")
-        return render_template("create_post.html", circle=circle)
+        return render_template("create_post.html", circle=circle, **_upload_limit_context())
 
     post = Post(title=title, content=content, type=post_type, user_id=user.id, circle_id=circle.id)
     try:
         db.session.add(post)
         db.session.flush()
-        for image_path in image_paths:
-            db.session.add(PostImage(post_id=post.id, image_path=image_path))
+        for image_url in image_paths:
+            db.session.add(PostImage(post_id=post.id, image_url=image_url))
         db.session.commit()
         flash("帖子发布成功。", "success")
         return redirect(url_for("circle.circle_detail", circle_id=circle.id))
@@ -1480,7 +1505,7 @@ def create_post(circle_id):
         db.session.rollback()
         delete_saved_images(image_paths)
         flash("发布失败，请稍后重试。", "error")
-        return render_template("create_post.html", circle=circle)
+        return render_template("create_post.html", circle=circle, **_upload_limit_context())
 
 
 @circle_bp.route("/circle/<int:circle_id>/post/<int:post_id>/comment", methods=["POST"])
@@ -1511,10 +1536,9 @@ def comment_post(circle_id, post_id):
             return redirect(url_for("circle.circle_detail", circle_id=post.circle_id, _anchor=f"post-{post.id}"))
 
     try:
-        validated_images = validate_image_files(
+        validated_images = validate_upload_files(
             request.files.getlist("images"),
-            max_count=COMMENT_IMAGE_MAX_COUNT,
-            max_bytes=COMMENT_IMAGE_MAX_BYTES,
+            "comment_images",
         )
         image_paths = save_image_files(validated_images, COMMENT_UPLOAD_SUBDIR)
     except ValueError as exc:
@@ -1534,8 +1558,8 @@ def comment_post(circle_id, post_id):
     try:
         db.session.add(comment)
         db.session.flush()
-        for image_path in image_paths:
-            db.session.add(CommentImage(comment_id=comment.id, image_path=image_path))
+        for image_url in image_paths:
+            db.session.add(CommentImage(comment_id=comment.id, image_url=image_url))
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -1582,10 +1606,10 @@ def delete_post_image(image_id):
         flash("你没有权限删除这张照片。", "error")
         return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-photos-title"))
 
-    image_path = image.image_path
+    image_url = image.image_url
     db.session.delete(image)
     db.session.commit()
-    delete_saved_images([image_path])
+    delete_saved_images([image_url])
     flash("照片已删除。", "success")
     return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-photos-title"))
 

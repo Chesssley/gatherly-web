@@ -43,17 +43,17 @@
             type="file"
             id="images"
             name="images"
-            accept=".jpg,.jpeg,.png,.webp"
+            accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
             multiple
             data-file-count-target="post-image-count"
             data-image-upload
-            data-max-count="3"
-            data-max-bytes="819200"
+            data-max-count="{{ post_image_limit.max_files }}"
+            data-max-bytes="{{ post_image_limit.max_file_size }}"
           >
           <label class="file-upload-button" for="images">选择图片</label>
           <span class="file-upload-count" id="post-image-count">未选择图片</span>
         </div>
-        <p class="form-hint">可上传多张 jpg、jpeg、png、webp、gif 图片。</p>
+        <p class="form-hint">最多 {{ post_image_limit.max_files }} 张。支持 jpg、jpeg、png、webp、gif，单张小于 {{ post_image_limit.max_file_size // 1024 // 1024 }} MB，上传后会压缩为 WebP。</p>
       </div>
 
       <button class="button" type="submit">发布帖子</button>

@@ -27,8 +27,8 @@
             <td>{{ application.user.username }}</td>
             <td>{{ application.business_name }}</td>
             <td>
-              {% if application.document_path %}
-              <a href="{{ application.document_path|asset_url }}" target="_blank" rel="noopener">查看图片</a>
+              {% if application.document_url %}
+              <a href="{{ application.document_url|asset_url }}" target="_blank" rel="noopener">查看图片</a>
               {% else %}-{% endif %}
             </td>
             <td>{{ application.reason or '-' }}</td>

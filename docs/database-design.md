@@ -30,7 +30,7 @@ ER 图见：[er-diagram.md](er-diagram.md)。
 - 私信、会话状态、通知、管理员日志。
 - 邮箱验证码记录。
 - 商家认证记录。
-- 图片 URL 或 R2 object key。
+- 图片 R2 public URL。
 
 数据库不保存：
 
@@ -46,21 +46,37 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 
 ## 图片字段策略
 
-当前代码通过 `app/services/storage.py` 上传图片。生产环境应配置 Cloudflare R2，bucket 用途按 `gatherly-uploads` 这一类上传文件 bucket 描述。上传成功后，数据库字段保存 R2 public URL 或 object key，不保存文件本体。
+当前代码通过 `app/services/storage.py` 上传图片。生产环境应配置 Cloudflare R2，bucket 用途按 `gatherly-uploads` 这一类上传文件 bucket 描述。上传成功后，数据库字段保存 R2 public URL，不保存文件本体。
 
-当前部分字段历史命名仍包含 `path`，但生产语义应是“存储 URL / object key”：
+当前图片字段按 URL 语义命名。生产环境上传成功后保存 R2 public URL；未配置 R2 的非生产本地 fallback 可能保存 `/static/uploads/...`，仅用于本地开发或历史数据。
 
 | 字段 | 当前含义 |
 |---|---|
 | `User.avatar` | 头像 URL；可为 R2 URL，也可能保留历史本地静态路径。 |
 | `Activity.image` | 活动图片 URL；生产环境应为 R2 URL。 |
 | `Circle.cover_image` | 圈子封面 URL；生产环境应为 R2 URL。 |
-| `PostImage.image_path` | 历史命名，实际应保存帖子图片 URL / object key。 |
-| `CommentImage.image_path` | 历史命名，实际应保存评论图片 URL / object key。 |
-| `DirectMessage.image_path` | 历史命名，实际应保存私信图片 URL / object key。 |
-| `MerchantVerification.document_path` | 历史命名，实际应保存认证材料 URL / object key。 |
+| `PostImage.image_url` | 帖子图片 URL。 |
+| `CommentImage.image_url` | 评论图片 URL。 |
+| `DirectMessage.image_url` | 私信图片 URL。 |
+| `MerchantVerification.document_url` | 认证材料 URL。 |
 
-待迁移问题：这些 `*_path` 字段命名仍容易让维护者误以为保存本地路径。建议另开数据库迁移 Issue，将 `image_path` / `document_path` 逐步重命名为 `image_url` / `document_url`，并生成 Alembic migrations。当前不要直接修改模型。
+迁移记录：`b2c6f7e8a9d0_rename_media_path_fields_to_url.py` 将历史 `image_path` / `document_path` 列原地重命名为 `image_url` / `document_url`，不新建列丢弃旧数据。
+
+### 上传限制与压缩策略
+
+统一配置来源：`app/utils/upload_limits.py`。Flask 全局 `MAX_CONTENT_LENGTH` 仅作为 20 MB 硬上限；具体限制仍按上传场景执行。
+
+| 场景 | 单文件上限 | 数量上限 | 保存格式 | 压缩策略 |
+|---|---:|---:|---|---|
+| 头像 | 2 MB | 1 | WebP | 最大 512 x 512，去 EXIF |
+| 活动图片 | 5 MB | 1 | WebP | 最大 1600 x 900，去 EXIF |
+| 帖子图片 | 5 MB | 9 | WebP | 长边最大 1600，去 EXIF |
+| 评论图片 | 3 MB | 3 | WebP | 长边最大 1280，去 EXIF |
+| 私信图片 | 3 MB | 3 | WebP | 长边最大 1280，去 EXIF |
+| 圈子封面 | 5 MB | 1 | WebP | 最大 1600 x 900，去 EXIF |
+| 商家认证材料 | 8 MB | 1 | WebP 或 PDF | 图片长边最大 2000；PDF 保留原格式 |
+
+当前 `MerchantVerification.document_url` 是单 URL 字段，因此商家认证材料当前仍按单文件上传处理；如果后续要支持 3 个材料文件，应先设计多文件数据结构或单独附件表。
 
 ## 模型总览
 
@@ -108,7 +124,7 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 | `email` | String(120) | 否 | 无 | Unique | 邮箱 |
 | `email_verified_at` | DateTime | 是 | 无 |  | 邮箱验证时间 |
 | `password` | String(255) | 否 | 无 |  | 密码哈希，模型属性名为 `password_hash` |
-| `avatar` | String(255) | 是 | 无 |  | 头像 URL / object key |
+| `avatar` | String(255) | 是 | 无 |  | 头像 URL |
 | `bio` | Text | 是 | 无 |  | 个人简介 |
 | `interests` | Text | 是 | 无 |  | 兴趣文本 |
 | `city` | String(80) | 是 | 无 |  | 用户填写城市 |
@@ -143,7 +159,7 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 | `timezone` | String(80) | 否 | `Asia/Shanghai` |  | 时区 |
 | `max_participants` | Integer | 是 | 无 |  | 人数上限 |
 | `initial_participants` | Integer | 否 | `0` |  | 初始参与数 |
-| `image` | String(255) | 是 | 无 |  | 活动图片 URL / object key |
+| `image` | String(255) | 是 | 无 |  | 活动图片 URL |
 | `fee` | Float | 否 | `0` |  | 费用 |
 | `tags` | Text | 是 | 无 |  | 标签文本 |
 | `circle_id` | Integer | 是 | 无 | FK -> `circle.id` | 所属圈子 |
@@ -223,7 +239,7 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 | `recipient_id` | Integer | 否 | 无 | FK -> `user.id` | 接收者 |
 | `content` | Text | 是 | 无 |  | 文本内容 |
 | `message_type` | String(20) | 否 | `text` |  | 消息类型 |
-| `image_path` | String(255) | 是 | 无 |  | 历史命名，保存图片 URL / object key |
+| `image_url` | String(255) | 是 | 无 |  | 图片 URL |
 | `read_at` | DateTime | 是 | 无 | Index | 已读时间 |
 | `expires_at` | DateTime | 否 | 无 | Index | 过期时间 |
 | `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
@@ -275,7 +291,7 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 | `user_id` | Integer | 否 | 无 | FK -> `user.id` | 申请用户 |
 | `business_name` | String(120) | 否 | 无 |  | 商家名称 |
 | `license_number` | String(120) | 是 | 无 |  | 证照编号 |
-| `document_path` | String(255) | 是 | 无 |  | 历史命名，保存认证材料 URL / object key |
+| `document_url` | String(255) | 是 | 无 |  | 认证材料 URL |
 | `reason` | Text | 是 | 无 |  | 申请说明 |
 | `contact` | String(160) | 是 | 无 |  | 联系方式 |
 | `status` | String(20) | 否 | `pending` |  | 审核状态 |
@@ -311,7 +327,7 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 | `id` | Integer | 否 | 无 | PK | 圈子 ID |
 | `name` | String(120) | 否 | 无 |  | 名称 |
 | `tag` | String(50) | 是 | 无 |  | 标签 |
-| `cover_image` | String(255) | 是 | 无 |  | 封面图片 URL / object key |
+| `cover_image` | String(255) | 是 | 无 |  | 封面图片 URL |
 | `description` | Text | 是 | 无 |  | 简介 |
 | `announcement` | Text | 是 | 无 |  | 公告 |
 | `owner_id` | Integer | 是 | 无 | FK -> `user.id` | 圈主 |
@@ -352,7 +368,7 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 |---|---|---:|---|---|---|
 | `id` | Integer | 否 | 无 | PK | 图片 ID |
 | `post_id` | Integer | 否 | 无 | FK -> `post.id` | 所属帖子 |
-| `image_path` | String(255) | 否 | 无 |  | 历史命名，保存图片 URL / object key |
+| `image_url` | String(255) | 否 | 无 |  | 图片 URL |
 | `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
 
 关系：属于一个帖子。
@@ -473,7 +489,7 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 |---|---|---:|---|---|---|
 | `id` | Integer | 否 | 无 | PK | 图片 ID |
 | `comment_id` | Integer | 否 | 无 | FK -> `comment.id` | 评论 |
-| `image_path` | String(255) | 否 | 无 |  | 历史命名，保存图片 URL / object key |
+| `image_url` | String(255) | 否 | 无 |  | 图片 URL |
 | `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
 
 关系：属于一条评论。
@@ -582,11 +598,10 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 7. 提交 `app/models.py` 和 `migrations/`。
 8. 开 GitHub PR，合并到 `main` 后 Render 自动部署新代码。
 
-普通代码改动不需要手动改 Neon 或 R2。只有数据库 schema 变化需要迁移；图片文件本体始终进 R2，数据库只保存 URL / object key。
+普通代码改动不需要手动改 Neon 或 R2。只有数据库 schema 变化需要迁移；图片文件本体始终进 R2，当前数据库上传字段只保存 R2 public URL。
 
 ## 当前需要另开 Issue 的问题
 
 | 问题 | 建议 |
 |---|---|
-| `PostImage.image_path`、`CommentImage.image_path`、`DirectMessage.image_path`、`MerchantVerification.document_path` 是历史命名 | 另开数据库迁移 Issue，评估重命名为 `image_url` / `document_url`，并生成 Alembic migration。 |
 | `ensure_*_schema()` 仍保留 SQLite 兼容逻辑 | 可保留为本地 fallback；生产 schema 来源应逐步收敛到 migrations。 |

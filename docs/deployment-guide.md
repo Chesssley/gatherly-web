@@ -78,7 +78,10 @@ flask db upgrade
 - 代码进入 GitHub。
 - R2 密钥进入 Render Environment。
 - 上传图片文件本体进入 Cloudflare R2。
-- Neon PostgreSQL 只保存 URL / object key。
+- Neon PostgreSQL 当前只保存 R2 public URL，不保存图片文件本体。
+- 所有上传入口必须使用 `app/utils/upload_limits.py` 中的场景限制。
+- 普通图片上传后会按场景缩放、去除 EXIF 并转为 WebP，以控制 R2 存储增长。
+- 商家认证 PDF 不转 WebP，但必须限制格式、数量和单文件大小。
 - 数据库字段不保存图片文件本体。
 
 如果改上传目录、bucket key 规则或 public URL 规则，需要同时检查：
@@ -151,7 +154,7 @@ Neon 中保存：
 - 活动、报名、收藏、评分、互评和信任分日志。
 - 圈子、帖子、评论、私信、通知和管理员日志。
 - 邮箱验证码和商家认证记录。
-- 图片 URL / object key。
+- 图片 R2 public URL。
 
 Neon 中不保存图片文件本体，不保存 R2 Secret，不保存 `.env`。
 
@@ -169,7 +172,7 @@ R2 保存：
 - 私信图片。
 - 商家认证材料。
 
-Neon 保存这些文件的 URL / object key。GitHub 和 Render 不作为真实用户上传图片的长期存储。
+Neon 当前保存这些文件的 R2 public URL。GitHub 和 Render 不作为真实用户上传图片的长期存储。
 
 ## 本地开发 fallback
 
@@ -180,6 +183,7 @@ Neon 保存这些文件的 URL / object key。GitHub 和 Render 不作为真实�
 - SQLite 不是正式数据库。
 - `app/static/uploads/` 不是 Render 生产持久化目录。
 - `instance/` 不是正式生产数据目录。
+- Render 生产环境必须配置完整 R2 环境变量，不能依赖本地上传目录保存用户图片。
 
 ## 旧数据迁移
 

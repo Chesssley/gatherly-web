@@ -44,7 +44,7 @@ The project does not use React, Vue, Bootstrap, or a separate frontend build pip
 | Layer | Service | Responsibility |
 |---|---|---|
 | Web runtime | Render Web Service | Pulls code from GitHub, installs dependencies, and runs `gunicorn wsgi:app`. |
-| Database | Neon PostgreSQL | Stores relational application data and media URLs/object keys. |
+| Database | Neon PostgreSQL | Stores relational application data and uploaded media public URLs. |
 | Object storage | Cloudflare R2 | Stores uploaded media files such as avatars, activity images, post images, comment images, message images, circle covers, and merchant verification documents. |
 | Version control | GitHub | Stores source code, templates, CSS, JavaScript, README, docs, scripts, and Alembic migrations. |
 | Database migration | Flask-Migrate / Alembic | Tracks schema changes in `migrations/` and applies them with `flask db upgrade`. |
@@ -55,7 +55,9 @@ Render is not persistent storage. Uploaded files must go to Cloudflare R2, and u
 
 User accounts, posts, comments, activities, registrations, ratings, private messages, notifications, admin logs, merchant verification records, email verification records, and image URLs are stored in Neon PostgreSQL.
 
-Uploaded media files are stored in Cloudflare R2. The database stores media URLs or object keys only. It does not store image file bodies.
+Uploaded media files are stored in Cloudflare R2. The current upload service stores R2 public URLs in the database; it does not store image file bodies.
+
+To control R2 storage growth, upload handling uses centralized per-scenario limits in `app/utils/upload_limits.py`. User-uploaded images are validated, resized when needed, stripped of EXIF metadata, converted to WebP, and uploaded with UUID-based object names. Merchant verification PDFs are allowed within the verification limit and are not converted to images.
 
 SQLite is only a local development fallback if `DATABASE_URL` is not set. It is not the production database. Local uploads under `app/static/uploads/` are also only a local development fallback or legacy migration source, not production storage.
 
@@ -111,7 +113,7 @@ Standard deployment flow:
 5. Review and merge into `main`.
 6. Render automatically deploys from `main`.
 
-Ordinary code and documentation changes do not require manual Neon or R2 changes. Database schema changes require Alembic migrations and `flask db upgrade` against Neon. Image upload logic changes go through GitHub, secrets stay in Render Environment, uploaded files go to R2, and Neon stores only URLs/object keys.
+Ordinary code and documentation changes do not require manual Neon or R2 changes. Database schema changes require Alembic migrations and `flask db upgrade` against Neon. Image upload logic changes go through GitHub, secrets stay in Render Environment, uploaded files go to R2, and Neon stores only R2 public URLs for current upload fields.
 
 ## Project Structure
 

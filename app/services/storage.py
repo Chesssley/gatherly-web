@@ -42,6 +42,7 @@ CONTENT_TYPES = {
     "png": "image/png",
     "webp": "image/webp",
     "gif": "image/gif",
+    "pdf": "application/pdf",
 }
 
 
@@ -131,14 +132,29 @@ def upload_file(file, directory, extension=None):
     if extension not in ALLOWED_IMAGE_EXTENSIONS:
         raise ValueError("Image format is not supported.")
 
-    filename = secure_filename(f"{uuid4().hex}.{extension}")
     content_type = content_type_for_extension(extension)
+    file.stream.seek(0)
+    return upload_bytes(
+        file.stream,
+        directory,
+        extension=extension,
+        content_type=content_type,
+    )
+
+
+def upload_bytes(content, directory, extension, content_type=None):
+    directory = normalize_upload_directory(directory)
+    extension = str(extension or "").lower().lstrip(".")
+    if not extension:
+        raise ValueError("File extension is required.")
+    filename = secure_filename(f"{uuid4().hex}.{extension}")
+    content_type = content_type or content_type_for_extension(extension)
 
     if r2_is_configured():
         key = f"{directory}/{filename}"
-        file.stream.seek(0)
+        content.seek(0)
         r2_client().upload_fileobj(
-            file.stream,
+            content,
             os.environ["R2_BUCKET_NAME"],
             key,
             ExtraArgs={"ContentType": content_type},
@@ -150,8 +166,9 @@ def upload_file(file, directory, extension=None):
 
     local_dir = os.path.join(current_app.static_folder, "uploads", directory)
     os.makedirs(local_dir, exist_ok=True)
-    file.stream.seek(0)
-    file.save(os.path.join(local_dir, filename))
+    content.seek(0)
+    with open(os.path.join(local_dir, filename), "wb") as stored_file:
+        stored_file.write(content.read())
     return f"/static/uploads/{directory}/{filename}"
 
 

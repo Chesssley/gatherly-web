@@ -104,9 +104,9 @@
           {% for message in messages %}
           <article class="message-bubble {% if message.sender_id == session.get('user_id') %}is-mine{% endif %}" data-message-id="{{ message.id }}">
             <div class="message-bubble-inner">
-              {% if message.image_path %}
-              <a href="{{ message.image_path|asset_url }}" target="_blank" rel="noopener">
-                <img src="{{ message.image_path|asset_url }}" alt="私信图片">
+              {% if message.image_url %}
+              <a href="{{ message.image_url|asset_url }}" target="_blank" rel="noopener">
+                <img src="{{ message.image_url|asset_url }}" alt="私信图片">
               </a>
               {% endif %}
               {% if message.content %}<p>{{ message.content }}</p>{% endif %}
@@ -129,13 +129,13 @@
           <textarea id="message-content" name="content" rows="2" maxlength="{{ text_max_length }}" placeholder="输入私信内容" data-message-input {% if not can_send_message %}disabled{% endif %}></textarea>
           <div class="message-form-actions">
             <label class="message-image-picker">
-              <input type="file" name="image" accept="image/jpeg,image/png,image/webp" data-image-upload data-file-count-target="message-image-count" data-max-count="1" data-max-bytes="{{ image_max_kb * 1024 }}" {% if not can_send_message %}disabled{% endif %}>
+              <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" multiple data-image-upload data-file-count-target="message-image-count" data-max-count="{{ image_max_count }}" data-max-bytes="{{ image_max_kb * 1024 }}" {% if not can_send_message %}disabled{% endif %}>
               <span>图片</span>
             </label>
             <span id="message-image-count" class="message-file-count">未选择图片</span>
             <button class="button" type="submit" data-message-submit {% if not can_send_message %}disabled{% endif %}>发送</button>
           </div>
-          <p class="message-retention-note">图片大小需小于 {{ image_max_kb }}KB。私信会定期清理，请保存重要信息。</p>
+          <p class="message-retention-note">最多 {{ image_max_count }} 张图片，单张需小于 {{ image_max_kb // 1024 }} MB，上传后会压缩为 WebP。私信会定期清理，请保存重要信息。</p>
         </form>
         {% else %}
         <div class="message-empty-state">

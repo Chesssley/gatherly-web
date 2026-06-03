@@ -46,7 +46,7 @@ python run.py
 
 当前代码在未配置 R2 且不是生产环境时，图片可能保存到 `app/static/uploads/`。这只是本地开发 fallback 或历史迁移来源，不是 Render 生产持久化存储。
 
-生产环境必须配置 R2。上传图片文件本体进入 Cloudflare R2，Neon PostgreSQL 只保存 URL / object key。
+生产环境必须配置 R2。上传图片文件本体进入 Cloudflare R2，Neon PostgreSQL 当前只保存 R2 public URL。
 
 真实图片备份不得提交 GitHub。GitHub 只保存代码、文档、migrations 和配置模板，不保存真实用户上传图片。
 
@@ -200,7 +200,7 @@ python -c "from app import create_app; app = create_app(); print('app loaded')"
 - README 为英文。
 - docs 下中文文档使用 Render + Neon PostgreSQL + Cloudflare R2 作为正式架构。
 - 数据库字段以 `app/models.py` 为准。
-- 图片上传策略写成 R2 存文件、数据库存 URL / object key。
+- 图片上传策略写成 R2 存文件、数据库存 R2 public URL。
 
 ## 高风险改动
 

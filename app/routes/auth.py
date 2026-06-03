@@ -21,10 +21,11 @@ from app.utils.email_verification import (
     send_verification_code,
     verify_email_code,
 )
-from app.utils.upload_utils import delete_saved_images, save_image_files, validate_image_files
+from app.utils.upload_limits import upload_limit
+from app.utils.upload_utils import delete_saved_images, save_image_files, validate_upload_files
 
 auth_bp = Blueprint("auth", __name__)
-MERCHANT_DOCUMENT_MAX_BYTES = 800 * 1024
+MERCHANT_DOCUMENT_LIMIT = upload_limit("merchant_verification")
 MERCHANT_DOCUMENT_UPLOAD_SUBDIR = "merchant-verifications"
 REGISTER_FORM_DRAFT_FIELDS = ("username", "email", "nickname", "city")
 EMAIL_CODE_SESSION_LIMIT_SECONDS = 60 * 60
@@ -389,6 +390,7 @@ def account_settings():
         latest_merchant_verification=latest_merchant_verification,
         account_change_email_draft=account_change_email_draft,
         account_settings_active_panel=account_settings_active_panel,
+        merchant_document_limit=MERCHANT_DOCUMENT_LIMIT,
     )
 
 
@@ -412,10 +414,9 @@ def apply_merchant_verification():
         return _merchant_verification_redirect()
 
     try:
-        validated_documents = validate_image_files(
+        validated_documents = validate_upload_files(
             [request.files.get("document")],
-            max_count=1,
-            max_bytes=MERCHANT_DOCUMENT_MAX_BYTES,
+            "merchant_verification",
         )
         if not validated_documents:
             raise ValueError("请上传营业执照或其他商家证明图片。")
@@ -429,7 +430,7 @@ def apply_merchant_verification():
         verification = MerchantVerification(
             user_id=user.id,
             business_name=business_name,
-            document_path=saved_paths[0],
+            document_url=saved_paths[0],
             reason=reason,
             contact=contact or None,
         )
