@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}安全提示 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section page-container">
+  <div class="container">
+    <header class="page-heading">
+      <p class="eyebrow">Safety</p>
+      <h1>安全提示</h1>
+      <p>线下活动需要参与者共同判断和保护自己。以下提示适用于活动报名、私信沟通、附近的人和认证活动场景。</p>
+    </header>
+
+    <article class="info-card">
+      <ul class="info-list">
+        <li>首次见面优先选择公共场所，并让可信任的人知道你的行程安排。</li>
+        <li>参加活动前确认活动时间、地点、主办方信息、费用和准备事项。</li>
+        <li>不轻易提前向陌生人转账，涉及押金或费用时应保留清晰凭证。</li>
+        <li>不随意透露身份证、住址、银行卡、验证码等敏感信息。</li>
+        <li>私信交流保持礼貌，遇到骚扰、威胁或异常要求时及时停止沟通并反馈。</li>
+        <li>使用附近的人功能时尊重用户选择，避免过度打扰或追问具体位置。</li>
+        <li>商家或官方认证活动也需要用户自行判断风险、费用和实际安排。</li>
+        <li>活动结束后可以通过评分与反馈帮助社区改进，也能提醒其他参与者关注体验细节。</li>
+      </ul>
+
+      <div class="page-actions">
+        <a class="button" href="{{ url_for('pages.feedback') }}">报告问题</a>
+        <a class="button button-secondary" href="{{ url_for('activity.index') }}">浏览活动</a>
+      </div>
+    </article>
+  </div>
+</section>
+{% endblock %}

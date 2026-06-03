@@ -196,8 +196,57 @@
 
   <footer class="site-footer">
     <div class="container footer-inner">
-      <p>&copy; 2026 Gatherly</p>
-      <p>为小众兴趣爱好者连接真实的线下相遇。</p>
+      <section class="footer-brand" aria-labelledby="footer-brand-title">
+        <h2 id="footer-brand-title">Gatherly 聚场</h2>
+        <p>小众兴趣的线下活动聚合与同好匹配平台。</p>
+      </section>
+
+      <nav class="footer-nav" aria-label="页脚导航">
+        <section class="footer-nav-section" aria-labelledby="footer-explore-title">
+          <h3 id="footer-explore-title">Explore</h3>
+          <ul>
+            <li><a href="{{ url_for('activity.index') }}">浏览活动</a></li>
+            <li><a href="{{ url_for('circle.circles') }}">同好圈</a></li>
+            <li><a href="{{ url_for('activity.create_activity') if session.get('user_id') else url_for('auth.login', next=url_for('activity.create_activity')) }}">发布活动</a></li>
+            <li><a href="{{ url_for('profile.my_profile') if session.get('user_id') else url_for('auth.login', next=url_for('profile.my_profile')) }}">个人主页</a></li>
+          </ul>
+        </section>
+
+        <section class="footer-nav-section" aria-labelledby="footer-community-title">
+          <h3 id="footer-community-title">Community</h3>
+          <ul>
+            <li><a href="{{ url_for('pages.community_guidelines') }}">社区规则</a></li>
+            <li><a href="{{ url_for('pages.safety_tips') }}">安全提示</a></li>
+            <li><a href="{{ url_for('pages.feedback') }}">问题反馈</a></li>
+            <li><a href="{{ url_for('pages.contact') }}">联系我们</a></li>
+          </ul>
+        </section>
+
+        <section class="footer-nav-section" aria-labelledby="footer-project-title">
+          <h3 id="footer-project-title">Project</h3>
+          <ul>
+            <li>
+              <a class="footer-icon-link" href="https://github.com/Chesssley/gatherly-web" target="_blank" rel="noopener noreferrer">
+                <img src="{{ url_for('static', filename='images/icons/github-mark.svg') }}" alt="" class="footer-github-icon" aria-hidden="true">
+                <span>GitHub Repository</span>
+              </a>
+            </li>
+            <li><a href="https://github.com/Chesssley/gatherly-web/blob/main/README.md" target="_blank" rel="noopener noreferrer">README</a></li>
+            <li><a href="https://github.com/Chesssley/gatherly-web/projects" target="_blank" rel="noopener noreferrer">Development Board</a></li>
+            <li><a href="{{ url_for('activity.index') }}">Live Demo</a></li>
+          </ul>
+        </section>
+
+        <section class="footer-nav-section" aria-labelledby="footer-legal-title">
+          <h3 id="footer-legal-title">Legal</h3>
+          <ul>
+            <li><a href="{{ url_for('pages.privacy') }}">隐私政策</a></li>
+            <li><a href="{{ url_for('pages.terms') }}">使用条款</a></li>
+          </ul>
+        </section>
+      </nav>
+
+      <p class="footer-copy">&copy; <span data-current-year>2026</span> Gatherly Web Team.</p>
     </div>
   </footer>
 

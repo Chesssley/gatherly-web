@@ -1,6 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
   console.log("Gatherly Flask app initialized.");
 
+  const initCurrentYear = () => {
+    const year = String(new Date().getFullYear());
+    document.querySelectorAll("[data-current-year]").forEach(item => {
+      item.textContent = year;
+    });
+  };
+
+  initCurrentYear();
+
   const flashMessages = document.querySelectorAll(".flash-msg, .flash-message");
   flashMessages.forEach(message => {
     window.setTimeout(() => {
