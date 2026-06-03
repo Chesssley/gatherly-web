@@ -42,8 +42,7 @@ BIO_MAX_LENGTH = 300
 INTERESTS_MAX_LENGTH = 500
 AVATAR_UPLOAD_SUBDIR = "avatars"
 AVATAR_LIMIT = upload_limit("avatar")
-NEARBY_INITIAL_VISIBLE_COUNT = 8
-NEARBY_REGION_MAX_LENGTH = 80
+NEARBY_INITIAL_VISIBLE_COUNT = 6
 
 
 def _section_filters(prefix):
@@ -308,14 +307,14 @@ def _profile_context(user, visibility, is_owner=True, ip_region=None):
 
 
 def _nearby_match_score(match_region, candidate):
-    for candidate_index, candidate_location in enumerate(_nearby_location_values(candidate)):
+    for candidate_index, candidate_location in enumerate(_nearby_ip_location_values(candidate)):
         if locations_match(match_region, candidate_location):
             return candidate_index
     return 9
 
 
-def _nearby_location_values(user):
-    values = [*location_values(user), user.city]
+def _nearby_ip_location_values(user):
+    values = location_values(user)
     deduped = []
     seen = set()
     for value in values:
@@ -331,8 +330,8 @@ def _nearby_locations_match(match_region, candidate):
     return _nearby_match_score(match_region, candidate) < 9
 
 
-def _selected_nearby_region():
-    return request.args.get("region", "").strip()[:NEARBY_REGION_MAX_LENGTH]
+def _profile_region_value(user):
+    return (getattr(user, "city", None) or "").strip()
 
 
 def _user_search_items(query_text):
@@ -657,55 +656,64 @@ def nearby_users():
     current_user = User.query.get_or_404(session["user_id"])
     current_ip_region = _current_request_ip_region(current_user)
     current_ip_region_label = format_ip_region(current_ip_region)
-    selected_region = _selected_nearby_region()
-    match_region = selected_region or current_ip_region_label
+    profile_region = _profile_region_value(current_user)
     following_ids = {
         row.followed_id
         for row in UserFollow.query.filter_by(follower_id=current_user.id).all()
     }
-    users = []
-    location_notice = None
-    if match_region and match_region != "未知":
-        candidates = (
-            User.query.filter(
-                User.status == "active",
-                User.nearby_enabled.is_(True),
-                User.id != current_user.id,
-            )
-            .order_by(User.created_at.desc(), User.id.desc())
-            .limit(120)
-            .all()
+    candidates = (
+        User.query.filter(
+            User.status == "active",
+            User.nearby_enabled.is_(True),
+            User.id != current_user.id,
         )
-        users = [user for user in candidates if _nearby_locations_match(match_region, user)]
-        users = sorted(
-            users,
+        .order_by(User.created_at.desc(), User.id.desc())
+        .limit(120)
+        .all()
+    )
+
+    ip_matched_users = []
+    if current_ip_region_label and current_ip_region_label != "未知":
+        ip_matched_users = [
+            user for user in candidates if _nearby_locations_match(current_ip_region_label, user)
+        ]
+        ip_matched_users = sorted(
+            ip_matched_users,
             key=lambda user: (
-                _nearby_match_score(match_region, user),
+                _nearby_match_score(current_ip_region_label, user),
                 -(user.created_at.timestamp() if user.created_at else 0),
                 -user.id,
             ),
         )[:60]
-    else:
-        location_notice = "暂时无法识别当前 IP 地区，请输入地区查找或稍后刷新。"
+
+    profile_region_users = []
+    if profile_region:
+        profile_region_users = [
+            user
+            for user in candidates
+            if locations_match(profile_region, _profile_region_value(user))
+        ][:60]
+    nearby_ip_region_labels = {
+        user.id: format_ip_region(user)
+        for user in {user.id: user for user in [*ip_matched_users, *profile_region_users]}.values()
+    }
 
     return render_template(
         "users.html",
         query="",
-        users=users,
+        users=[],
         following_ids=following_ids,
         page_title="附近的人",
         heading="附近的人",
-        empty_message=location_notice or "附近暂时没有主动开启该功能的用户。",
-        location_notice=location_notice,
+        empty_message="附近暂时没有主动开启该功能的用户。",
         nearby_mode=True,
         nearby_user=current_user,
         nearby_location_label=current_ip_region_label,
-        selected_region=selected_region,
-        nearby_match_region=match_region if match_region != "未知" else "",
+        ip_matched_users=ip_matched_users,
+        profile_region=profile_region,
+        profile_region_users=profile_region_users,
         nearby_initial_visible_count=NEARBY_INITIAL_VISIBLE_COUNT,
-        nearby_ip_region_labels={
-            user.id: format_ip_region(user) for user in users
-        },
+        nearby_ip_region_labels=nearby_ip_region_labels,
     )
 
 

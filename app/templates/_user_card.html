@@ -1,5 +1,5 @@
 {% set card_name = card_user.nickname or card_user.username %}
-<article class="user-card{% if nearby_is_extra|default(false) %} nearby-extra-user{% endif %}"{% if nearby_is_extra|default(false) %} data-nearby-extra{% endif %}>
+<article class="user-card{% if nearby_is_extra|default(false) %} nearby-extra-user{% endif %}"{% if nearby_is_extra|default(false) %} data-nearby-extra hidden{% endif %}>
   <a class="user-card-main" href="{{ url_for('profile.view_profile', user_id=card_user.id) }}">
     <span class="user-card-avatar">
       {% if card_user.avatar %}
@@ -11,8 +11,10 @@
     <span class="user-card-copy">
       <strong>{{ card_name }}</strong>
       <span>@{{ card_user.username }}{% if card_user.city %} · {{ card_user.city }}{% endif %}</span>
-      {% if nearby_mode %}
+      {% if nearby_card_context|default('') == 'ip' %}
       <small>IP：{{ nearby_ip_region_labels.get(card_user.id, '未知') if nearby_ip_region_labels is defined else '未知' }}</small>
+      {% elif nearby_card_context|default('') == 'profile-location' %}
+      <small>资料地区：{{ card_user.city or '未填写' }}</small>
       {% endif %}
       {% if card_user.bio %}<small>{{ card_user.bio|truncate(72, True) }}</small>{% endif %}
     </span>
