@@ -40,7 +40,7 @@
       <div class="nearby-section-heading">
         <div>
           <h2 id="nearby-ip-title">IP 识别的附近用户</h2>
-          <p>根据当前网络 IP 地区匹配</p>
+          <p>我的IP：{{ nearby_location_label|default('未知', true) }}</p>
         </div>
       </div>
       <div class="user-card-list nearby-user-list">
@@ -63,7 +63,7 @@
       <div class="nearby-section-heading">
         <div>
           <h2 id="nearby-profile-title">资料地区相同的用户</h2>
-          <p>我的IP：{{ nearby_location_label|default('未知', true) }}</p>
+          <p>我的资料地区：{{ profile_region|default('未填写', true) }}</p>
         </div>
       </div>
       {% if profile_region %}
