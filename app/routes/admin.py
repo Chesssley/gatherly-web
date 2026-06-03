@@ -19,6 +19,7 @@ from app.models import (
     User,
     create_notification,
     db,
+    skip_non_sqlite_schema_helper,
 )
 from app.utils.email_verification import verify_email_code
 
@@ -72,9 +73,11 @@ def admin_required(view):
 
 
 def _ensure_admin_schema():
-    AdminLog.__table__.create(db.engine, checkfirst=True)
-    if db.engine.dialect.name != "sqlite":
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("_ensure_admin_schema"):
         return
+
+    AdminLog.__table__.create(db.engine, checkfirst=True)
 
     table_columns = {
         "user": ("status", "ALTER TABLE user ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active'"),

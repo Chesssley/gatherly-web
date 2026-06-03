@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from flask import current_app, has_app_context
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from werkzeug.security import generate_password_hash
@@ -8,6 +9,26 @@ from werkzeug.security import generate_password_hash
 db = SQLAlchemy()
 PASSWORD_HASH_PREFIXES = ("scrypt:", "pbkdf2:", "argon2:", "sha256$", "sha512$")
 LEGACY_PLAINTEXT_PASSWORD_MAX_LENGTH = 59
+_SCHEMA_HELPER_SKIP_WARNED = set()
+
+
+def is_sqlite_schema_fallback():
+    return db.engine.dialect.name == "sqlite"
+
+
+def skip_non_sqlite_schema_helper(helper_name):
+    if is_sqlite_schema_fallback():
+        return False
+    if helper_name not in _SCHEMA_HELPER_SKIP_WARNED:
+        _SCHEMA_HELPER_SKIP_WARNED.add(helper_name)
+        if has_app_context():
+            current_app.logger.warning(
+                "%s skipped for %s; production schema changes must use "
+                "Flask-Migrate/Alembic migrations and `flask db upgrade`.",
+                helper_name,
+                db.engine.dialect.name,
+            )
+    return True
 
 
 class User(db.Model):
@@ -119,7 +140,8 @@ class User(db.Model):
 
 
 def ensure_user_account_schema():
-    if db.engine.dialect.name != "sqlite":
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("ensure_user_account_schema"):
         return
 
     rows = db.session.execute(text('PRAGMA table_info("user")')).fetchall()
@@ -219,7 +241,8 @@ class Activity(db.Model):
 
 
 def ensure_activity_schema():
-    if db.engine.dialect.name != "sqlite":
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("ensure_activity_schema"):
         return
 
     rows = db.session.execute(text("PRAGMA table_info(activity)")).fetchall()
@@ -305,7 +328,8 @@ class Registration(db.Model):
 
 
 def ensure_registration_schema():
-    if db.engine.dialect.name != "sqlite":
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("ensure_registration_schema"):
         return
 
     rows = db.session.execute(text("PRAGMA table_info(registration)")).fetchall()
@@ -403,9 +427,11 @@ def cleanup_expired_notifications(now=None):
 
 
 def ensure_notification_schema():
-    Notification.__table__.create(db.engine, checkfirst=True)
-    if db.engine.dialect.name != "sqlite":
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("ensure_notification_schema"):
         return
+
+    Notification.__table__.create(db.engine, checkfirst=True)
 
     rows = db.session.execute(text("PRAGMA table_info(notification)")).fetchall()
     existing_columns = {row[1] for row in rows}
@@ -536,11 +562,13 @@ def cleanup_expired_direct_messages(now=None):
 
 
 def ensure_direct_message_schema():
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("ensure_direct_message_schema"):
+        return
+
     DirectMessage.__table__.create(db.engine, checkfirst=True)
     DirectMessageConversationState.__table__.create(db.engine, checkfirst=True)
     UserFollow.__table__.create(db.engine, checkfirst=True)
-    if db.engine.dialect.name != "sqlite":
-        return
 
     rows = db.session.execute(text("PRAGMA table_info(direct_message)")).fetchall()
     existing_columns = {row[1] for row in rows}
@@ -635,9 +663,11 @@ class MerchantVerification(db.Model):
 
 
 def ensure_merchant_verification_schema():
-    MerchantVerification.__table__.create(db.engine, checkfirst=True)
-    if db.engine.dialect.name != "sqlite":
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("ensure_merchant_verification_schema"):
         return
+
+    MerchantVerification.__table__.create(db.engine, checkfirst=True)
 
     rows = db.session.execute(text("PRAGMA table_info(merchant_verification)")).fetchall()
     existing_columns = {row[1] for row in rows}
@@ -667,6 +697,10 @@ def is_verified_merchant(user):
 
 
 def ensure_task_foundation_schema():
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("ensure_task_foundation_schema"):
+        return
+
     ensure_user_account_schema()
     ensure_activity_schema()
     ensure_registration_schema()

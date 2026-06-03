@@ -54,6 +54,8 @@ python run.py
 
 不要使用 `db.create_all()` 作为正式数据库更新方式。生产 schema 变更必须使用 Flask-Migrate / Alembic。
 
+生产环境的 schema 来源只有 `migrations/`。`ensure_*_schema()` helper 仅用于 SQLite 本地 fallback 或历史兼容，不参与 Render / Neon PostgreSQL 的正式建表、补列或索引创建。任何数据库结构变更都必须先修改模型，再执行 `flask db migrate` 生成 migration，并通过 `flask db upgrade` 应用。
+
 PowerShell 示例：
 
 ```powershell

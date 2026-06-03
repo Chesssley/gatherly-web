@@ -18,7 +18,9 @@ ER 图见：[er-diagram.md](er-diagram.md)。
 | 迁移目录 | `migrations/` |
 | 生产入口 | Render Web Service, `gunicorn wsgi:app` |
 
-生产环境不再依赖 `db.create_all()` 作为正式建表或改表方式。`init_db.py` 中的初始化逻辑只能用于本地初始化、课程演示或受控的一次性初始化，不作为生产 schema 变更流程。
+生产环境不再依赖 `db.create_all()` 作为正式建表或改表方式。`init_db.py` 中的 `db.create_all()` 只允许在 SQLite 本地 fallback 下运行，不作为生产 schema 变更流程。
+
+生产 schema 来源是 `migrations/`。`ensure_*_schema()` helper 仅用于 SQLite 本地 fallback 或历史兼容；在 Render / Neon PostgreSQL 上不应自动建表、补列或创建索引。任何数据库结构变更都必须通过 `flask db migrate` 生成 migration，并通过 `flask db upgrade` 应用。
 
 ## 数据存储边界
 
@@ -604,4 +606,4 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 
 | 问题 | 建议 |
 |---|---|
-| `ensure_*_schema()` 仍保留 SQLite 兼容逻辑 | 可保留为本地 fallback；生产 schema 来源应逐步收敛到 migrations。 |
+| `ensure_*_schema()` 仍保留 SQLite 兼容逻辑 | 仅作为本地 fallback 或历史兼容；生产 schema 来源是 `migrations/`，结构变更必须通过 `flask db migrate` / `flask db upgrade`。 |

@@ -21,6 +21,7 @@ from app.models import (
     UserReview,
     db,
     get_user_display_name,
+    skip_non_sqlite_schema_helper,
 )
 from app.utils.location_utils import locations_match, update_user_detected_location
 from app.utils.upload_limits import upload_limit
@@ -87,7 +88,8 @@ def login_required(view):
 
 
 def _ensure_visibility_columns():
-    if db.engine.dialect.name != "sqlite":
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("_ensure_visibility_columns"):
         return
 
     rows = db.session.execute(text("PRAGMA table_info(profile_visibility)")).fetchall()

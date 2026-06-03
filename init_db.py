@@ -16,8 +16,15 @@ def main():
     app = create_app()
 
     with app.app_context():
-        db.create_all()
-        ensure_task_foundation_schema()
+        if db.engine.dialect.name == "sqlite":
+            # Local fallback bootstrap only; production schema is managed by migrations.
+            db.create_all()
+            ensure_task_foundation_schema()
+        else:
+            print(
+                "Skipping db.create_all() for non-SQLite database. "
+                "Run `flask db upgrade` to apply production schema migrations."
+            )
         _sync_system_circles()
 
         demo_organizer = User.query.filter_by(username="gatherly_demo").first()

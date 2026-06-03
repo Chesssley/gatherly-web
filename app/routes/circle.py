@@ -6,7 +6,21 @@ from flask import Blueprint, current_app, flash, redirect, render_template, requ
 from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from app.models import Activity, Circle, CircleMember, Comment, CommentImage, Interaction, Post, PostImage, Registration, User, create_notification, db
+from app.models import (
+    Activity,
+    Circle,
+    CircleMember,
+    Comment,
+    CommentImage,
+    Interaction,
+    Post,
+    PostImage,
+    Registration,
+    User,
+    create_notification,
+    db,
+    skip_non_sqlite_schema_helper,
+)
 from app.utils.upload_limits import upload_limit
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_upload_files
 
@@ -303,7 +317,8 @@ def _is_admin(user):
 
 
 def _ensure_circle_columns():
-    if db.engine.dialect.name != "sqlite":
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("_ensure_circle_columns"):
         return
 
     rows = db.session.execute(text("PRAGMA table_info(circle)")).fetchall()
@@ -378,10 +393,12 @@ def ensure_circle_schema():
 
 
 def _ensure_circle_image_tables():
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("_ensure_circle_image_tables"):
+        return
+
     PostImage.__table__.create(db.engine, checkfirst=True)
     CommentImage.__table__.create(db.engine, checkfirst=True)
-    if db.engine.dialect.name != "sqlite":
-        return
 
     statements = []
     for table_name in ("post_image", "comment_image"):
@@ -404,7 +421,8 @@ def _ensure_circle_image_tables():
 
 
 def _ensure_post_status_column():
-    if db.engine.dialect.name != "sqlite":
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("_ensure_post_status_column"):
         return
 
     rows = db.session.execute(text("PRAGMA table_info(post)")).fetchall()
@@ -415,7 +433,8 @@ def _ensure_post_status_column():
 
 
 def _ensure_comment_parent_column():
-    if db.engine.dialect.name != "sqlite":
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("_ensure_comment_parent_column"):
         return
 
     rows = db.session.execute(text("PRAGMA table_info(comment)")).fetchall()
