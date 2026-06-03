@@ -1,347 +1,279 @@
 # Gatherly Web
 
-A Flask-based local niche-interest activity discovery and community matching platform.
+Gatherly Web is a Flask web application for discovering local niche-interest activities and connecting with like-minded people through lightweight interest circles.
 
 ## Overview
 
-Gatherly Web helps people discover local niche-interest activities and meet like-minded participants in a lightweight community setting. It is designed around practical offline scenarios: browsing nearby or themed activities, joining interest circles, registering for events, posting in communities, messaging other users, and using ratings and trust signals to support safer participation.
+Gatherly, also known as 聚场, focuses on offline activities that are often hard to find through mainstream event platforms: film camera walks, city cycling, pour-over coffee sessions, independent publishing meetups, board game socials, reading groups, and similar local communities.
 
-The project is developed as a course team web project with GitHub Issues, Labels, Milestones, Project Board tracking, feature branches, and Pull Requests.
+The project is intentionally lightweight. It is not a complex algorithmic recommendation platform. It helps users discover activities through clear activity cards, city and location information, interest tags, simple search and filters, ratings, and trust signals.
+
+This repository is maintained as a coursework and learning project using GitHub Issues, branches, Pull Requests, and documentation-driven delivery.
 
 ## Features
 
-### Account & Authentication
-
-- User registration, login, logout, and account deletion.
-- Username or email login.
-- Password hashing with Werkzeug.
-- Login failure rate limiting.
-- Profile editing, avatar upload, interests, city, bio, and visibility settings.
-
-### Email Verification
-
-- Email verification code flow for registration.
-- Verification for email changes, password changes, and password reset.
-- Console email provider for local development.
-- Brevo Transactional Email API and SMTP fallback support.
-
-### Activity Discovery
-
-- Homepage activity feed with category, date, city, and keyword search.
-- Search suggestions across activities, circles, and users.
-- Activity detail pages with organizer, time, location, capacity, fee, tags, attendee preview, comments, and participation state.
-- Activity favorites.
-
-### Activity Creation
-
-- Authenticated users can publish activities.
-- Activity fields include title, description, detail, city, location, start/end time, timezone, capacity, fee, tags, circle link, preparation notes, and image.
-- Low-trust users are blocked from creating activities.
-- Verified merchants and admins can mark official or featured activities.
-- Organizers and admins can close or cancel activities.
-
-### Registration / Participation
-
-- Activity registration with duplicate registration prevention.
-- Capacity and expired-activity checks.
-- Registration cancellation before the activity starts.
-- Organizer registration is created automatically for newly published activities.
-
-### Interest Circles
-
-- System and user-created interest circles.
-- Circle joining, leaving, private access requests, owner transfer, moderator role management, announcements, covers, and pinned posts.
-- Circle activity links and member counts.
-
-### Posts / Comments / Replies
-
-- Circle posts with optional images.
-- Post comments, threaded replies, and optional comment images.
-- Activity comments.
-- Like, favorite, and share interaction records for posts and comments.
-- Soft deletion and moderation statuses for posts and comments.
-
-### Messaging
-
-- Direct messages between users.
-- Text and image messages.
-- Conversation polling API.
-- Hide/delete conversation state per user.
-- Message retention cleanup.
-- First-message restriction before mutual follow or reply.
-
-### User Profile & Account Settings
-
-- Public and private profile views.
-- Personal pages for created activities, joined activities, circles, posts, comments, and interactions.
-- User search, followers, following, follow/unfollow, and nearby users based on coarse location signals.
-- Merchant verification application from account settings.
-
-### Rating & Trust
-
-- Activity reviews with multi-dimensional scores.
-- Participant-to-participant reviews after activities end.
-- User trust score recalculation from received participant reviews.
-- Trust score change logs.
-- Legacy `Review` model kept for compatibility with older activity flows.
-
-### Admin Dashboard
-
-- Admin dashboard with statistics and recent operation logs.
-- User management, ban/unban, promote/demote admin, and merchant qualification management.
-- Activity status and featured status management.
-- Circle, post, and comment moderation.
-- Merchant verification review.
-- Admin account settings with email/password verification.
-
-### Responsive UI
-
-- Jinja2 templates with custom CSS and vanilla JavaScript.
-- Responsive layouts for activity feed, detail pages, circles, profiles, messages, and admin pages.
+- Activity feed with cards, city/location information, activity images, tags, capacity, and click-through detail pages.
+- Account registration, login, logout, email verification flows, profile editing, and account settings.
+- Activity details with title, description, time, location, capacity, fee, preparation notes, comments, favorite state, and registration state.
+- Activity creation for authenticated users, including title, description, time, location, capacity, fee, tags, circle link, preparation notes, timezone, and image upload.
+- Activity registration with login checks, duplicate registration prevention, capacity checks, cancellation, and participant count display.
+- Interest tag, date, city, and keyword discovery across activities, circles, and users.
+- Interest circles with system circles, user-created circles, joining/leaving, access control, announcements, cover images, pinned posts, and circle activity links.
+- Circle posts, post images, comments, threaded replies, comment images, and post/comment interactions.
+- Rating and trust features, including activity reviews, participant reviews, trust score logs, and low-trust activity creation restrictions.
+- User profiles, followers/following, nearby user discovery, notifications, and direct messages.
+- Admin dashboard for users, activities, circles, posts, comments, merchant verification, and admin logs.
 
 ## Tech Stack
 
-| Area | Technology |
-| --- | --- |
-| Backend | Flask |
-| ORM | Flask-SQLAlchemy |
-| Forms / validation | Flask-WTF, WTForms, email-validator |
-| Password security | Werkzeug |
-| Frontend | Jinja2 templates, HTML, CSS, vanilla JavaScript |
-| Database | SQLite via SQLAlchemy |
-| Email service | Console provider, Brevo Transactional Email API, SMTP |
-| Deployment | Standard Flask app; documented for PythonAnywhere-style hosting |
-| Package management | `pip` and `requirements.txt` |
+- Python
+- Flask
+- Flask-SQLAlchemy
+- Flask-Migrate
+- Flask-WTF
+- Jinja2 templates
+- HTML, CSS, and plain JavaScript
+- SQLite by default through `sqlite:///gatherly.db`
+- Neon PostgreSQL for the documented production database path through `DATABASE_URL`
+- Cloudflare R2 for production uploads through the S3-compatible `boto3` client
+- Render Web Service with `gunicorn wsgi:app`
+- Werkzeug password utilities
+- `python-dotenv` for environment variables
 
-## Repository Structure
+The project does not use React, Vue, Bootstrap, or a separate frontend build pipeline.
+
+## Project Structure
 
 ```text
 gatherly-web/
 ├── app/
-│   ├── __init__.py              # Flask app factory and blueprint registration
-│   ├── forms.py                 # WTForms definitions
-│   ├── models.py                # SQLAlchemy models and SQLite schema helpers
-│   ├── routes/                  # Flask blueprints by feature area
-│   ├── static/                  # CSS, JavaScript, images, and upload placeholders
-│   ├── templates/               # Jinja2 templates
-│   └── utils/                   # Email, upload, and location helpers
-├── docs/                        # Project documentation in Chinese
-│   ├── archive/                 # Historical documents kept for reference
-│   ├── screenshots/             # Screenshots and delivery evidence
-│   ├── database-design.md
-│   ├── development-workflow.md
-│   ├── er-diagram.mmd
-│   ├── feature-guide.md
+│   ├── __init__.py
+│   ├── models.py
+│   ├── forms.py
+│   ├── routes/
+│   ├── services/
+│   ├── static/
+│   │   ├── css/
+│   │   ├── js/
+│   │   └── images/
+│   ├── templates/
+│   └── utils/
+├── docs/
+│   ├── README.md
 │   ├── project-overview.md
 │   ├── project-structure.md
-│   ├── setup-and-deployment.md
-│   └── testing-guide.md
-├── scripts/                     # Maintenance scripts
-├── init_db.py                   # Local database initialization and demo seed setup
-├── seed_data.py                 # Demo activity data
-├── requirements.txt             # Python dependencies
-├── run.py                       # Local Flask entry point
-└── README.md
+│   ├── requirements.md
+│   ├── product-backlog.md
+│   ├── database-design.md
+│   ├── er-diagram.md
+│   ├── github-workflow.md
+│   ├── issue-management.md
+│   ├── development-guide.md
+│   ├── style-guide.md
+│   ├── test-report.md
+│   ├── meeting-notes.md
+│   ├── deployment-guide.md
+│   ├── screenshots/
+│   └── archive/
+├── migrations/
+├── scripts/
+├── instance/
+├── init_db.py
+├── requirements.txt
+├── run.py
+├── seed_data.py
+└── wsgi.py
 ```
 
-The local SQLite database is created under `instance/` as `gatherly.db`. Runtime files such as `instance/`, `.env`, virtual environments, `__pycache__/`, local database files, and user uploads are managed by `.gitignore` and should not be committed.
+See [docs/project-structure.md](docs/project-structure.md) for the detailed beginner-friendly structure guide.
 
 ## Getting Started
 
-### 1. Clone the repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/Chesssley/gatherly-web.git
 cd gatherly-web
 ```
 
-### 2. Create a virtual environment
+### 2. Create a Virtual Environment
 
 Windows PowerShell:
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.venv\Scripts\activate
 ```
 
-macOS / Linux:
+macOS or Linux:
 
 ```bash
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Install dependencies
+### 3. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure environment variables
+### 4. Environment Setup
 
-For local development, the app can run without custom variables because it falls back to a development secret key and console email provider. For realistic testing, set at least `SECRET_KEY` and the email provider variables you need.
+For local development, the app can run without a `.env` file because `app/__init__.py` provides development defaults.
 
-Windows PowerShell example:
+Optional environment variables:
 
-```powershell
-$env:SECRET_KEY = "replace-with-a-local-development-secret"
-$env:EMAIL_PROVIDER = "console"
+```text
+SECRET_KEY=change-this-for-real-deployment
+DATABASE_URL=sqlite:///gatherly.db
+APP_ENV=development
 ```
 
-macOS / Linux example:
+If `DATABASE_URL` is not set, the app uses SQLite with `sqlite:///gatherly.db`, which Flask resolves under the `instance/` directory.
 
-```bash
-export SECRET_KEY="replace-with-a-local-development-secret"
-export EMAIL_PROVIDER="console"
-```
+For the current production-style setup, use Render + Neon PostgreSQL + Cloudflare R2. See [docs/deployment-guide.md](docs/deployment-guide.md).
 
-### 5. Initialize the database
+### 5. Initialize the Database
+
+For a fresh local database:
 
 ```bash
 python init_db.py
 ```
 
-To create or update an admin account during initialization, set all three variables before running the command: `ADMIN_USERNAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD`.
+Optional sample data:
 
-### 6. Run locally
+```bash
+python seed_data.py
+```
+
+Database migrations are also present under `migrations/` for schema tracking.
+
+### 6. Run the Application
 
 ```bash
 python run.py
 ```
 
-Open:
+Then open:
 
 ```text
-http://127.0.0.1:5000
+http://127.0.0.1:5000/
 ```
 
-## Environment Variables
+## Testing and Manual Verification
 
-Only variables read by the current codebase are listed here.
+There is no dedicated automated test suite in the current repository. Use these checks before opening a Pull Request:
 
-| Variable | Purpose |
-| --- | --- |
-| `SECRET_KEY` | Flask secret key and email-code hash secret. Defaults to `dev-secret-key` if unset. |
-| `APP_ENV` | Marks production mode when set to `production` or `prod`. |
-| `FLASK_ENV` | Also checked for production mode. |
-| `ENV` | Also checked for production mode. |
-| `SESSION_COOKIE_SECURE` | Explicitly enables secure session cookies when set to `1`, `true`, `yes`, or `on`. |
-| `EMAIL_PROVIDER` | Email provider: `console`, `brevo`, or `smtp`. Defaults to `console`. |
-| `EMAIL_API_TIMEOUT` | Timeout in seconds for Brevo API requests. Defaults to `15`. |
-| `BREVO_API_KEY` | Brevo Transactional Email API key. |
-| `BREVO_SENDER_EMAIL` | Verified Brevo sender email. |
-| `BREVO_SENDER_NAME` | Brevo sender display name. Defaults to `Gatherly`. |
-| `MAIL_SERVER` | SMTP server host. |
-| `MAIL_PORT` | SMTP server port. Defaults to `587`. |
-| `MAIL_USERNAME` | SMTP username. |
-| `MAIL_PASSWORD` | SMTP password. |
-| `MAIL_USE_TLS` | Enables SMTP TLS when set to `1`, `true`, `yes`, or `on`. |
-| `MAIL_DEFAULT_SENDER` | SMTP sender address. |
-| `ADMIN_USERNAME` | Optional admin username used by `init_db.py`. |
-| `ADMIN_EMAIL` | Optional admin email used by `init_db.py`. |
-| `ADMIN_PASSWORD` | Optional admin password used by `init_db.py`. |
-
-Example local configuration:
-
-```text
-SECRET_KEY=replace-with-a-long-random-secret
-EMAIL_PROVIDER=console
+```bash
+python -m compileall app
+python -c "from app import create_app; app = create_app(); print('app loaded')"
+python run.py
 ```
 
-Never commit real secrets, passwords, API keys, `.env` files, or local database files.
+Manual feature checks should cover:
 
-## Database
+- Homepage activity feed loads.
+- Register, login, and logout flows work.
+- Activity detail pages open from activity cards.
+- Authenticated users can create activities.
+- Activity registration blocks anonymous, duplicate, full, or expired registration cases.
+- Circle list, circle detail, post creation, comments, and interactions work.
+- Rating, profile, direct message, notification, and admin pages match the expected permission rules.
 
-Gatherly Web uses SQLite for local development with SQLAlchemy models defined in `app/models.py`. The app factory also runs schema compatibility helpers for SQLite so older local databases can be brought forward during development.
-
-- Database design: [docs/database-design.md](docs/database-design.md)
-- Mermaid ER source: [docs/er-diagram.mmd](docs/er-diagram.mmd)
+See [docs/test-report.md](docs/test-report.md) for the current verification checklist.
 
 ## Documentation
 
-The detailed project documentation is maintained in Chinese:
+- [Documentation Index](docs/README.md)
+- [Project Overview](docs/project-overview.md)
+- [Project Structure](docs/project-structure.md)
+- [Requirements](docs/requirements.md)
+- [Product Backlog](docs/product-backlog.md)
+- [Database Design](docs/database-design.md)
+- [ER Diagram](docs/er-diagram.md)
+- [GitHub Workflow](docs/github-workflow.md)
+- [Issue Management](docs/issue-management.md)
+- [Development Guide](docs/development-guide.md)
+- [Style Guide](docs/style-guide.md)
+- [Test Report](docs/test-report.md)
+- [Meeting Notes](docs/meeting-notes.md)
+- [Deployment Guide](docs/deployment-guide.md)
 
-- [Project overview](docs/project-overview.md): positioning, users, goals, and current scope.
-- [Feature guide](docs/feature-guide.md): implemented modules and remaining improvements.
-- [Project structure](docs/project-structure.md): current repository layout and directory responsibilities.
-- [Database design](docs/database-design.md): models, fields, relationships, constraints, and ER diagram notes.
-- [Setup and deployment](docs/setup-and-deployment.md): local setup, environment variables, database initialization, and PythonAnywhere-style deployment notes.
-- [Development workflow](docs/development-workflow.md): GitHub Issues, branches, commits, Pull Requests, labels, milestones, and Project Board rules.
-- [Testing guide](docs/testing-guide.md): executable checks and manual acceptance checklist.
-- [Archive](docs/archive/): historical documents retained for reference.
+## Team Workflow
 
-## GitHub Workflow
+- One issue, one branch, one pull request.
+- Do not push directly to `main`.
+- Keep GitHub Issues, Labels, Milestones, and the Project Board synchronized.
+- Create a branch from the latest `main` before starting an issue.
+- Keep each Pull Request focused on one issue or one clearly bounded documentation task.
+- A Pull Request should be reviewed before merging.
+- After merge, update local `main` before starting the next branch.
 
-This project follows issue-driven development:
+## Branch and Commit Convention
 
-1. Create or confirm a GitHub Issue.
-2. Create one branch for the Issue from the latest `main`.
-3. Implement only the related change.
-4. Run local checks.
-5. Commit with a clear message.
-6. Push the branch.
-7. Open a Pull Request and link the Issue.
-8. Review before merge.
-
-Do not push directly to `main`.
-
-Branch examples:
-
-```text
-feat/us-04-02-create-activity-form
-fix/bug-01-login-message
-docs/doc-04-readme
-ui/ui-01-style-guide
-task/task-02-database-models
-```
-
-Commit examples:
+Recommended branch format:
 
 ```text
-feat(US-04-02): add activity creation validation
-fix(BUG-01): correct login error handling
-docs(DOC-04): reorganize project documentation
+feat/us-04-01-create-activity-page
+fix/bug-02-clean-test-circles
+docs/doc-04-reorganize-docs-er
+ui/ui-01-card-style
+enh/enh-03-auto-dismiss-flash
 ```
 
-## Testing
+Recommended commit format:
 
-The repository currently does not include a dedicated automated test suite. At minimum, run the Python syntax check:
-
-```bash
-python -m compileall app run.py
+```text
+type(ISSUE-ID): short description
 ```
 
-For feature work, also start the app with `python run.py` and manually verify the affected pages and routes. See [docs/testing-guide.md](docs/testing-guide.md) for the current checklist.
+Examples:
 
-## Deployment
-
-The codebase is a standard Flask application exposed as `app` in `run.py`. It can be deployed on PythonAnywhere-style Flask hosting by creating a virtual environment, installing `requirements.txt`, setting environment variables on the host, initializing the SQLite database, and pointing the WSGI entry to the Flask app.
-
-For production-like deployment:
-
-- Set a strong `SECRET_KEY`.
-- Use HTTPS.
-- Set `APP_ENV=production` or `SESSION_COOKIE_SECURE=true`.
-- Prefer the Brevo email provider when outbound SMTP is not available.
-- Do not upload local `instance/gatherly.db`, `.env`, or development cache files to Git.
-
-More details are in [docs/setup-and-deployment.md](docs/setup-and-deployment.md).
+```text
+feat(US-04-01): add activity creation page
+fix(BUG-02): clean invalid test circles
+docs(DOC-04): reorganize documentation and ER diagram
+style(UI-01): align activity card spacing
+```
 
 ## Roadmap
 
-Current improvement areas are based on the implemented code and the project workflow:
+### Completed or Implemented in Current Code
 
-- Add automated tests for authentication, activity registration, messaging, and admin moderation.
-- Improve migration handling beyond the current SQLite compatibility helpers.
-- Expand validation and error handling around uploaded images and moderation flows.
-- Improve UI consistency after feature additions.
-- Add clearer seed data and demo account documentation.
-- Review privacy behavior for nearby users and message retention before production use.
+- Flask application structure with blueprints.
+- Account registration, login, logout, account settings, and email verification helpers.
+- Homepage activity feed, activity search, activity detail, activity creation, registration, cancellation, comments, favorites, and reviews.
+- Interest circles, circle creation, membership, access requests, announcements, cover images, posts, images, comments, replies, and interactions.
+- Profiles, personal content sections, followers/following, nearby users, notifications, and direct messages.
+- Admin dashboard for users, activities, circles, posts, comments, merchant verification, and logs.
+- SQLite default database with SQLAlchemy models and migration support.
 
-## Team / Course Context
+### In Progress or Delivery-Focused
 
-Gatherly Web is maintained as a course team web development project. The repository demonstrates practical Flask development, GitHub collaboration, database modeling, issue-driven planning, and iterative delivery without exposing private course or team information.
+- Final documentation cleanup.
+- Final manual test report.
+- Final screenshots and demo material collection.
+- GitHub Issue, Label, Milestone, and Project Board synchronization.
 
-## License
+### Future Improvements
 
-No license has been specified yet.
+- Add automated tests for route permissions and core business rules.
+- Replace development schema compatibility helpers with a stricter migration-only workflow.
+- Maintain the documented [Render + Neon + Cloudflare R2 deployment guide](docs/deployment-guide.md) as the production path evolves.
+- Add richer search and recommendation rules while keeping the product understandable.
+- Expand screenshot coverage for final presentation and course reports.
+
+## Contributing
+
+1. Pick or create a GitHub Issue.
+2. Create a focused branch for that Issue.
+3. Make a small, reviewable change.
+4. Run the basic checks and manually verify the affected pages.
+5. Open a Pull Request and link the Issue.
+6. Wait for review before merging.
+
+## License / Course Notice
+
+This project is developed for coursework and learning purposes. No separate open-source license is currently provided.

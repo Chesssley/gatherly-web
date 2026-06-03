@@ -1,28 +1,39 @@
+# ER 图
+
+最后更新时间：2026-06-04
+
+> 本 ER 图根据当前 `app/models.py` 自动整理，反映当前代码版本的数据结构。
+
+## 实体与表名对照
+
+| ER 实体 | SQLAlchemy 模型 | 数据库表名 |
+|---|---|---|
+| `USER` | `User` | `user` |
+| `ACTIVITY` | `Activity` | `activity` |
+| `REGISTRATION` | `Registration` | `registration` |
+| `ACTIVITY_FAVORITE` | `ActivityFavorite` | `activity_favorite` |
+| `CIRCLE` | `Circle` | `circle` |
+| `CIRCLE_MEMBER` | `CircleMember` | `circle_member` |
+| `POST` | `Post` | `post` |
+| `POST_IMAGE` | `PostImage` | `post_image` |
+| `COMMENT` | `Comment` | `comment` |
+| `COMMENT_IMAGE` | `CommentImage` | `comment_image` |
+| `INTERACTION` | `Interaction` | `interaction` |
+| `REVIEW` | `Review` | `review` |
+| `ACTIVITY_REVIEW` | `ActivityReview` | `activity_review` |
+| `USER_REVIEW` | `UserReview` | `user_review` |
+| `TRUST_SCORE_LOG` | `TrustScoreLog` | `trust_score_log` |
+| `PROFILE_VISIBILITY` | `ProfileVisibility` | `profile_visibility` |
+| `USER_FOLLOW` | `UserFollow` | `user_follow` |
+| `DIRECT_MESSAGE` | `DirectMessage` | `direct_message` |
+| `DIRECT_MESSAGE_CONVERSATION_STATE` | `DirectMessageConversationState` | `direct_message_conversation_state` |
+| `NOTIFICATION` | `Notification` | `notification` |
+| `EMAIL_VERIFICATION_CODE` | `EmailVerificationCode` | `email_verification_code` |
+| `MERCHANT_VERIFICATION` | `MerchantVerification` | `merchant_verification` |
+| `ADMIN_LOG` | `AdminLog` | `admin_log` |
+
+```mermaid
 erDiagram
-    %% Entity/table mapping:
-    %% USER -> User / user
-    %% ACTIVITY -> Activity / activity
-    %% REGISTRATION -> Registration / registration
-    %% ACTIVITY_FAVORITE -> ActivityFavorite / activity_favorite
-    %% CIRCLE -> Circle / circle
-    %% CIRCLE_MEMBER -> CircleMember / circle_member
-    %% POST -> Post / post
-    %% POST_IMAGE -> PostImage / post_image
-    %% COMMENT -> Comment / comment
-    %% COMMENT_IMAGE -> CommentImage / comment_image
-    %% INTERACTION -> Interaction / interaction
-    %% REVIEW -> Review / review
-    %% ACTIVITY_REVIEW -> ActivityReview / activity_review
-    %% USER_REVIEW -> UserReview / user_review
-    %% TRUST_SCORE_LOG -> TrustScoreLog / trust_score_log
-    %% PROFILE_VISIBILITY -> ProfileVisibility / profile_visibility
-    %% USER_FOLLOW -> UserFollow / user_follow
-    %% DIRECT_MESSAGE -> DirectMessage / direct_message
-    %% DIRECT_MESSAGE_CONVERSATION_STATE -> DirectMessageConversationState / direct_message_conversation_state
-    %% NOTIFICATION -> Notification / notification
-    %% EMAIL_VERIFICATION_CODE -> EmailVerificationCode / email_verification_code
-    %% MERCHANT_VERIFICATION -> MerchantVerification / merchant_verification
-    %% ADMIN_LOG -> AdminLog / admin_log
     USER ||--o{ ACTIVITY : organizes
     USER ||--o{ REGISTRATION : registers
     ACTIVITY ||--o{ REGISTRATION : has
@@ -363,3 +374,12 @@ erDiagram
         string ip_address
         datetime created_at
     }
+```
+
+## 说明
+
+- 当前代码没有名为 `Rating` 的模型；评分由 `Review`、`ActivityReview` 和 `UserReview` 三个模型共同承担。
+- `Interaction.target_type` 和 `Interaction.target_id` 是通用目标引用，不是数据库外键。
+- `Notification.related_type` 和 `Notification.related_id` 是通用关联引用，不是数据库外键。
+- `Comment` 通过检查约束限制评论只能关联一个活动或一个帖子。
+- 旧图片 `docs/screenshots/er-diagram.png` 保留为历史截图；当前文档引用以本 Mermaid 图为准。
