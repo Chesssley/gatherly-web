@@ -56,7 +56,7 @@
       </div>
       <div class="form-group nearby-setting">
         <label class="form-label">附近的人</label>
-        <p class="form-hint">当前{{ '已开启' if user.nearby_enabled else '已关闭' }}，只影响你是否出现在附近的人匹配列表。IP 地区根据访问网络自动生成，仅展示粗略地区，不展示真实 IP 地址。</p>
+        <p class="form-hint">当前{{ '已开启' if user.nearby_enabled else '已关闭' }}，只影响你是否出现在附近的人匹配列表。IP 地区根据访问网络自动生成，不展示真实 IP 地址。</p>
         <a class="button button-secondary" href="{{ url_for('profile.nearby_users') }}">前往附近的人</a>
       </div>
       <div class="form-group">
