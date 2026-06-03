@@ -1,257 +1,533 @@
 # 数据库设计
 
-本文档基于当前 `app/models.py` 重新整理，旧文档和旧 ER 图不再作为事实来源。
+最后更新时间：2026-06-04
+
+本文件根据当前 `app/models.py` 重新整理，反映当前代码版本的数据结构。旧文档和旧 ER 图不再作为事实来源。
 
 ## 数据库技术
 
-- ORM：Flask-SQLAlchemy
-- 本地数据库：SQLite
-- 数据库 URI：`sqlite:///gatherly.db`
-- 本地数据库文件位置：Flask `instance/` 目录下的 `gatherly.db`
-- 初始化入口：`init_db.py`
-- 模型定义：`app/models.py`
+| 项目 | 当前实现 |
+|---|---|
+| ORM | Flask-SQLAlchemy |
+| 迁移工具 | Flask-Migrate / Alembic |
+| 默认数据库 | SQLite |
+| 推荐线上数据库 | Neon PostgreSQL，通过 `DATABASE_URL` 配置 |
+| 默认 URI | `sqlite:///gatherly.db` |
+| 默认数据库位置 | Flask instance 目录下的 `gatherly.db` |
+| 可选数据库 | 其他 PostgreSQL 兼容数据库 |
+| 模型定义文件 | `app/models.py` |
+| 初始化脚本 | `init_db.py` |
+
+ER 图见：[er-diagram.md](er-diagram.md)。
+
+## 当前模型总览
+
+| 模型类 | 表名 | 业务含义 |
+|---|---|---|
+| `User` | `user` | 用户账号、资料、角色、状态和信任分 |
+| `Activity` | `activity` | 线下活动主体 |
+| `Registration` | `registration` | 用户报名活动记录 |
+| `ActivityFavorite` | `activity_favorite` | 用户收藏活动 |
+| `Circle` | `circle` | 同好圈 |
+| `CircleMember` | `circle_member` | 用户加入圈子的成员关系 |
+| `Post` | `post` | 圈子帖子 |
+| `PostImage` | `post_image` | 帖子图片 |
+| `Comment` | `comment` | 活动或帖子评论，支持楼中楼 |
+| `CommentImage` | `comment_image` | 评论图片 |
+| `Interaction` | `interaction` | 点赞、收藏、分享等互动记录 |
+| `Review` | `review` | 旧版活动单项评分 |
+| `ActivityReview` | `activity_review` | 活动多维评分 |
+| `UserReview` | `user_review` | 活动参与者互评 |
+| `TrustScoreLog` | `trust_score_log` | 用户信任分变更记录 |
+| `ProfileVisibility` | `profile_visibility` | 用户主页可见性设置 |
+| `UserFollow` | `user_follow` | 用户关注关系 |
+| `DirectMessage` | `direct_message` | 私信消息 |
+| `DirectMessageConversationState` | `direct_message_conversation_state` | 私信会话在单个用户侧的隐藏、删除、清空状态 |
+| `Notification` | `notification` | 站内通知 |
+| `EmailVerificationCode` | `email_verification_code` | 邮箱验证码 |
+| `MerchantVerification` | `merchant_verification` | 商家认证申请和审核 |
+| `AdminLog` | `admin_log` | 管理员操作日志 |
+
+## User
+
+表名：`user`
+
+业务含义：保存用户账号、登录凭据、个人资料、角色、状态、信任分和定位偏好。
+
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 用户 ID |
+| `username` | String(80) | 否 | 无 | Unique | 登录用户名 |
+| `nickname` | String(80) | 是 | 无 |  | 昵称 |
+| `email` | String(120) | 否 | 无 | Unique | 邮箱 |
+| `email_verified_at` | DateTime | 是 | 无 |  | 邮箱验证时间 |
+| `password` | String(255) | 否 | 无 |  | 密码哈希，模型属性名为 `password_hash` |
+| `avatar` | String(255) | 是 | 无 |  | 头像路径或 URL |
+| `bio` | Text | 是 | 无 |  | 个人简介 |
+| `interests` | Text | 是 | 无 |  | 兴趣标签文本 |
+| `city` | String(80) | 是 | 无 |  | 用户填写城市 |
+| `nearby_enabled` | Boolean | 否 | `False` |  | 附近的人开关 |
+| `detected_city` | String(80) | 是 | 无 |  | 粗略定位城市 |
+| `detected_region` | String(80) | 是 | 无 |  | 粗略定位地区 |
+| `last_location_detected_at` | DateTime | 是 | 无 |  | 最近定位时间 |
+| `last_ip` | String(45) | 是 | 无 |  | 最近 IP |
+| `role` | String(20) | 否 | `user` |  | 用户角色，如 user、admin、merchant |
+| `trust_score` | Integer | 否 | `100` |  | 信任分 |
+| `status` | String(20) | 否 | `active` |  | 账号状态 |
+| `banned_at` | DateTime | 是 | 无 |  | 封禁时间 |
+| `deleted_at` | DateTime | 是 | 无 |  | 注销时间 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+
+关系：一名用户可以创建多个活动、报名多个活动、收藏多个活动、发布多个帖子和评论、发送或接收私信、关注或被关注、提交评分、接收通知、提交商家认证、拥有主页可见性配置。
+
+## Activity
+
+表名：`activity`
+
+业务含义：线下活动主体，保存活动内容、时间地点、人数、费用、标签、状态和组织者。
+
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 活动 ID |
+| `title` | String(120) | 否 | 无 |  | 活动标题 |
+| `description` | Text | 是 | 无 |  | 简短介绍 |
+| `detail` | Text | 是 | 无 |  | 详细介绍 |
+| `city` | String(80) | 是 | 无 |  | 城市 |
+| `location` | String(255) | 是 | 无 |  | 地点 |
+| `start_time` | DateTime | 是 | 无 |  | 开始时间 |
+| `end_time` | DateTime | 是 | 无 |  | 结束时间 |
+| `timezone` | String(80) | 否 | `Asia/Shanghai` |  | 时区 |
+| `max_participants` | Integer | 是 | 无 |  | 人数上限 |
+| `initial_participants` | Integer | 否 | `0` |  | 初始参与人数 |
+| `image` | String(255) | 是 | 无 |  | 活动图片 |
+| `fee` | Float | 否 | `0` |  | 活动费用 |
+| `tags` | Text | 是 | 无 |  | 兴趣标签 |
+| `circle_id` | Integer | 是 | 无 | FK -> `circle.id` | 关联同好圈 |
+| `status` | String(20) | 否 | `open` |  | 活动状态 |
+| `cancel_reason` | Text | 是 | 无 |  | 取消原因 |
+| `cancelled_at` | DateTime | 是 | 无 |  | 取消时间 |
+| `is_featured` | Boolean | 否 | `False` |  | 是否精选 |
+| `is_official` | Boolean | 否 | `False` |  | 是否官方活动 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+| `organizer_id` | Integer | 否 | 无 | FK -> `user.id` | 组织者 |
+| `preparation` | Text | 是 | 无 |  | 准备事项 |
 
-当前代码包含若干 SQLite schema 兼容函数，例如 `ensure_user_account_schema()`、`ensure_activity_schema()`、`ensure_task_foundation_schema()` 等，用于在开发期把旧本地数据库补齐到当前字段。长期生产化建议改为正式迁移工具。
+关系：一个活动属于一个组织者，可选关联一个圈子；一个活动可以有多条报名、收藏、评论、旧版评分、活动多维评分和用户互评。
 
-## ER 图
+## Registration
 
-Mermaid 源文件：
+表名：`registration`
 
-- [er-diagram.mmd](er-diagram.mmd)
+业务含义：连接用户和活动，记录报名或取消状态。
 
-GitHub 可以直接预览 Mermaid 代码块，也可以使用 Mermaid 工具将 `.mmd` 渲染为 SVG 或 PNG。
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 报名 ID |
+| `user_id` | Integer | 否 | 无 | FK -> `user.id` | 报名用户 |
+| `activity_id` | Integer | 否 | 无 | FK -> `activity.id` | 被报名活动 |
+| `status` | String(20) | 否 | `registered` |  | 报名状态 |
+| `cancel_reason` | Text | 是 | 无 |  | 取消原因 |
+| `cancelled_at` | DateTime | 是 | 无 |  | 取消时间 |
+| `register_time` | DateTime | 否 | `datetime.utcnow` |  | 报名时间 |
 
-## 主要实体
+关系：多条报名属于一个用户，多条报名属于一个活动。当前模型没有数据库级 `user_id + activity_id` 唯一约束，重复报名主要由路由逻辑控制。
 
-### User
+## ActivityFavorite
 
-用户账号表，保存用户名、昵称、邮箱、邮箱验证时间、密码哈希、头像、简介、兴趣、城市、附近的人开关、粗略定位信息、角色、信任分、状态和创建时间。
+表名：`activity_favorite`
 
-关键关系：
+业务含义：用户收藏活动。
 
-- 一个用户可以创建多个活动。
-- 一个用户可以报名多个活动。
-- 一个用户可以发布多个帖子和评论。
-- 一个用户可以发送和接收多条私信。
-- 一个用户可以关注多个用户，也可以被多个用户关注。
-- 一个用户可以有一个主页可见性配置。
-- 一个用户可以提交和接收参与者互评。
-- 一个用户可以收到多条通知。
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 收藏 ID |
+| `user_id` | Integer | 否 | 无 | FK -> `user.id` | 收藏用户 |
+| `activity_id` | Integer | 否 | 无 | FK -> `activity.id` | 被收藏活动 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 收藏时间 |
 
-唯一约束：
+约束：`user_id + activity_id` 唯一，避免重复收藏。
 
-- `username`
-- `email`
+## Circle
 
-### Activity
+表名：`circle`
 
-活动表，保存标题、简介、详情、城市、地点、开始和结束时间、时区、人数上限、初始人数、图片、费用、标签、关联圈子、状态、取消信息、是否精选、是否官方、发起者和准备事项。
+业务含义：同好圈主体。
 
-关键关系：
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 圈子 ID |
+| `name` | String(120) | 否 | 无 |  | 圈子名称 |
+| `tag` | String(50) | 是 | 无 |  | 圈子标签 |
+| `cover_image` | String(255) | 是 | 无 |  | 封面图 |
+| `description` | Text | 是 | 无 |  | 简介 |
+| `announcement` | Text | 是 | 无 |  | 公告 |
+| `owner_id` | Integer | 是 | 无 | FK -> `user.id` | 圈主 |
+| `pinned_post_id` | Integer | 是 | 无 | FK -> `post.id` | 置顶帖子 |
+| `is_pinned` | Boolean | 否 | `False` |  | 是否置顶圈子 |
+| `pinned_at` | DateTime | 是 | 无 |  | 置顶时间 |
+| `is_system` | Boolean | 否 | `False` |  | 是否系统圈子 |
+| `initial_member_count` | Integer | 否 | `0` |  | 初始成员数 |
+| `member_count` | Integer | 否 | `0` |  | 成员数缓存 |
+| `status` | String(20) | 否 | `active` |  | 圈子状态 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+| `updated_at` | DateTime | 否 | `datetime.utcnow` |  | 更新时间 |
 
-- 一个用户可以创建多个活动。
-- 一个活动属于一个发起者。
-- 一个活动可以关联一个同好圈。
-- 一个活动可以有多个报名记录。
-- 一个活动可以有多个收藏、评论、兼容旧评分、新活动评分和参与者互评。
+关系：一个圈子有多个成员、帖子和活动；可有一个圈主和一个置顶帖子。
 
-### Registration
+## CircleMember
 
-活动报名表，连接用户和活动，记录报名状态、取消原因、取消时间和报名时间。
+表名：`circle_member`
 
-关键关系：
+业务含义：用户与圈子的成员关系。
 
-- 一个用户可以有多条报名记录。
-- 一个活动可以有多条报名记录。
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 成员记录 ID |
+| `circle_id` | Integer | 否 | 无 | FK -> `circle.id` | 圈子 |
+| `user_id` | Integer | 否 | 无 | FK -> `user.id` | 成员用户 |
+| `role` | String(20) | 否 | `member` |  | 成员角色 |
+| `status` | String(20) | 否 | `active` |  | 成员状态 |
+| `joined_at` | DateTime | 否 | `datetime.utcnow` |  | 加入时间 |
+| `updated_at` | DateTime | 否 | `datetime.utcnow` |  | 更新时间 |
 
-当前模型没有定义数据库级唯一约束防止重复报名，重复报名主要由路由逻辑处理。
+约束：`circle_id + user_id` 唯一，避免重复加入同一圈子。
 
-### ActivityFavorite
+## Post
 
-活动收藏表，连接用户和活动。
+表名：`post`
 
-唯一约束：
+业务含义：圈子帖子。
 
-- `user_id + activity_id`
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 帖子 ID |
+| `title` | String(200) | 否 | 无 |  | 标题 |
+| `content` | Text | 否 | 无 |  | 内容 |
+| `type` | String(20) | 否 | `share` |  | 帖子类型 |
+| `status` | String(20) | 否 | `published` |  | 帖子状态 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+| `user_id` | Integer | 否 | 无 | FK -> `user.id` | 作者 |
+| `circle_id` | Integer | 否 | 无 | FK -> `circle.id` | 所属圈子 |
 
-### Circle
+关系：帖子属于一个用户和一个圈子；帖子可以有多张图片和多条评论。
 
-同好圈表，保存名称、标签、封面、简介、公告、圈主、置顶帖子、是否置顶、是否系统圈、初始成员数、成员数、状态和时间戳。
+## PostImage
 
-关键关系：
+表名：`post_image`
 
-- 一个圈子可以有多个帖子。
-- 一个圈子可以有多个活动。
-- 一个圈子可以有多个成员记录。
-- 一个圈子可以有一个圈主。
-- 一个圈子可以置顶一个帖子。
+业务含义：帖子图片。
 
-### CircleMember
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 图片 ID |
+| `post_id` | Integer | 否 | 无 | FK -> `post.id` | 所属帖子 |
+| `image_path` | String(255) | 否 | 无 |  | 图片路径 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 上传时间 |
 
-同好圈成员表，连接用户和圈子，保存角色、状态、加入时间和更新时间。
+## Comment
 
-唯一约束：
+表名：`comment`
 
-- `circle_id + user_id`
+业务含义：评论，可指向活动或帖子，并支持父评论形成楼中楼。
 
-### Post
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 评论 ID |
+| `author_id` | Integer | 否 | 无 | FK -> `user.id` | 作者 |
+| `activity_id` | Integer | 是 | 无 | FK -> `activity.id` | 目标活动 |
+| `post_id` | Integer | 是 | 无 | FK -> `post.id` | 目标帖子 |
+| `parent_id` | Integer | 是 | 无 | FK -> `comment.id` | 父评论 |
+| `content` | Text | 否 | 无 |  | 评论内容 |
+| `status` | String(20) | 否 | `published` |  | 评论状态 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+| `updated_at` | DateTime | 否 | `datetime.utcnow` |  | 更新时间 |
 
-圈内帖子表，保存标题、内容、类型、状态、作者和所属圈子。
+约束：`activity_id` 和 `post_id` 必须且只能有一个不为空。
 
-关键关系：
+## CommentImage
 
-- 一个用户可以发布多个帖子。
-- 一个圈子可以包含多个帖子。
-- 一个帖子可以有多个评论和图片。
+表名：`comment_image`
 
-### PostImage
+业务含义：评论图片。
 
-帖子图片表，连接帖子和图片路径。
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 图片 ID |
+| `comment_id` | Integer | 否 | 无 | FK -> `comment.id` | 所属评论 |
+| `image_path` | String(255) | 否 | 无 |  | 图片路径 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 上传时间 |
+
+## Interaction
+
+表名：`interaction`
+
+业务含义：记录用户对帖子、评论等目标的互动。
 
-### Comment
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 互动 ID |
+| `user_id` | Integer | 否 | 无 | FK -> `user.id` | 操作用户 |
+| `target_type` | String(30) | 否 | 无 |  | 目标类型 |
+| `target_id` | Integer | 否 | 无 |  | 目标 ID |
+| `action_type` | String(20) | 否 | 无 |  | 动作类型 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+
+约束：`user_id + target_type + target_id + action_type` 唯一，避免重复同类互动。
+
+## Review
+
+表名：`review`
+
+业务含义：旧版活动单项评分，保留用于兼容。
+
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 评分 ID |
+| `activity_id` | Integer | 否 | 无 | FK -> `activity.id` | 被评分活动 |
+| `user_id` | Integer | 否 | 无 | FK -> `user.id` | 评分用户 |
+| `rating` | Integer | 否 | 无 |  | 单项评分 |
+| `comment` | Text | 是 | 无 |  | 文字评价 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
 
-统一评论表，可评论活动或帖子，也支持自引用回复。
+## ActivityReview
 
-关键关系：
+表名：`activity_review`
+
+业务含义：当前更完整的活动多维评分。
 
-- 一个用户可以发布多条评论。
-- 一条评论可以属于一个活动或一个帖子。
-- 一条评论可以回复另一条评论。
-- 一条评论可以有多张评论图片。
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 活动评分 ID |
+| `activity_id` | Integer | 否 | 无 | FK -> `activity.id` | 被评分活动 |
+| `reviewer_id` | Integer | 否 | 无 | FK -> `user.id` | 评分用户 |
+| `organization_score` | Integer | 否 | 无 |  | 组织评分 |
+| `venue_score` | Integer | 否 | 无 |  | 场地评分 |
+| `content_score` | Integer | 否 | 无 |  | 内容评分 |
+| `value_score` | Integer | 否 | 无 |  | 价值评分 |
+| `experience_score` | Integer | 否 | 无 |  | 体验评分 |
+| `average_score` | Float | 否 | 无 |  | 平均分 |
+| `comment` | Text | 是 | 无 |  | 文字评价 |
+| `status` | String(20) | 否 | `published` |  | 评价状态 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+| `updated_at` | DateTime | 否 | `datetime.utcnow` |  | 更新时间 |
 
-检查约束：
+约束：`activity_id + reviewer_id` 唯一，防止同一用户重复评价同一活动。
+
+## UserReview
 
-- `activity_id` 和 `post_id` 必须且只能有一个非空。
+表名：`user_review`
 
-### CommentImage
+业务含义：活动参与者之间的互评。
 
-评论图片表，连接评论和图片路径。
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 用户互评 ID |
+| `activity_id` | Integer | 否 | 无 | FK -> `activity.id` | 关联活动 |
+| `reviewer_id` | Integer | 否 | 无 | FK -> `user.id` | 评价者 |
+| `reviewee_id` | Integer | 否 | 无 | FK -> `user.id` | 被评价者 |
+| `punctuality_score` | Integer | 否 | 无 |  | 准时评分 |
+| `friendliness_score` | Integer | 否 | 无 |  | 友善评分 |
+| `communication_score` | Integer | 否 | 无 |  | 沟通评分 |
+| `reliability_score` | Integer | 否 | 无 |  | 可靠评分 |
+| `respect_score` | Integer | 否 | 无 |  | 尊重评分 |
+| `safety_score` | Integer | 否 | 无 |  | 安全评分 |
+| `average_score` | Float | 否 | 无 |  | 平均分 |
+| `comment` | Text | 是 | 无 |  | 文字评价 |
+| `status` | String(20) | 否 | `published` |  | 状态 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+| `updated_at` | DateTime | 否 | `datetime.utcnow` |  | 更新时间 |
 
-### Interaction
+约束：`activity_id + reviewer_id + reviewee_id` 唯一；六个维度评分均限制在 1 到 5。
 
-通用互动表，用于记录点赞、收藏、分享等行为。通过 `target_type` 和 `target_id` 指向目标对象。
+## TrustScoreLog
 
-唯一约束：
+表名：`trust_score_log`
 
-- `user_id + target_type + target_id + action_type`
+业务含义：记录用户信任分变化。
 
-### Review
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 日志 ID |
+| `user_id` | Integer | 否 | 无 | FK -> `user.id` | 被影响用户 |
+| `changed_by_id` | Integer | 是 | 无 | FK -> `user.id` | 操作者 |
+| `change_type` | String(50) | 否 | 无 |  | 变化类型 |
+| `delta` | Integer | 否 | 无 |  | 分数变化 |
+| `score_before` | Integer | 否 | 无 |  | 变化前分数 |
+| `score_after` | Integer | 否 | 无 |  | 变化后分数 |
+| `reason` | Text | 是 | 无 |  | 原因 |
+| `related_type` | String(50) | 是 | 无 |  | 关联对象类型 |
+| `related_id` | Integer | 是 | 无 |  | 关联对象 ID |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
 
-旧活动评分兼容表。当前 `models.py` 明确标注该模型用于兼容旧活动路由流程，后续可逐步迁移到 `ActivityReview`。
+## ProfileVisibility
 
-### ActivityReview
+表名：`profile_visibility`
 
-活动多维评分表，包含组织、场地、内容、性价比、体验、平均分、评论和状态。
+业务含义：用户主页可见性配置。
+
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 配置 ID |
+| `user_id` | Integer | 否 | 无 | FK -> `user.id` | 用户 |
+| `profile_scope` | String(20) | 否 | `public` |  | 主页可见范围 |
+| `activity_scope` | String(20) | 否 | `public` |  | 活动可见范围 |
+| `circle_scope` | String(20) | 否 | `public` |  | 圈子可见范围 |
+| `review_scope` | String(20) | 否 | `members` |  | 评价可见范围 |
+| `trust_score_scope` | String(20) | 否 | `private` |  | 信任分可见范围 |
+| `show_interests` | Boolean | 否 | `True` |  | 是否展示兴趣 |
+| `show_interactions` | Boolean | 否 | `True` |  | 是否展示互动 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+| `updated_at` | DateTime | 否 | `datetime.utcnow` |  | 更新时间 |
 
-唯一约束：
-
-- `activity_id + reviewer_id`
-
-### UserReview
-
-参与者互评表，记录同一活动中用户对其他参与者的评分，包含准时、友好、沟通、可靠、尊重、安全和平均分。
-
-唯一约束：
-
-- `activity_id + reviewer_id + reviewee_id`
-
-检查约束：
-
-- 六个评分字段都要求在 1 到 5 之间。
-
-### TrustScoreLog
-
-信任分日志表，记录用户信任分变化、操作人、变化类型、分值前后、原因和关联对象。
-
-### ProfileVisibility
-
-用户主页可见性配置表，控制主页、活动、圈子、评价、信任分、兴趣和互动是否展示。
-
-唯一约束：
-
-- `user_id`
-
-### AdminLog
-
-管理员操作日志表，记录管理员、动作、目标类型、目标 ID、详情、IP 和时间。
-
-### EmailVerificationCode
-
-邮箱验证码表，保存用户、邮箱、验证码哈希、用途、过期时间、使用时间和创建时间。
-
-用途包括：
-
-- 注册
-- 修改邮箱
-- 修改密码
-- 重置密码
-
-### Notification
-
-通知表，保存接收者、类型、标题、内容、关联对象、已读时间、过期时间和创建时间。
-
-### DirectMessage
-
-私信表，保存发送者、接收者、内容、消息类型、图片路径、已读时间、过期时间和创建时间。
-
-### DirectMessageConversationState
-
-私信会话状态表，按用户和对方用户保存隐藏、删除、清空和更新时间。
-
-唯一约束：
-
-- `user_id + other_user_id`
-
-检查约束：
-
-- `user_id != other_user_id`
-
-### UserFollow
-
-用户关注表，保存关注者和被关注者。
-
-唯一约束：
-
-- `follower_id + followed_id`
-
-检查约束：
-
-- `follower_id != followed_id`
-
-### MerchantVerification
-
-商家认证表，保存申请用户、商家名称、证照编号、文件路径、申请原因、联系方式、状态、拒绝原因、审核管理员和审核时间。
-
-## 关系概览
-
-- `User` 1 对多 `Activity`
-- `User` 1 对多 `Registration`
-- `Activity` 1 对多 `Registration`
-- `User` 多对多 `Activity`，通过 `Registration` 表实现报名
-- `User` 多对多 `Activity`，通过 `ActivityFavorite` 表实现收藏
-- `Circle` 1 对多 `Activity`
-- `Circle` 1 对多 `Post`
-- `User` 1 对多 `Post`
-- `Circle` 多对多 `User`，通过 `CircleMember` 表实现成员关系
-- `Post` 1 对多 `Comment`
-- `Activity` 1 对多 `Comment`
-- `Comment` 1 对多 `Comment`，实现回复
-- `User` 1 对多 `DirectMessage` 发送关系
-- `User` 1 对多 `DirectMessage` 接收关系
-- `User` 多对多 `User`，通过 `UserFollow` 表实现关注
-- `User` 1 对多 `Notification`
-- `User` 1 对多 `MerchantVerification` 申请关系
-- `User` 1 对多 `MerchantVerification` 审核关系
-- `Activity` 1 对多 `ActivityReview`
-- `Activity` 1 对多 `UserReview`
-- `User` 1 对多 `TrustScoreLog`
-
-## 设计注意事项
-
-- 当前本地数据库是 SQLite，迁移依赖代码中的兼容函数，不是正式迁移系统。
-- 上传文件只在数据库中保存路径，真实文件位于 `app/static/` 下的图片或上传目录。
-- `Interaction` 使用 `target_type + target_id`，不是强外键关系。
-- `Notification.related_type + related_id` 也是弱关联。
-- `Review` 是兼容模型，新的评分设计主要是 `ActivityReview` 和 `UserReview`。
-- 部分唯一性依赖路由逻辑，例如报名重复限制；后续可考虑补充数据库级唯一约束。
-
+约束：`user_id` 唯一，即一个用户一份配置。
+
+## UserFollow
+
+表名：`user_follow`
+
+业务含义：用户关注关系。
+
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 关注记录 ID |
+| `follower_id` | Integer | 否 | 无 | FK -> `user.id` | 关注者 |
+| `followed_id` | Integer | 否 | 无 | FK -> `user.id` | 被关注者 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 关注时间 |
+
+约束：`follower_id + followed_id` 唯一；`follower_id != followed_id`。
+
+## DirectMessage
+
+表名：`direct_message`
+
+业务含义：私信消息。
+
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 消息 ID |
+| `sender_id` | Integer | 否 | 无 | FK -> `user.id` | 发送者 |
+| `recipient_id` | Integer | 否 | 无 | FK -> `user.id` | 接收者 |
+| `content` | Text | 是 | 无 |  | 文本内容 |
+| `message_type` | String(20) | 否 | `text` |  | 消息类型 |
+| `image_path` | String(255) | 是 | 无 |  | 图片路径 |
+| `read_at` | DateTime | 是 | 无 |  | 已读时间 |
+| `expires_at` | DateTime | 否 | 无 |  | 过期时间 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+
+## DirectMessageConversationState
+
+表名：`direct_message_conversation_state`
+
+业务含义：记录某个用户视角下与另一个用户的会话隐藏、删除和清空状态。
+
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 会话状态 ID |
+| `user_id` | Integer | 否 | 无 | FK -> `user.id` | 当前用户 |
+| `other_user_id` | Integer | 否 | 无 | FK -> `user.id` | 对方用户 |
+| `is_hidden` | Boolean | 否 | `False` |  | 是否隐藏 |
+| `hidden_at` | DateTime | 是 | 无 |  | 隐藏时间 |
+| `is_deleted` | Boolean | 否 | `False` |  | 是否删除 |
+| `deleted_at` | DateTime | 是 | 无 |  | 删除时间 |
+| `cleared_at` | DateTime | 是 | 无 |  | 清空历史时间 |
+| `updated_at` | DateTime | 否 | `datetime.utcnow` |  | 更新时间 |
+
+约束：`user_id + other_user_id` 唯一；`user_id != other_user_id`。
+
+## Notification
+
+表名：`notification`
+
+业务含义：站内通知。
+
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 通知 ID |
+| `recipient_id` | Integer | 否 | 无 | FK -> `user.id` | 接收者 |
+| `type` | String(50) | 否 | 无 |  | 通知类型 |
+| `title` | String(120) | 否 | 无 |  | 标题 |
+| `content` | Text | 是 | 无 |  | 内容 |
+| `related_type` | String(50) | 是 | 无 |  | 关联对象类型 |
+| `related_id` | Integer | 是 | 无 |  | 关联对象 ID |
+| `read_at` | DateTime | 是 | 无 |  | 已读时间 |
+| `expires_at` | DateTime | 否 | 无 |  | 过期时间 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+
+## EmailVerificationCode
+
+表名：`email_verification_code`
+
+业务含义：注册、修改邮箱、修改密码、找回密码等场景的邮箱验证码。
+
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 验证码 ID |
+| `user_id` | Integer | 是 | 无 | FK -> `user.id` | 关联用户 |
+| `email` | String(120) | 否 | 无 | Index | 邮箱 |
+| `code` | String(128) | 否 | 无 |  | 验证码或哈希 |
+| `purpose` | String(30) | 否 | `register` |  | 用途 |
+| `expires_at` | DateTime | 否 | 无 |  | 过期时间 |
+| `used_at` | DateTime | 是 | 无 |  | 使用时间 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+
+## MerchantVerification
+
+表名：`merchant_verification`
+
+业务含义：商家认证申请和管理员审核。
+
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 认证 ID |
+| `user_id` | Integer | 否 | 无 | FK -> `user.id` | 申请用户 |
+| `business_name` | String(120) | 否 | 无 |  | 商家名称 |
+| `license_number` | String(120) | 是 | 无 |  | 证照编号 |
+| `document_path` | String(255) | 是 | 无 |  | 证照文件路径 |
+| `reason` | Text | 是 | 无 |  | 申请说明 |
+| `contact` | String(160) | 是 | 无 |  | 联系方式 |
+| `status` | String(20) | 否 | `pending` |  | 审核状态 |
+| `reject_reason` | Text | 是 | 无 |  | 驳回原因 |
+| `reviewer_id` | Integer | 是 | 无 | FK -> `user.id` | 审核管理员 |
+| `reviewed_at` | DateTime | 是 | 无 |  | 审核时间 |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+| `updated_at` | DateTime | 否 | `datetime.utcnow` |  | 更新时间 |
+
+## AdminLog
+
+表名：`admin_log`
+
+业务含义：记录管理员操作。
+
+| 字段名 | 类型 | 可为空 | 默认值 | 主键 / 外键 | 业务含义 |
+|---|---|---|---|---|---|
+| `id` | Integer | 否 | 无 | PK | 日志 ID |
+| `admin_id` | Integer | 否 | 无 | FK -> `user.id` | 管理员 |
+| `action` | String(80) | 否 | 无 |  | 操作名称 |
+| `target_type` | String(50) | 否 | 无 |  | 目标类型 |
+| `target_id` | Integer | 是 | 无 |  | 目标 ID |
+| `detail` | Text | 是 | 无 |  | 详细说明 |
+| `ip_address` | String(45) | 是 | 无 |  | 操作 IP |
+| `created_at` | DateTime | 否 | `datetime.utcnow` |  | 创建时间 |
+
+## 当前未实现或需澄清的数据结构
+
+| 预期名称 | 当前代码状态 |
+|---|---|
+| `Rating` | 当前没有名为 `Rating` 的模型。评分由 `Review`、`ActivityReview` 和 `UserReview` 实现。 |
+| 独立 `Tag` 表 | 当前没有独立标签表。活动使用 `Activity.tags` 文本字段，圈子使用 `Circle.tag` 字符串字段。 |
+| 独立 `Location` 表 | 当前没有独立地点表。活动地点保存在 `Activity.city` 和 `Activity.location` 中。 |
+| 活动报名唯一约束 | `Registration` 当前没有数据库级 `user_id + activity_id` 唯一约束，重复报名由业务逻辑控制。 |
+
+## 约束和索引要点
+
+- `User.username` 唯一。
+- `User.email` 唯一。
+- `ActivityFavorite.user_id + activity_id` 唯一。
+- `ActivityReview.activity_id + reviewer_id` 唯一。
+- `UserReview.activity_id + reviewer_id + reviewee_id` 唯一。
+- `CircleMember.circle_id + user_id` 唯一。
+- `Interaction.user_id + target_type + target_id + action_type` 唯一。
+- `ProfileVisibility.user_id` 唯一。
+- `UserFollow.follower_id + followed_id` 唯一，且不能关注自己。
+- `DirectMessageConversationState.user_id + other_user_id` 唯一，且不能与自己形成会话。
+- `Comment` 通过检查约束要求评论目标必须是活动或帖子之一。

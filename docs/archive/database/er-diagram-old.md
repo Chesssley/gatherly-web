@@ -99,4 +99,4 @@ erDiagram
     }
 # 历史归档，仅供参考
 
-> 本文件为旧版 ER 图说明，字段和关系已不再作为当前数据库事实来源。当前 ER 图请以 [../../er-diagram.mmd](../../er-diagram.mmd) 和 [../../database-design.md](../../database-design.md) 为准。
+> 本文件为旧版 ER 图说明，字段和关系已不再作为当前数据库事实来源。当前 ER 图请以 [../../er-diagram.md](../../er-diagram.md) 和 [../../database-design.md](../../database-design.md) 为准。

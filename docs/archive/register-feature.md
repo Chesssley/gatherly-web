@@ -62,4 +62,4 @@
 - 注册后自动登录或更明确的新手引导。
 # 历史归档，仅供参考
 
-> 本文件为本次文档整理前的注册功能碎片文档。当前账号与认证说明请以 [../feature-guide.md](../feature-guide.md) 为准。
+> 本文件为本次文档整理前的注册功能碎片文档。当前账号与认证说明请以 [../requirements.md](../requirements.md) 和 [../development-guide.md](../development-guide.md) 为准。

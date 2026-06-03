@@ -101,4 +101,4 @@ git push origin --delete feature/activity-list
 - 文档或样式变更已在 PR 描述中说明。
 # 历史归档，仅供参考
 
-> 本文件为本次文档整理前的旧版材料，可能包含过期结构、重复说明或编码损坏内容。当前 GitHub 协作流程请以 [../development-workflow.md](../development-workflow.md) 为准。
+> 本文件为本次文档整理前的旧版材料，可能包含过期结构、重复说明或编码损坏内容。当前 GitHub 协作流程请以 [../github-workflow.md](../github-workflow.md) 和 [../development-guide.md](../development-guide.md) 为准。

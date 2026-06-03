@@ -1,17 +1,22 @@
-# 历史归档，仅供参考
+# 历史文档归档
 
-本目录保存本次文档整理前的旧版材料，用于保留课程过程、会议记录、Backlog、协作规则和历史 ER 图等参考证据。
+本目录用于保留 Gatherly Web 文档整理前的旧版资料。归档文件可能包含过期说明、重复内容、编码损坏内容或旧结构引用，仅作为过程记录，不作为当前项目事实来源。
 
-归档文件可能包含与当前代码不一致的旧功能描述、旧目录结构、旧数据库字段、重复内容或历史编码损坏文本。
+当前文档请以 `docs/` 顶层文件为准：
 
-当前有效文档请以 `docs/` 顶层文件为准：
-
+- [../README.md](../README.md)
 - [../project-overview.md](../project-overview.md)
-- [../feature-guide.md](../feature-guide.md)
 - [../project-structure.md](../project-structure.md)
+- [../requirements.md](../requirements.md)
+- [../product-backlog.md](../product-backlog.md)
 - [../database-design.md](../database-design.md)
-- [../er-diagram.mmd](../er-diagram.mmd)
-- [../development-workflow.md](../development-workflow.md)
-- [../setup-and-deployment.md](../setup-and-deployment.md)
-- [../testing-guide.md](../testing-guide.md)
+- [../er-diagram.md](../er-diagram.md)
+- [../github-workflow.md](../github-workflow.md)
+- [../issue-management.md](../issue-management.md)
+- [../development-guide.md](../development-guide.md)
+- [../style-guide.md](../style-guide.md)
+- [../test-report.md](../test-report.md)
+- [../meeting-notes.md](../meeting-notes.md)
+- [../deployment-guide.md](../deployment-guide.md)
 
+`legacy-2026-06-04/` 保存本次整理时从 `docs/` 顶层移入的旧主题文档。

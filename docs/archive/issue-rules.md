@@ -114,4 +114,4 @@
 - 文档任务和代码任务不要混在同一个 Issue 中，除非文档是该代码任务的验收标准之一。
 # 历史归档，仅供参考
 
-> 本文件为本次文档整理前的旧版材料，可能包含过期结构、重复说明或编码损坏内容。当前 Issue、Label、Milestone 和 Project Board 规则请以 [../development-workflow.md](../development-workflow.md) 为准。
+> 本文件为本次文档整理前的旧版材料，可能包含过期结构、重复说明或编码损坏内容。当前 Issue、Label、Milestone 和 Project Board 规则请以 [../issue-management.md](../issue-management.md) 为准。
