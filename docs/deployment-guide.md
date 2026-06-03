@@ -1,354 +1,225 @@
-# 部署与运行指南
+# 部署指南
 
-最后更新时间：2026-06-04
+最后更新：2026-06-04
 
-本文说明 Gatherly Web 的本地运行方式，以及当前推荐的线上部署方案：Render + Neon PostgreSQL + Cloudflare R2。
+本文说明 Gatherly Web 当前正式部署方案。当前正式架构是：
 
-当前代码已经具备以下部署基础：
+- Deployment / Web Runtime：Render
+- Database：Neon PostgreSQL
+- Object Storage：Cloudflare R2
+- Version Control：GitHub
+- Database Migration：Flask-Migrate / Alembic migrations
+- Production 入口：Render Web Service，启动命令 `gunicorn wsgi:app`
 
-- `wsgi.py` 可作为 WSGI 入口。
-- `requirements.txt` 包含 `gunicorn`、`psycopg2-binary`、`python-dotenv`、`Flask-Migrate` 和 `boto3`。
-- `app/__init__.py` 支持通过 `DATABASE_URL` 切换数据库，并会把 `postgres://` 自动转换为 `postgresql://`。
-- `app/services/storage.py` 支持 Cloudflare R2。未配置 R2 时，本地开发会保存到 `app/static/uploads/`；生产环境缺少 R2 配置时会报错，避免上传文件丢失。
-- `scripts/export_data.py`、`scripts/import_data.py` 和 `scripts/migrate_uploads_to_r2.py` 可用于从本地 SQLite 迁移到 Neon + R2。
+旧的 PythonAnywhere + SQLite + 本地上传图片方案只属于历史阶段，不再作为当前正式部署方案。历史材料如需查看，只能在 `docs/archive/` 下作为旧方案参考。
 
-## 本地运行
+## 当前部署架构
 
-### 1. 准备 Python
+| 层级 | 服务 | 职责 |
+|---|---|---|
+| Web Runtime | Render Web Service | 从 GitHub 拉取代码，安装依赖，运行 `gunicorn wsgi:app`。 |
+| Database | Neon PostgreSQL | 保存用户、活动、报名、圈子、帖子、评论、评分、私信、通知、管理员日志和图片 URL。 |
+| Object Storage | Cloudflare R2 | 保存用户上传图片和认证材料文件本体。 |
+| Version Control | GitHub | 保存代码、模板、CSS、JS、README、docs、scripts 和 migrations。 |
+| Migration | Flask-Migrate / Alembic | 管理 PostgreSQL schema 版本。 |
 
-建议使用 Python 3.10 或更新版本。
+Render 不作为持久化数据存储，不长期保存用户上传图片、SQLite 数据库或真实用户数据。上传文件进入 R2，业务数据进入 Neon，Render 只负责运行 Web 服务。
 
-```bash
-python --version
-```
+## 线上同步流程
 
-### 2. 创建并激活虚拟环境
+标准流程：
 
-Windows PowerShell：
+1. 本地从最新 `main` 新建分支。
+2. 修改代码或文档。
+3. commit。
+4. push 到 GitHub。
+5. 打开 GitHub Pull Request。
+6. Review 后 merge 到 `main`。
+7. Render 自动从 `main` 部署。
+
+不要直接 push 到 `main`。不要在 Render 上手工改代码作为正式同步方式。
+
+## 普通代码改动
+
+普通代码、模板、CSS、JS、README 或 docs 改动：
+
+- 只需要走 GitHub PR。
+- 不需要手动改 Neon。
+- 不需要手动改 R2。
+- 合并到 `main` 后等待 Render 自动部署。
+
+## 数据库字段改动
+
+涉及 `app/models.py` 字段、表、外键、唯一约束、索引或默认值的改动必须生成 migration。
+
+PowerShell 示例：
 
 ```powershell
-python -m venv .venv
-.venv\Scripts\activate
+$env:FLASK_APP='wsgi:app'
+$env:DATABASE_URL='<Neon Direct URL, not the pooler URL>'
+flask db migrate -m "describe schema change"
+flask db upgrade
 ```
 
-macOS / Linux：
+规则：
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
+- 使用 Neon Direct URL 执行 `flask db migrate` 和 `flask db upgrade`。
+- Render 运行时连接使用 Neon pooled URL。
+- 不要依赖 `db.create_all()` 做生产 schema 变更。
+- 必须提交 `migrations/versions/*.py`。
+- PR 中说明迁移影响、是否会改已有数据、是否需要维护窗口。
 
-### 3. 安装依赖
+## 图片上传逻辑改动
 
-```bash
-pip install -r requirements.txt
-```
+图片上传相关代码在 `app/services/storage.py` 和 `app/utils/upload_utils.py`。
 
-### 4. 初始化数据库
+当前策略：
 
-```bash
-python init_db.py
-```
+- 代码进入 GitHub。
+- R2 密钥进入 Render Environment。
+- 上传图片文件本体进入 Cloudflare R2。
+- Neon PostgreSQL 只保存 URL / object key。
+- 数据库字段不保存图片文件本体。
 
-如需示例数据：
+如果改上传目录、bucket key 规则或 public URL 规则，需要同时检查：
 
-```bash
-python seed_data.py
-```
+- `R2_BUCKET_NAME`
+- `R2_PUBLIC_BASE_URL`
+- `app/services/storage.py`
+- `scripts/migrate_uploads_to_r2.py`
+- `docs/database-design.md`
 
-### 5. 启动应用
+## Render 配置
 
-```bash
-python run.py
-```
-
-浏览器打开：
-
-```text
-http://127.0.0.1:5000/
-```
-
-## 推荐线上架构
-
-| 服务 | 用途 | 项目中的对应配置 |
-|---|---|---|
-| Render Web Service | 托管 Flask Web 应用 | `gunicorn wsgi:app` |
-| Neon PostgreSQL | 线上数据库 | `DATABASE_URL` |
-| Cloudflare R2 | 上传图片、头像、帖子图、评论图、私信图和认证材料 | `R2_*` 环境变量 |
-
-官方参考：
-
-- Render Flask 部署文档：https://render.com/docs/deploy-flask
-- Neon 连接文档：https://neon.com/docs/get-started-with-neon/connect-neon
-- Cloudflare R2 S3 API 文档：https://developers.cloudflare.com/r2/get-started/s3/
-
-## Render + Neon + Cloudflare R2 部署方案
-
-### 1. 创建 Neon 数据库
-
-1. 在 Neon 创建一个 PostgreSQL project。
-2. 复制数据库连接字符串。
-3. 优先使用适合服务端应用的连接字符串，并确认包含数据库名、用户名、密码、host 和 SSL 参数。
-4. 将连接字符串作为 Render 环境变量 `DATABASE_URL`。
-
-示例格式：
-
-```text
-postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require
-```
-
-如果 Neon 给出的连接串以 `postgres://` 开头也可以使用，当前 `app/__init__.py` 会自动转换为 `postgresql://`。
-
-### 2. 创建 Cloudflare R2 Bucket
-
-1. 在 Cloudflare R2 创建 bucket。
-2. 创建 R2 API Token / Access Key。
-3. 配置公开访问方式，例如 public bucket URL 或自定义域名。
-4. 记录以下信息：
-   - Account ID
-   - Bucket name
-   - Access Key ID
-   - Secret Access Key
-   - Public base URL
-
-当前代码会使用 S3-compatible endpoint：
-
-```text
-https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com
-```
-
-上传后的公开 URL 格式由 `R2_PUBLIC_BASE_URL` 决定。
-
-### 3. 创建 Render Web Service
-
-在 Render 中选择从 GitHub 仓库创建 Web Service。
-
-建议配置：
+在 Render 创建 Web Service，连接 GitHub 仓库。
 
 | 配置项 | 建议值 |
 |---|---|
 | Runtime | Python |
 | Build Command | `pip install -r requirements.txt` |
 | Start Command | `gunicorn wsgi:app` |
+| Branch | `main` |
 | Root Directory | 仓库根目录 |
-| Branch | 需要部署的分支，通常为 `main` |
 
-Render 部署前，请在 Environment 中配置下面的环境变量。
+当前仓库存在 `wsgi.py`，作为 Render / gunicorn 入口。当前仓库没有 `render.yaml`，因此 Render 配置以 Dashboard 中的 Web Service 设置为准。
 
-## 线上环境变量表
+## Render Environment
 
-| 变量名 | 必填 | 示例 / 说明 |
-|---|---|---|
-| `SECRET_KEY` | 是 | 生产环境必须使用强随机字符串，不要使用默认值 |
-| `DATABASE_URL` | 是 | Neon PostgreSQL 连接字符串 |
-| `APP_ENV` | 是 | `production` |
-| `SESSION_COOKIE_SECURE` | 是 | `true`，Render 默认提供 HTTPS |
-| `R2_ACCOUNT_ID` | 是 | Cloudflare Account ID |
-| `R2_BUCKET_NAME` | 是 | R2 bucket 名称 |
-| `R2_ACCESS_KEY_ID` | 是 | R2 Access Key ID |
-| `R2_SECRET_ACCESS_KEY` | 是 | R2 Secret Access Key |
-| `R2_PUBLIC_BASE_URL` | 是 | R2 公开访问 base URL，例如 `https://assets.example.com` |
-| `ADMIN_USERNAME` | 可选 | 首次初始化管理员账号时使用 |
-| `ADMIN_EMAIL` | 可选 | 首次初始化管理员账号时使用 |
-| `ADMIN_PASSWORD` | 可选 | 首次初始化管理员账号时使用 |
-
-注意：
-
-- 不要把 `.env`、Neon 连接串、R2 secret 或管理员密码提交到 Git。
-- `R2_PUBLIC_BASE_URL` 不要以 `/` 结尾，代码会自动去掉末尾斜杠。
-- 生产环境如果没有配置 R2，上传功能会失败，这是预期保护行为。
-
-## Neon 数据库初始化与数据迁移
-
-当前仓库支持两种方式。
-
-### 方式 A：全新线上库
-
-适合没有历史数据的部署。
-
-1. 在本地或 Render Shell 中设置 `DATABASE_URL` 指向 Neon。
-2. 执行迁移或初始化。
-
-优先使用迁移：
-
-```bash
-flask --app wsgi:app db upgrade
-```
-
-如果课程演示需要快速创建表和示例数据，也可以运行：
-
-```bash
-python init_db.py
-```
-
-说明：`init_db.py` 会执行 `db.create_all()`，同步系统圈子，并写入示例活动和可选管理员账号。生产化项目长期建议以迁移为准。
-
-### 方式 B：从本地 SQLite 迁移到 Neon
-
-适合已经在本地 SQLite 中准备好活动、用户、圈子、帖子、评论、评分等数据，需要迁移到 Neon。
-
-#### 1. 从当前本地数据库导出 JSON
-
-确认本地 `.env` 没有把 `DATABASE_URL` 指向 Neon，或临时 unset `DATABASE_URL`，确保导出的是本地 SQLite 数据。
-
-```bash
-python scripts/export_data.py
-```
-
-脚本会生成：
+不要在文档里写真实值。Render Environment 至少应保存：
 
 ```text
-gatherly_export.json
+DATABASE_URL=<Neon pooled URL for runtime>
+SECRET_KEY=<strong secret>
+APP_ENV=production
+SESSION_COOKIE_SECURE=true
+R2_ACCOUNT_ID=<Cloudflare account id>
+R2_ACCESS_KEY_ID=<R2 access key id>
+R2_SECRET_ACCESS_KEY=<R2 secret access key>
+R2_BUCKET_NAME=gatherly-uploads
+R2_PUBLIC_BASE_URL=<public bucket or custom domain base URL>
+ADMIN_USERNAME=<admin username>
+ADMIN_EMAIL=<admin email>
+ADMIN_PASSWORD=<admin password>
 ```
 
-#### 2. 在 Neon 中创建表结构
-
-将 `DATABASE_URL` 设置为 Neon 连接串后运行：
-
-```bash
-flask --app wsgi:app db upgrade
-```
-
-如果迁移命令不可用，可使用：
-
-```bash
-python init_db.py
-```
-
-但如果准备用 `scripts/import_data.py` 导入完整数据，建议目标库尽量保持空表，避免重复示例数据。
-
-#### 3. 导入数据到 Neon
-
-PowerShell 示例：
-
-```powershell
-$env:DATABASE_URL="postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require"
-python scripts/import_data.py
-```
-
-macOS / Linux 示例：
-
-```bash
-export DATABASE_URL="postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require"
-python scripts/import_data.py
-```
-
-如果目标 Neon 数据库已有业务数据，脚本会停止，避免误删数据。确认要清空目标业务表并重新导入时，再设置：
-
-PowerShell：
-
-```powershell
-$env:CONFIRM_IMPORT="YES"
-python scripts/import_data.py
-```
-
-macOS / Linux：
-
-```bash
-export CONFIRM_IMPORT=YES
-python scripts/import_data.py
-```
-
-导入成功后，脚本会修复 PostgreSQL sequence，避免后续新增记录出现主键冲突。
-
-## Cloudflare R2 上传文件迁移
-
-如果本地已有上传文件，例如头像、帖子图片、评论图片、活动图片、圈子图片、私信图片或商家认证材料，需要把 `app/static/uploads/` 迁移到 R2，并把数据库中的旧本地路径改成 R2 URL。
-
-迁移脚本：
+如果启用 Brevo 邮件：
 
 ```text
-scripts/migrate_uploads_to_r2.py
+EMAIL_PROVIDER=brevo
+BREVO_API_KEY=<brevo api key>
+BREVO_SENDER_EMAIL=<verified sender email>
+BREVO_SENDER_NAME=Gatherly
+EMAIL_API_TIMEOUT=15
 ```
 
-### 1. 配置环境变量
+如果启用 SMTP，则使用 `MAIL_SERVER`、`MAIL_PORT`、`MAIL_USERNAME`、`MAIL_PASSWORD`、`MAIL_USE_TLS`、`MAIL_DEFAULT_SENDER`。真实密码和 API key 只放 Render Environment，不写入 GitHub。
 
-PowerShell 示例：
+## Neon PostgreSQL
 
-```powershell
-$env:DATABASE_URL="postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require"
-$env:R2_ACCOUNT_ID="your-account-id"
-$env:R2_BUCKET_NAME="your-bucket"
-$env:R2_ACCESS_KEY_ID="your-access-key-id"
-$env:R2_SECRET_ACCESS_KEY="your-secret-access-key"
-$env:R2_PUBLIC_BASE_URL="https://assets.example.com"
-```
+Neon 用于正式生产数据。
 
-macOS / Linux 示例：
+连接 URL 用途：
 
-```bash
-export DATABASE_URL="postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require"
-export R2_ACCOUNT_ID="your-account-id"
-export R2_BUCKET_NAME="your-bucket"
-export R2_ACCESS_KEY_ID="your-access-key-id"
-export R2_SECRET_ACCESS_KEY="your-secret-access-key"
-export R2_PUBLIC_BASE_URL="https://assets.example.com"
-```
-
-### 2. 先执行 dry-run
-
-默认模式就是 dry-run，不会真正上传，也不会改数据库。
-
-```bash
-python scripts/migrate_uploads_to_r2.py
-```
-
-检查输出中的内容：
-
-- 扫描到多少文件。
-- 计划上传到哪个 bucket 和 key。
-- 计划更新多少条数据库记录。
-- 示例 R2 URL 是否正确。
-
-### 3. 确认无误后执行真实迁移
-
-PowerShell：
-
-```powershell
-$env:CONFIRM_R2_MIGRATION="YES"
-python scripts/migrate_uploads_to_r2.py
-```
-
-macOS / Linux：
-
-```bash
-export CONFIRM_R2_MIGRATION=YES
-python scripts/migrate_uploads_to_r2.py
-```
-
-脚本会：
-
-1. 上传 `app/static/uploads/` 下支持的图片文件到 R2。
-2. 将数据库文本字段中的旧本地上传路径替换为 R2 公开 URL。
-3. 事务提交数据库更新。
-4. 保留本地文件，不会自动删除。
-
-### 4. 迁移后验证
-
-- 打开用户头像、活动图、圈子图、帖子图、评论图和私信图相关页面。
-- 检查图片 URL 是否以 `R2_PUBLIC_BASE_URL` 开头。
-- 在 Render 环境中上传一张新图片，确认新文件直接进入 R2。
-
-## Render 部署后检查清单
-
-| 检查项 | 预期结果 |
+| URL 类型 | 用途 |
 |---|---|
-| Render build | `pip install -r requirements.txt` 成功 |
-| Render start | `gunicorn wsgi:app` 成功启动 |
-| 首页 | `/` 能打开 |
-| 数据库 | Neon 中能看到业务表和数据 |
-| 上传 | 新上传图片保存到 R2 |
-| 登录注册 | Session 和 Cookie 正常 |
-| 管理员 | 管理后台权限正常 |
-| 静态资源 | CSS、JS、favicon 和本地静态图片正常加载 |
+| Pooled URL | Render Web Service 运行时连接。 |
+| Direct URL | 本地迁移、维护、`flask db upgrade`。 |
+
+Neon 中保存：
+
+- 用户账号、管理员账号、角色、状态和资料。
+- 活动、报名、收藏、评分、互评和信任分日志。
+- 圈子、帖子、评论、私信、通知和管理员日志。
+- 邮箱验证码和商家认证记录。
+- 图片 URL / object key。
+
+Neon 中不保存图片文件本体，不保存 R2 Secret，不保存 `.env`。
+
+## Cloudflare R2
+
+R2 用于上传媒体文件。当前 bucket 按 `gatherly-uploads` 这一类用途描述。
+
+R2 保存：
+
+- 用户头像。
+- 活动图片。
+- 圈子封面。
+- 帖子图片。
+- 评论图片。
+- 私信图片。
+- 商家认证材料。
+
+Neon 保存这些文件的 URL / object key。GitHub 和 Render 不作为真实用户上传图片的长期存储。
+
+## 本地开发 fallback
+
+当前代码在未设置 `DATABASE_URL` 时会 fallback 到 `sqlite:///gatherly.db`。当前代码在未配置 R2 且不是生产环境时，上传会 fallback 到 `app/static/uploads/`。
+
+这些 fallback 仅用于本地快速开发、历史数据迁移或演示，不代表生产环境：
+
+- SQLite 不是正式数据库。
+- `app/static/uploads/` 不是 Render 生产持久化目录。
+- `instance/` 不是正式生产数据目录。
+
+## 旧数据迁移
+
+如果历史阶段存在本地 SQLite 或本地上传文件，需要先评估数据来源和敏感信息。
+
+可用脚本：
+
+| 脚本 | 用途 |
+|---|---|
+| `scripts/export_data.py` | 从当前数据库导出 JSON。 |
+| `scripts/import_data.py` | 将导出的 JSON 导入 PostgreSQL / Neon。 |
+| `scripts/migrate_uploads_to_r2.py` | 将历史本地上传文件迁移到 R2，并把数据库中的旧本地路径更新为 R2 URL。 |
+
+迁移时不要把真实导出文件、数据库备份或图片备份提交到 GitHub。根目录历史备份文件应尽快移出仓库工作区或纳入安全清理计划。
+
+## 部署后检查
+
+| 检查项 | 预期 |
+|---|---|
+| Render build | `pip install -r requirements.txt` 成功。 |
+| Render start | `gunicorn wsgi:app` 成功启动。 |
+| 首页 | `/` 可访问。 |
+| 数据库 | Neon 可看到业务表和数据。 |
+| 上传 | 新上传文件进入 R2。 |
+| 图片 URL | 页面加载的是 R2 public URL 或可解析的对象 URL。 |
+| 登录注册 | Session 和 Cookie 正常。 |
+| 管理后台 | 权限控制正常。 |
+| 静态资源 | CSS、JS、favicon 和代码内置静态图片正常加载。 |
 
 ## 常见问题
 
-| 问题 | 可能原因 | 处理方式 |
+| 问题 | 可能原因 | 处理 |
 |---|---|---|
-| Render 启动失败 | Start Command 写错 | 使用 `gunicorn wsgi:app` |
-| 数据库连接失败 | `DATABASE_URL` 错误或 Neon 权限问题 | 重新复制 Neon 连接串，确认 `sslmode=require` |
-| 导入脚本提示目标库已有数据 | Neon 已有业务数据 | 确认后设置 `CONFIRM_IMPORT=YES` |
-| 上传时报缺少 R2 环境变量 | Render 没有配置完整 `R2_*` | 按环境变量表补齐 |
-| 图片上传成功但无法访问 | `R2_PUBLIC_BASE_URL` 或 R2 公开访问未配置 | 检查 public bucket/custom domain 设置 |
-| 本地运行上传到了 R2 | 本地环境配置了完整 `R2_*` | 本地开发可临时移除 R2 环境变量 |
+| Render 启动失败 | Start Command 错误 | 使用 `gunicorn wsgi:app`。 |
+| 数据库连接失败 | `DATABASE_URL` 错误或 Neon 权限问题 | 重新复制 Neon pooled URL 到 Render Environment。 |
+| 迁移失败 | 使用了 pooler URL 或 migration 与模型不一致 | 改用 Neon Direct URL，检查 migration。 |
+| 上传失败 | R2 环境变量不完整 | 补齐 `R2_ACCOUNT_ID`、`R2_BUCKET_NAME`、`R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY`、`R2_PUBLIC_BASE_URL`。 |
+| 上传成功但图片无法访问 | `R2_PUBLIC_BASE_URL` 或 bucket public access 配置错误 | 检查 R2 public bucket/custom domain。 |
+| Render 文件丢失 | 把 Render 当成持久化存储 | 上传文件必须进 R2，业务数据必须进 Neon。 |
+
+## 不再使用的正式部署方式
+
+PythonAnywhere、SQLite 生产数据库、本地图片目录生产存储、在服务器 Bash 中 `git pull` 后 reload，都不再是当前正式部署流程。若文档中出现，只能明确标注为“旧方案 / 历史阶段”，并放在 `docs/archive/`。

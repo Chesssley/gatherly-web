@@ -1,10 +1,12 @@
 # ER 图
 
-最后更新时间：2026-06-04
+最后更新：2026-06-04
 
-> 本 ER 图根据当前 `app/models.py` 自动整理，反映当前代码版本的数据结构。
+本 ER 图根据当前 `app/models.py` 整理。当前正式数据库是 Neon PostgreSQL，数据库结构由 SQLAlchemy models + Flask-Migrate / Alembic migrations 管理。
 
-## 实体与表名对照
+图片文件本体存储在 Cloudflare R2。图中的 `avatar`、`image`、`cover_image`、`image_path`、`document_path` 都是当前代码里的真实字段名；它们在生产语义上保存 URL / object key，不表示生产环境保存本地文件路径。
+
+## 实体与表名
 
 | ER 实体 | SQLAlchemy 模型 | 数据库表名 |
 |---|---|---|
@@ -38,7 +40,7 @@ erDiagram
     USER ||--o{ REGISTRATION : registers
     ACTIVITY ||--o{ REGISTRATION : has
     USER ||--o{ ACTIVITY_FAVORITE : favorites
-    ACTIVITY ||--o{ ACTIVITY_FAVORITE : is_favorited
+    ACTIVITY ||--o{ ACTIVITY_FAVORITE : favorited_by
     CIRCLE ||--o{ ACTIVITY : links
 
     USER ||--o{ CIRCLE : owns
@@ -378,8 +380,7 @@ erDiagram
 
 ## 说明
 
-- 当前代码没有名为 `Rating` 的模型；评分由 `Review`、`ActivityReview` 和 `UserReview` 三个模型共同承担。
-- `Interaction.target_type` 和 `Interaction.target_id` 是通用目标引用，不是数据库外键。
-- `Notification.related_type` 和 `Notification.related_id` 是通用关联引用，不是数据库外键。
-- `Comment` 通过检查约束限制评论只能关联一个活动或一个帖子。
-- 旧图片 `docs/screenshots/er-diagram.png` 保留为历史截图；当前文档引用以本 Mermaid 图为准。
+- 当前没有名为 `Rating` 的模型；评分由 `Review`、`ActivityReview` 和 `UserReview` 共同承担。
+- `Interaction.target_type` / `target_id` 和 `Notification.related_type` / `related_id` 是通用引用，不是数据库外键。
+- `Comment` 通过检查约束限制评论目标必须且只能是一个活动或一个帖子。
+- `docs/screenshots/er-diagram.png` 保留为历史截图；当前事实来源以本文和 [er-diagram.mmd](er-diagram.mmd) 为准。

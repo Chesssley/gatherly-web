@@ -1,33 +1,9 @@
-erDiagram
-    %% Entity/table mapping:
-    %% USER -> User / user
-    %% ACTIVITY -> Activity / activity
-    %% REGISTRATION -> Registration / registration
-    %% ACTIVITY_FAVORITE -> ActivityFavorite / activity_favorite
-    %% CIRCLE -> Circle / circle
-    %% CIRCLE_MEMBER -> CircleMember / circle_member
-    %% POST -> Post / post
-    %% POST_IMAGE -> PostImage / post_image
-    %% COMMENT -> Comment / comment
-    %% COMMENT_IMAGE -> CommentImage / comment_image
-    %% INTERACTION -> Interaction / interaction
-    %% REVIEW -> Review / review
-    %% ACTIVITY_REVIEW -> ActivityReview / activity_review
-    %% USER_REVIEW -> UserReview / user_review
-    %% TRUST_SCORE_LOG -> TrustScoreLog / trust_score_log
-    %% PROFILE_VISIBILITY -> ProfileVisibility / profile_visibility
-    %% USER_FOLLOW -> UserFollow / user_follow
-    %% DIRECT_MESSAGE -> DirectMessage / direct_message
-    %% DIRECT_MESSAGE_CONVERSATION_STATE -> DirectMessageConversationState / direct_message_conversation_state
-    %% NOTIFICATION -> Notification / notification
-    %% EMAIL_VERIFICATION_CODE -> EmailVerificationCode / email_verification_code
-    %% MERCHANT_VERIFICATION -> MerchantVerification / merchant_verification
-    %% ADMIN_LOG -> AdminLog / admin_log
+﻿erDiagram
     USER ||--o{ ACTIVITY : organizes
     USER ||--o{ REGISTRATION : registers
     ACTIVITY ||--o{ REGISTRATION : has
     USER ||--o{ ACTIVITY_FAVORITE : favorites
-    ACTIVITY ||--o{ ACTIVITY_FAVORITE : is_favorited
+    ACTIVITY ||--o{ ACTIVITY_FAVORITE : favorited_by
     CIRCLE ||--o{ ACTIVITY : links
 
     USER ||--o{ CIRCLE : owns
