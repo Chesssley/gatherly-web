@@ -120,9 +120,6 @@
             <span aria-hidden="true">&#128276;</span>
             <strong data-notification-badge{% if not unread_notification_count %} hidden style="display: none;"{% endif %}>{{ unread_notification_count if unread_notification_count < 100 else '99+' }}</strong>
           </a>
-          <a class="mobile-nav-button" href="{{ url_for('profile.my_circle_interactions') }}" aria-label="收藏">
-            <span aria-hidden="true">&#9825;</span>
-          </a>
           <button class="mobile-avatar-button" type="button" data-nav-menu-toggle aria-expanded="false" aria-controls="mobile-account-menu">
             <span class="nav-avatar">
               {% if current_user and current_user.avatar %}
@@ -133,10 +130,6 @@
             </span>
             <span class="sr-only">打开用户菜单</span>
           </button>
-        {% else %}
-          <a class="mobile-nav-button" href="{{ url_for('auth.login') }}" aria-label="登录后查看收藏">
-            <span aria-hidden="true">&#9825;</span>
-          </a>
         {% endif %}
         <button class="mobile-nav-button" type="button" data-mobile-menu-toggle aria-expanded="false" aria-controls="mobile-menu">
           <span aria-hidden="true">&#9776;</span>

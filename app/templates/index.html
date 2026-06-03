@@ -310,9 +310,12 @@
 
             <section class="home-sidebar-panel home-mini-groups" aria-labelledby="home-mini-groups-title">
                 <div class="home-sidebar-tabs" id="home-mini-groups-title">
-                    <span>你的同好圈 {{ home_circles|default([])|length }}</span>
+                    <span>你的同好圈{% if session.get('user_id') %} {{ home_circles|default([])|length }}{% endif %}</span>
+                    {% if session.get('user_id') %}
                     <a href="{{ url_for('circle.circles') }}">查看全部</a>
+                    {% endif %}
                 </div>
+                {% if session.get('user_id') %}
                 {% for circle in home_circles|default([]) %}
                     {% if loop.index <= 2 %}
                     <a class="home-mini-group" href="{{ circle.url }}">
@@ -327,6 +330,11 @@
                 <p class="home-sidebar-empty">暂无同好圈</p>
                 {% endfor %}
                 <a class="home-find-groups" href="{{ url_for('circle.circles') }}">发现更多同好圈</a>
+                {% else %}
+                <div class="home-auth-prompt home-sidebar-auth-prompt">
+                    <p>登录后可以查看你的同好圈。</p>
+                </div>
+                {% endif %}
             </section>
         </aside>
 
@@ -394,6 +402,7 @@
             <section class="home-feed-section groups-feed-section" id="from-your-groups">
                 <div class="home-feed-heading">
                     <h2>From your circles</h2>
+                    {% if session.get('user_id') %}
                     <div class="home-feed-actions">
                         <a class="section-link" href="{{ url_for('activity.search', scope='activities') }}">浏览全部活动 <span aria-hidden="true">&#8594;</span></a>
                         <div class="home-date-filter" data-home-date-filter>
@@ -432,8 +441,10 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
                 <div class="home-group-feed">
+                    {% if session.get('user_id') %}
                     {% set last_date = namespace(value='') %}
                     {% for activity in group_activities|default([]) %}
                         {% if activity.home_date_label != last_date.value %}
@@ -486,6 +497,11 @@
                     {% else %}
                     <div class="recommended-empty-state">你的同好圈暂时没有近期活动。</div>
                     {% endfor %}
+                    {% else %}
+                    <div class="home-auth-prompt home-feed-auth-prompt">
+                        <p>登录后可以查看来自你同好圈的活动。</p>
+                    </div>
+                    {% endif %}
                 </div>
             </section>
         </main>
