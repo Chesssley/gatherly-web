@@ -3,9 +3,10 @@
 
 import os
 import time
+import unicodedata
 from datetime import datetime
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, session
+from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.models import (
     MerchantVerification,
@@ -17,6 +18,7 @@ from app.models import (
 )
 from app.forms import RegistrationForm
 from app.utils.email_verification import (
+    email_configuration_error,
     is_email_code_rate_limited,
     is_console_email_provider,
     send_verification_code,
@@ -33,6 +35,7 @@ REGISTER_FORM_DRAFT_FIELDS = ("username", "email", "nickname", "city")
 EMAIL_CODE_SESSION_LIMIT_SECONDS = 60 * 60
 EMAIL_CODE_SESSION_LIMIT_MAX = 10
 EMAIL_CODE_RATE_LIMIT_MESSAGE = "验证码发送过于频繁，请稍后再试。"
+DELETE_ACCOUNT_CONFIRM_TEXT = "DELETE MY ACCOUNT"
 LOGIN_FAILURE_WINDOW_SECONDS = 5 * 60
 LOGIN_FAILURE_MAX_ATTEMPTS = 5
 LOGIN_FAILURE_COOLDOWN_MESSAGE = "登录尝试过于频繁，请稍后再试。"
@@ -190,11 +193,21 @@ def _is_email_code_send_rate_limited(email, purpose):
 
 def _flash_email_code_send_result(sent, success_message="验证码已发送，请查收邮箱。"):
     if sent:
-        flash(success_message, "success")
+        if is_console_email_provider():
+            flash("本地未配置邮件服务，验证码已打印到控制台。", "info")
+        else:
+            flash(success_message, "success")
+    elif configuration_error := email_configuration_error():
+        flash(configuration_error, "error")
     elif is_console_email_provider():
         flash("本地未配置邮件服务，验证码已打印到控制台。", "info")
     else:
         flash("验证码发送失败，请稍后再试。", "error")
+
+
+def _normalize_delete_confirm_text(value):
+    value = unicodedata.normalize("NFKC", value or "")
+    return value.strip().upper()
 
 
 @auth_bp.route("/register/send-code", methods=["POST"])
@@ -220,12 +233,10 @@ def send_register_code():
         sent = send_verification_code(email, "register")
     except Exception:
         db.session.rollback()
+        current_app.logger.exception("Failed to send register verification code")
         flash("验证码发送失败，请稍后再试。", "error")
     else:
-        if sent:
-            flash("验证码已发送，请查收邮箱。", "success")
-        else:
-            flash("验证码发送失败，请稍后再试。", "error")
+        _flash_email_code_send_result(sent)
     return redirect(url_for("auth.register"))
 
 
@@ -265,6 +276,7 @@ def send_account_email_code():
         sent = send_verification_code(email, purpose, user=user)
     except Exception:
         db.session.rollback()
+        current_app.logger.exception("Failed to send account verification code")
         flash("验证码发送失败，请稍后再试。", "error")
     else:
         _flash_email_code_send_result(sent)
@@ -298,6 +310,7 @@ def send_reset_password_code():
             sent = True
     except Exception:
         db.session.rollback()
+        current_app.logger.exception("Failed to send reset password verification code")
         flash("验证码发送失败，请稍后再试。", "error")
     else:
         if user:
@@ -391,6 +404,7 @@ def account_settings():
         account_change_email_draft=account_change_email_draft,
         account_settings_active_panel=account_settings_active_panel,
         merchant_document_limit=MERCHANT_DOCUMENT_LIMIT,
+        delete_account_confirm_text=DELETE_ACCOUNT_CONFIRM_TEXT,
     )
 
 
@@ -467,14 +481,14 @@ def delete_account():
         return redirect(url_for("activity.index"))
 
     current_password = request.form.get("current_password", "")
-    confirm_text = request.form.get("confirm_text", "").strip()
+    confirm_text = _normalize_delete_confirm_text(request.form.get("confirm_text"))
     if not _check_user_password(user, current_password):
         session["account_settings_active_panel"] = "delete-account-panel"
         flash("当前密码错误", "error")
         return redirect(url_for("auth.account_settings"))
-    if confirm_text != "注销账号":
+    if confirm_text != DELETE_ACCOUNT_CONFIRM_TEXT:
         session["account_settings_active_panel"] = "delete-account-panel"
-        flash("确认文字不正确，请输入“注销账号”。", "error")
+        flash(f"确认文字不正确，请输入 {DELETE_ACCOUNT_CONFIRM_TEXT}。", "error")
         return redirect(url_for("auth.account_settings"))
 
     old_email = user.email

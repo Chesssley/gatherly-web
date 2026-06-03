@@ -2,12 +2,12 @@ import os
 import calendar
 from collections import defaultdict
 
-from flask import Blueprint, abort, jsonify, render_template, request, session, redirect, url_for, flash
+from flask import Blueprint, abort, current_app, jsonify, render_template, request, session, redirect, url_for, flash
 from functools import wraps
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import and_, func, or_
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 
 from app.models import (
     db,
@@ -310,7 +310,11 @@ def sync_activity_statuses():
 def sync_ended_activities():
     if request.endpoint == "static":
         return
-    sync_activity_statuses()
+    try:
+        sync_activity_statuses()
+    except OperationalError:
+        db.session.rollback()
+        current_app.logger.exception("Activity status sync skipped after database error")
 
 
 def _is_activity_participant(user_id, activity_id):
@@ -823,6 +827,53 @@ def search():
 
 @activity_bp.route("/")
 def index():
+    try:
+        return _index_impl()
+    except OperationalError:
+        db.session.rollback()
+        current_app.logger.exception("Homepage query failed after database error")
+        return _render_homepage_fallback()
+
+
+def _render_homepage_fallback():
+    selected_category = _canonical_interest_tag(
+        request.args.get("category", "").strip()
+        or request.args.get("tag", "").strip()
+    )
+    if selected_category not in OFFICIAL_INTEREST_TAGS:
+        selected_category = ""
+    selected_time = request.args.get("time", "any").strip() or "any"
+    if selected_time not in {"any", "today", "tomorrow", "week", "weekend", "month"}:
+        selected_time = "any"
+    return render_template(
+        "index.html",
+        activities=[],
+        featured_activities=[],
+        group_activities=[],
+        home_circles=[],
+        home_user_card={
+            "display_name": "访客",
+            "location": "选择城市 / 地区",
+            "avatar": "",
+            "initial": "访",
+        },
+        home_calendar=_home_calendar_payload(),
+        sidebar_going_activity=None,
+        sidebar_saved_activity=None,
+        categories=OFFICIAL_INTEREST_TAGS,
+        expand_tags_by_default=False,
+        interest_categories=OFFICIAL_INTEREST_CATEGORIES,
+        interest_tags=OFFICIAL_INTEREST_TAGS,
+        selected_tag=selected_category,
+        selected_category=selected_category,
+        selected_time=selected_time,
+        visible_tag_count=len(OFFICIAL_INTEREST_TAGS),
+        favorite_activity_ids=set(),
+        registered_activity_ids=set(),
+    )
+
+
+def _index_impl():
     selected_category = (
         request.args.get("category", "").strip()
         or request.args.get("tag", "").strip()

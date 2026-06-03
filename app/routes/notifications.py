@@ -1,7 +1,8 @@
 from datetime import datetime
 from functools import wraps
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
+from sqlalchemy.exc import OperationalError
 
 from app.models import Notification, User, cleanup_expired_notifications, db
 
@@ -61,7 +62,12 @@ def inject_unread_notification_count():
     user_id = session.get("user_id")
     if not user_id:
         return {"unread_notification_count": 0}
-    count = Notification.query.filter_by(recipient_id=user_id, read_at=None).count()
+    try:
+        count = Notification.query.filter_by(recipient_id=user_id, read_at=None).count()
+    except OperationalError:
+        db.session.rollback()
+        current_app.logger.exception("Unread notification count query failed")
+        count = 0
     return {"unread_notification_count": count}
 
 
@@ -72,16 +78,22 @@ def summary():
         return login_error
 
     user_id = session["user_id"]
-    unread_count = Notification.query.filter_by(
-        recipient_id=user_id,
-        read_at=None,
-    ).count()
-    latest_notifications = (
-        Notification.query.filter_by(recipient_id=user_id)
-        .order_by(Notification.created_at.desc(), Notification.id.desc())
-        .limit(5)
-        .all()
-    )
+    try:
+        unread_count = Notification.query.filter_by(
+            recipient_id=user_id,
+            read_at=None,
+        ).count()
+        latest_notifications = (
+            Notification.query.filter_by(recipient_id=user_id)
+            .order_by(Notification.created_at.desc(), Notification.id.desc())
+            .limit(5)
+            .all()
+        )
+    except OperationalError:
+        db.session.rollback()
+        current_app.logger.exception("Notification summary query failed")
+        unread_count = 0
+        latest_notifications = []
     return jsonify(
         {
             "ok": True,
