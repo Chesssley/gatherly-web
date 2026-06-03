@@ -165,14 +165,16 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 | 字段 | 类型 | 可空 | 默认值 | 约束/索引 | 含义 |
 |---|---|---:|---|---|---|
 | `id` | Integer | 否 | 无 | PK | 报名 ID |
-| `user_id` | Integer | 否 | 无 | FK -> `user.id` | 报名用户 |
-| `activity_id` | Integer | 否 | 无 | FK -> `activity.id` | 活动 |
+| `user_id` | Integer | 否 | 无 | FK -> `user.id`; Unique(`user_id`, `activity_id`) | 报名用户 |
+| `activity_id` | Integer | 否 | 无 | FK -> `activity.id`; Unique(`user_id`, `activity_id`) | 活动 |
 | `status` | String(20) | 否 | `registered` |  | 报名状态 |
 | `cancel_reason` | Text | 是 | 无 |  | 取消原因 |
 | `cancelled_at` | DateTime | 是 | 无 |  | 取消时间 |
 | `register_time` | DateTime | 否 | `datetime.utcnow` |  | 报名时间 |
 
-关系：多条报名属于一个用户和一个活动。当前模型没有数据库级 `user_id + activity_id` 唯一约束。
+关系：多条报名属于一个用户和一个活动。
+
+约束：`uq_registration_user_activity` 保证 `user_id + activity_id` 唯一，防止同一用户重复报名同一活动。
 
 ### EmailVerificationCode / `email_verification_code`
 
@@ -587,5 +589,4 @@ GitHub 只保存代码、模板、CSS、JS、README、docs、scripts 和 migrati
 | 问题 | 建议 |
 |---|---|
 | `PostImage.image_path`、`CommentImage.image_path`、`DirectMessage.image_path`、`MerchantVerification.document_path` 是历史命名 | 另开数据库迁移 Issue，评估重命名为 `image_url` / `document_url`，并生成 Alembic migration。 |
-| `Registration` 没有数据库级 `user_id + activity_id` 唯一约束 | 如果业务需要强一致防重复报名，另开 migration Issue 增加唯一约束，并先清理重复数据。 |
 | `ensure_*_schema()` 仍保留 SQLite 兼容逻辑 | 可保留为本地 fallback；生产 schema 来源应逐步收敛到 migrations。 |
