@@ -30,14 +30,20 @@ __pycache__/
 .venv/
 venv/
 instance/
+
+# Local environment, databases, exports, and backups
+.env
 *.db
-instance/*.db
 *.sqlite
 *.sqlite3
-.env
+instance/*.db
+gatherly_export*.json
+*_export.json
+*_backup.zip
+*_uploads_backup.zip
+backups/
+uploads_backup/
 .flaskenv
-gatherly_export.json
-gatherly_uploads_backup.zip
 
 # User uploads
 app/static/uploads/

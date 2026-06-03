@@ -41,7 +41,7 @@ Neon Console 常用区域：
 维护规则：
 
 - 不在 GitHub 文档中写真实 Neon URL。
-- 不提交数据库备份。
+- 真实数据库备份不得提交 GitHub。
 - 不在 Render 文件系统保存生产数据库。
 - 生产数据只保存在 Neon。
 
@@ -85,6 +85,7 @@ R2 Console 常用区域：
 - 图片 URL / object key 在 Neon。
 - Render 不长期保存用户上传图片。
 - GitHub 不保存真实用户上传图片。
+- 真实图片备份不得提交 GitHub。
 - R2 Secret 只放 Render Environment 或本地 `.env`。
 
 ## Render 维护
@@ -132,7 +133,17 @@ GitHub 常用区域：
 | README | 英文项目入口说明。 |
 | docs | 中文项目文档。 |
 
-不要提交真实用户数据、真实图片、`.env`、数据库备份、图片备份或密钥。
+GitHub 不保存：
+
+- 真实用户数据。
+- 真实图片。
+- 数据库密码。
+- R2 Secret。
+- `.env`。
+- 数据库备份。
+- 图片备份。
+
+密钥和密码只放 Render Environment 或本地 `.env`。不要提交真实用户数据、真实图片、`.env`、数据库备份、图片备份或密钥。
 
 ## 环境变量维护
 
@@ -169,9 +180,11 @@ EMAIL_API_TIMEOUT=15
 
 - `.env`
 - `DATABASE_URL`
+- 数据库密码
 - `SECRET_KEY`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
+- R2 Secret
 - `ADMIN_PASSWORD`
 - `BREVO_API_KEY`
 - Neon 数据库备份

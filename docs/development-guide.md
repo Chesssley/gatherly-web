@@ -40,12 +40,15 @@ python run.py
 - 数据库迁移、字段变更验证和生产一致性验证应连接 Neon。
 - 使用 `.env` 保存本地环境变量，但不要提交 `.env`。
 - 不要把数据库密码、R2 Secret、管理员密码写进 README 或 docs。
+- 真实数据库备份不得提交 GitHub。
 
 ## 本地上传 fallback
 
 当前代码在未配置 R2 且不是生产环境时，图片可能保存到 `app/static/uploads/`。这只是本地开发 fallback 或历史迁移来源，不是 Render 生产持久化存储。
 
 生产环境必须配置 R2。上传图片文件本体进入 Cloudflare R2，Neon PostgreSQL 只保存 URL / object key。
+
+真实图片备份不得提交 GitHub。GitHub 只保存代码、文档、migrations 和配置模板，不保存真实用户上传图片。
 
 ## 数据库迁移
 
@@ -89,11 +92,18 @@ EMAIL_PROVIDER=console
 
 - `.env`
 - `DATABASE_URL`
+- 数据库密码
 - `SECRET_KEY`
+- `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
+- R2 Secret
 - `ADMIN_PASSWORD`
 - 数据库备份
 - 图片备份
+- 真实用户数据
+- 真实图片
+
+密钥和密码只放 Render Environment 或本地 `.env`。GitHub 不保存真实用户数据、真实图片、数据库密码、R2 Secret、`.env`、数据库备份或图片备份。
 
 ## 常见目录
 
