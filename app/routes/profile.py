@@ -42,6 +42,8 @@ BIO_MAX_LENGTH = 300
 INTERESTS_MAX_LENGTH = 500
 AVATAR_UPLOAD_SUBDIR = "avatars"
 AVATAR_LIMIT = upload_limit("avatar")
+NEARBY_INITIAL_VISIBLE_COUNT = 8
+NEARBY_REGION_MAX_LENGTH = 80
 
 
 def _section_filters(prefix):
@@ -305,20 +307,32 @@ def _profile_context(user, visibility, is_owner=True, ip_region=None):
     }
 
 
-def _nearby_match_score(current_user, candidate):
-    for current_index, current_location in enumerate(_nearby_location_values(current_user)):
-        for candidate_index, candidate_location in enumerate(_nearby_location_values(candidate)):
-            if locations_match(current_location, candidate_location):
-                return current_index + candidate_index
+def _nearby_match_score(match_region, candidate):
+    for candidate_index, candidate_location in enumerate(_nearby_location_values(candidate)):
+        if locations_match(match_region, candidate_location):
+            return candidate_index
     return 9
 
 
 def _nearby_location_values(user):
-    return location_values(user)
+    values = [*location_values(user), user.city]
+    deduped = []
+    seen = set()
+    for value in values:
+        clean_value = (value or "").strip()
+        normalized = clean_value.casefold()
+        if clean_value and normalized not in seen:
+            deduped.append(clean_value)
+            seen.add(normalized)
+    return deduped
 
 
-def _nearby_locations_match(current_user, candidate):
-    return _nearby_match_score(current_user, candidate) < 9
+def _nearby_locations_match(match_region, candidate):
+    return _nearby_match_score(match_region, candidate) < 9
+
+
+def _selected_nearby_region():
+    return request.args.get("region", "").strip()[:NEARBY_REGION_MAX_LENGTH]
 
 
 def _user_search_items(query_text):
@@ -642,14 +656,16 @@ def user_search():
 def nearby_users():
     current_user = User.query.get_or_404(session["user_id"])
     current_ip_region = _current_request_ip_region(current_user)
-    current_locations = location_values(current_ip_region)
+    current_ip_region_label = format_ip_region(current_ip_region)
+    selected_region = _selected_nearby_region()
+    match_region = selected_region or current_ip_region_label
     following_ids = {
         row.followed_id
         for row in UserFollow.query.filter_by(follower_id=current_user.id).all()
     }
     users = []
     location_notice = None
-    if current_locations:
+    if match_region and match_region != "未知":
         candidates = (
             User.query.filter(
                 User.status == "active",
@@ -660,17 +676,17 @@ def nearby_users():
             .limit(120)
             .all()
         )
-        users = [user for user in candidates if _nearby_locations_match(current_user, user)]
+        users = [user for user in candidates if _nearby_locations_match(match_region, user)]
         users = sorted(
             users,
             key=lambda user: (
-                _nearby_match_score(current_user, user),
+                _nearby_match_score(match_region, user),
                 -(user.created_at.timestamp() if user.created_at else 0),
                 -user.id,
             ),
         )[:60]
     else:
-        location_notice = "暂时无法识别你的 IP 地区，请开启附近的人后刷新或完善城市信息。"
+        location_notice = "暂时无法识别当前 IP 地区，请输入地区查找或稍后刷新。"
 
     return render_template(
         "users.html",
@@ -683,7 +699,10 @@ def nearby_users():
         location_notice=location_notice,
         nearby_mode=True,
         nearby_user=current_user,
-        nearby_location_label=format_ip_region(current_ip_region),
+        nearby_location_label=current_ip_region_label,
+        selected_region=selected_region,
+        nearby_match_region=match_region if match_region != "未知" else "",
+        nearby_initial_visible_count=NEARBY_INITIAL_VISIBLE_COUNT,
         nearby_ip_region_labels={
             user.id: format_ip_region(user) for user in users
         },

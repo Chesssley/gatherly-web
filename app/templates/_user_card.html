@@ -1,5 +1,5 @@
 {% set card_name = card_user.nickname or card_user.username %}
-<article class="user-card">
+<article class="user-card{% if nearby_is_extra|default(false) %} nearby-extra-user{% endif %}"{% if nearby_is_extra|default(false) %} data-nearby-extra{% endif %}>
   <a class="user-card-main" href="{{ url_for('profile.view_profile', user_id=card_user.id) }}">
     <span class="user-card-avatar">
       {% if card_user.avatar %}

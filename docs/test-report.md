@@ -10,6 +10,8 @@
 |---|---|---|
 | Python 编译检查 | `python -m compileall app` | 已通过 |
 | Flask app factory 加载 | `from app import create_app; app = create_app()` | 已通过，路由表可加载，共 107 条 route rule |
+| ENH-03 IP 地区单元测试 | `python -m unittest tests.test_location_utils` | 已通过，覆盖代理请求头优先级、国家中文映射、境外代理国家展示和公网查询兜底 |
+| ENH-03 附近的人页面渲染 | Flask test client 请求 `/profile/nearby` 和 `/profile/nearby?region=广州` | 已通过，顶部 IP 与手动筛选分开展示，列表折叠按钮按数量出现 |
 | 本地服务启动 | `python run.py` | 待人工启动验证 |
 | 浏览器页面检查 | 打开 `http://127.0.0.1:5000/` | 待人工验证 |
 
@@ -47,6 +49,9 @@
 | 个人主页 | 查看个人主页 | 登录后访问 `/profile/` | 显示用户资料、活动、圈子、帖子等入口 | 待人工验证 | 待人工验证 | `docs/screenshots/profile.png` |
 | 个人主页 | 搜索筛选个人内容 | 在个人主页相关列表使用搜索和筛选 | 只返回当前用户自己的内容 | 待人工验证 | 待人工验证 |  |
 | 附近的人 | 开关附近的人 | 访问 `/profile/nearby` 并切换开关 | 用户附近的人状态更新 | 待人工验证 | 待人工验证 |  |
+| 附近的人 | 当前 IP 地区筛选 | 不带 `region` 访问 `/profile/nearby` | 顶部显示当前请求 IP 地区，列表按该地区筛选，不展示真实 IP | 已通过 | 已通过 | Flask test client |
+| 附近的人 | 手动输入地区筛选 | 访问 `/profile/nearby?region=广州` | 顶部 IP 仍显示当前请求 IP 地区，额外显示 `筛选地区：广州`，列表按广州筛选 | 已通过 | 已通过 | Flask test client |
+| 附近的人 | 展开 / 折叠 | 构造超过 8 个匹配用户后访问 `/profile/nearby?region=广州` | 页面含 `展开更多` 按钮，超出项带 `data-nearby-extra` 标记 | 已通过 | 已通过 | Flask test client |
 | 私信 | 打开私信列表 | 登录后访问 `/messages/` | 显示会话列表 | 待人工验证 | 待人工验证 | `docs/screenshots/messages.png` |
 | 私信 | 发送私信 | 进入用户会话并发送文本或图片 | 消息显示在会话中 | 待人工验证 | 待人工验证 |  |
 | 通知 | 查看通知 | 登录后访问 `/notifications/` | 展示通知列表，可标记已读 | 待人工验证 | 待人工验证 |  |

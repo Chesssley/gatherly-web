@@ -1,8 +1,10 @@
 import unittest
+from unittest.mock import patch
 
 from flask import Flask
 
 from app.utils.location_utils import (
+    _IP_GEO_CACHE,
     format_ip_region,
     format_ip_region_label,
     get_client_ip,
@@ -13,6 +15,7 @@ from app.utils.location_utils import (
 class LocationUtilsTestCase(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
+        _IP_GEO_CACHE.clear()
 
     def test_get_client_ip_prefers_cf_connecting_ip(self):
         headers = {
@@ -45,9 +48,28 @@ class LocationUtilsTestCase(unittest.TestCase):
         ):
             self.assertEqual(resolve_ip_region("203.0.113.10"), "美国")
 
-    def test_resolve_ip_region_without_geo_headers_is_unknown(self):
+    def test_resolve_ip_region_prefers_foreign_country_over_city(self):
+        with self.app.test_request_context(
+            "/",
+            headers={"CF-IPCity": "Tokyo", "CF-IPCountry": "JP"},
+        ):
+            self.assertEqual(resolve_ip_region("203.0.113.10"), "日本")
+
+    @patch("app.utils.location_utils._lookup_public_ip_location")
+    def test_resolve_ip_region_uses_public_lookup_for_current_ip(self, lookup):
+        lookup.return_value = {
+            "city": "Mountain View",
+            "region": "California",
+            "country": "United States",
+            "country_code": "US",
+        }
         with self.app.test_request_context("/", environ_base={"REMOTE_ADDR": "8.8.8.8"}):
-            self.assertEqual(resolve_ip_region("8.8.8.8"), "未知")
+            self.assertEqual(resolve_ip_region("8.8.8.8"), "美国")
+        lookup.assert_called_once_with("8.8.8.8")
+
+    def test_resolve_ip_region_without_geo_headers_is_unknown(self):
+        with self.app.test_request_context("/", environ_base={"REMOTE_ADDR": "127.0.0.1"}):
+            self.assertEqual(resolve_ip_region("127.0.0.1"), "未知")
 
     def test_format_ip_region_returns_one_clean_region(self):
         self.assertEqual(

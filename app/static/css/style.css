@@ -5505,9 +5505,33 @@ textarea.form-input {
   font-size: 14px;
 }
 
+.nearby-filter-hint {
+  margin-top: 4px !important;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text) !important;
+}
+
 .nearby-toggle-form {
   flex: 0 0 auto;
   margin: 0;
+}
+
+.nearby-region-form {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  margin: 0 0 20px;
+}
+
+.nearby-region-form label {
+  margin: 0;
+}
+
+.nearby-region-form input {
+  min-height: 44px;
+  min-width: 240px;
+  padding: 0 13px;
 }
 
 .nearby-privacy-note {
@@ -5542,6 +5566,16 @@ textarea.form-input {
 .user-card-list {
   display: grid;
   gap: 12px;
+}
+
+.nearby-user-list.is-collapsed [data-nearby-extra] {
+  display: none;
+}
+
+.nearby-list-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
 }
 
 .user-card {
@@ -9535,6 +9569,7 @@ textarea.form-input {
 
   .directory-heading,
   .people-search-form,
+  .nearby-region-form,
   .nearby-control-panel,
   .user-card,
   .user-card-actions {
@@ -9544,6 +9579,8 @@ textarea.form-input {
 
   .nearby-toggle-form,
   .nearby-toggle-form .button,
+  .nearby-region-form input,
+  .nearby-region-form .button,
   .user-card-actions .button,
   .user-card-actions form,
   .user-card-actions button {
