@@ -1,0 +1,50 @@
+{% macro pagination_link(page_num, label, classes='', aria_label='') %}
+  {% set args = request.args.to_dict() %}
+  {% set _ = args.update({'page': page_num}) %}
+  <a class="admin-pagination-link {{ classes }}" href="{{ url_for(request.endpoint, **args) }}"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}>{{ label }}</a>
+{% endmacro %}
+
+{% macro pagination_nav(pagination) %}
+  {% if pagination %}
+  <nav class="admin-pagination" aria-label="分页导航">
+    <div class="admin-pagination-summary">
+      {% if pagination.total == 0 %}
+        共 0 条
+      {% elif pagination.items %}
+        {% set first_item = (pagination.page - 1) * pagination.per_page + 1 %}
+        {% set last_item = first_item + pagination.items|length - 1 %}
+        显示 {{ first_item }}-{{ last_item }} 条，共 {{ pagination.total }} 条
+      {% else %}
+        共 {{ pagination.total }} 条
+      {% endif %}
+    </div>
+    {% if pagination.pages > 1 %}
+    <div class="admin-pagination-pages">
+      {% if pagination.has_prev %}
+        {{ pagination_link(pagination.prev_num, '上一页', 'admin-pagination-prev', '上一页') }}
+      {% else %}
+        <span class="admin-pagination-link admin-pagination-prev is-disabled" aria-disabled="true">上一页</span>
+      {% endif %}
+
+      {% for page_num in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+        {% if page_num %}
+          {% if page_num == pagination.page %}
+            <span class="admin-pagination-link is-active" aria-current="page">{{ page_num }}</span>
+          {% else %}
+            {{ pagination_link(page_num, page_num) }}
+          {% endif %}
+        {% else %}
+          <span class="admin-pagination-ellipsis" aria-hidden="true">...</span>
+        {% endif %}
+      {% endfor %}
+
+      {% if pagination.has_next %}
+        {{ pagination_link(pagination.next_num, '下一页', 'admin-pagination-next', '下一页') }}
+      {% else %}
+        <span class="admin-pagination-link admin-pagination-next is-disabled" aria-disabled="true">下一页</span>
+      {% endif %}
+    </div>
+    {% endif %}
+  </nav>
+  {% endif %}
+{% endmacro %}

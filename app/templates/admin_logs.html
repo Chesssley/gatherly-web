@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_list_filters.html" import list_filters %}
+{% from "_pagination.html" import pagination_nav %}
 
 {% block title %}操作日志 - Gatherly{% endblock %}
 
@@ -21,7 +22,7 @@
     <div class="page-title">
       <p class="eyebrow">Audit Trail</p>
       <h1>操作日志</h1>
-      <p>查看最近 100 条管理员操作记录。</p>
+      <p>分页查看管理员操作记录。</p>
     </div>
 
     {{ list_filters('admin.admin_logs', filters, (), type_options) }}
@@ -44,6 +45,7 @@
         </tbody>
       </table>
     </div>
+    {{ pagination_nav(pagination) }}
   </div>
 </section>
 {% endblock %}

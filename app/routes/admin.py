@@ -35,6 +35,54 @@ CIRCLE_STATUSES = {"active", "hidden"}
 CONTENT_STATUSES = {"published", "hidden"}
 FEEDBACK_STATUSES = ("open", "replied", "closed")
 SORT_OPTIONS = {"newest", "oldest"}
+ADMIN_LIST_PER_PAGE = 20
+
+
+class ListPagination:
+    def __init__(self, items, page, per_page, total):
+        self.items = items
+        self.page = page
+        self.per_page = per_page
+        self.total = total
+        self.pages = (total + per_page - 1) // per_page if total else 0
+        self.has_prev = page > 1
+        self.has_next = page < self.pages
+        self.prev_num = page - 1 if self.has_prev else None
+        self.next_num = page + 1 if self.has_next else None
+
+    def iter_pages(
+        self,
+        left_edge=2,
+        left_current=2,
+        right_current=4,
+        right_edge=2,
+    ):
+        last = 0
+        for num in range(1, self.pages + 1):
+            if (
+                num <= left_edge
+                or self.page - left_current < num < self.page + right_current
+                or num > self.pages - right_edge
+            ):
+                if last + 1 != num:
+                    yield None
+                yield num
+                last = num
+
+
+def _admin_page():
+    return max(request.args.get("page", 1, type=int) or 1, 1)
+
+
+def _paginate_query(query, per_page=ADMIN_LIST_PER_PAGE):
+    return query.paginate(page=_admin_page(), per_page=per_page, error_out=False)
+
+
+def _paginate_items(items, per_page=ADMIN_LIST_PER_PAGE):
+    page = _admin_page()
+    total = len(items)
+    start = (page - 1) * per_page
+    return ListPagination(items[start : start + per_page], page, per_page, total)
 
 
 def _list_filters():
@@ -320,9 +368,10 @@ def admin_dashboard():
         "posts": Post.query.count(),
         "comments": Comment.query.count(),
         "feedback_open": Feedback.query.filter_by(status="open").count(),
+        "merchant_pending": MerchantVerification.query.filter_by(status="pending").count(),
+        "logs": AdminLog.query.count(),
     }
-    logs = AdminLog.query.order_by(AdminLog.created_at.desc()).limit(30).all()
-    return render_template("admin_dashboard.html", stats=stats, logs=logs)
+    return render_template("admin_dashboard.html", stats=stats)
 
 
 @admin_bp.route("/admin/feedback")
@@ -357,7 +406,8 @@ def admin_feedback():
     else:
         query = query.order_by(status_rank, Feedback.created_at.desc(), Feedback.id.desc())
 
-    feedback_items = query.all()
+    pagination = _paginate_query(query)
+    feedback_items = pagination.items
     category_options = [
         row[0]
         for row in db.session.query(Feedback.category)
@@ -369,6 +419,9 @@ def admin_feedback():
     return render_template(
         "admin_feedback_list.html",
         feedback_items=feedback_items,
+        pagination=pagination,
+        page=pagination.page,
+        per_page=pagination.per_page,
         filters=filters,
         status_options=FEEDBACK_STATUSES,
         type_options=category_options,
@@ -460,7 +513,8 @@ def admin_logs():
         )
     if filters["type"]:
         query = query.filter(AdminLog.target_type == filters["type"])
-    logs = _apply_sort(query, AdminLog.created_at, AdminLog.id).limit(100).all()
+    pagination = _paginate_query(_apply_sort(query, AdminLog.created_at, AdminLog.id))
+    logs = pagination.items
     type_options = [
         row[0]
         for row in db.session.query(AdminLog.target_type)
@@ -469,7 +523,15 @@ def admin_logs():
         .all()
         if row[0]
     ]
-    return render_template("admin_logs.html", logs=logs, filters=filters, type_options=type_options)
+    return render_template(
+        "admin_logs.html",
+        logs=logs,
+        pagination=pagination,
+        page=pagination.page,
+        per_page=pagination.per_page,
+        filters=filters,
+        type_options=type_options,
+    )
 
 
 @admin_bp.route("/admin/users")
@@ -485,6 +547,8 @@ def admin_users():
     users = _apply_sort(query, User.created_at, User.id).all()
     if filters["q"]:
         users = [user for user in users if _admin_user_matches_search(user, filters["q"])]
+    pagination = _paginate_items(users)
+    users = pagination.items
     verified_merchant_user_ids = {
         row[0]
         for row in db.session.query(MerchantVerification.user_id)
@@ -495,6 +559,9 @@ def admin_users():
     return render_template(
         "admin_users.html",
         users=users,
+        pagination=pagination,
+        page=pagination.page,
+        per_page=pagination.per_page,
         ip_region_labels={user.id: _admin_user_ip_region_label(user) for user in users},
         masked_ip_addresses={user.id: _mask_ip_address(user.last_ip) for user in users},
         verified_merchant_user_ids=verified_merchant_user_ids,
@@ -727,10 +794,14 @@ def admin_activities():
         )
     if filters["status"]:
         query = query.filter(Activity.status == filters["status"])
-    activities = _apply_sort(query, Activity.created_at, Activity.id).all()
+    pagination = _paginate_query(_apply_sort(query, Activity.created_at, Activity.id))
+    activities = pagination.items
     return render_template(
         "admin_activities.html",
         activities=activities,
+        pagination=pagination,
+        page=pagination.page,
+        per_page=pagination.per_page,
         filters=filters,
         status_options=sorted(ACTIVITY_STATUSES),
     )
@@ -822,10 +893,14 @@ def admin_circles():
     elif filters["type"] == "custom":
         circles = circles.filter(Circle.is_system.is_(False))
     circles = circles.group_by(Circle.id)
-    circles = _apply_sort(circles, Circle.created_at, Circle.id).all()
+    pagination = _paginate_query(_apply_sort(circles, Circle.created_at, Circle.id))
+    circles = pagination.items
     return render_template(
         "admin_circles.html",
         circles=circles,
+        pagination=pagination,
+        page=pagination.page,
+        per_page=pagination.per_page,
         filters=filters,
         status_options=sorted(CIRCLE_STATUSES),
         type_options=["official", "custom"],
@@ -926,7 +1001,8 @@ def admin_posts():
         query = query.filter(Post.status == filters["status"])
     if filters["type"]:
         query = query.filter(Post.type == filters["type"])
-    posts = _apply_sort(query, Post.created_at, Post.id).all()
+    pagination = _paginate_query(_apply_sort(query, Post.created_at, Post.id))
+    posts = pagination.items
     type_options = [
         row[0]
         for row in db.session.query(Post.type).distinct().order_by(Post.type).all()
@@ -935,6 +1011,9 @@ def admin_posts():
     return render_template(
         "admin_posts.html",
         posts=posts,
+        pagination=pagination,
+        page=pagination.page,
+        per_page=pagination.per_page,
         filters=filters,
         status_options=sorted(CONTENT_STATUSES | {"deleted"}),
         type_options=type_options,
@@ -1113,10 +1192,14 @@ def admin_comments():
         query = query.filter(Comment.post_id.isnot(None), Comment.parent_id.is_(None))
     elif filters["type"] == "activity":
         query = query.filter(Comment.activity_id.isnot(None), Comment.parent_id.is_(None))
-    comments = _apply_sort(query, Comment.created_at, Comment.id).all()
+    pagination = _paginate_query(_apply_sort(query, Comment.created_at, Comment.id))
+    comments = pagination.items
     return render_template(
         "admin_comments.html",
         comments=comments,
+        pagination=pagination,
+        page=pagination.page,
+        per_page=pagination.per_page,
         filters=filters,
         status_options=sorted(CONTENT_STATUSES | {"deleted"}),
         type_options=["post", "activity", "reply"],
@@ -1261,12 +1344,20 @@ def admin_account():
 @admin_bp.route("/admin/merchant-verifications")
 @admin_required
 def merchant_verifications():
-    applications = (
-        MerchantVerification.query.join(MerchantVerification.user)
-        .order_by(MerchantVerification.created_at.desc(), MerchantVerification.id.desc())
-        .all()
+    pagination = _paginate_query(
+        MerchantVerification.query.join(MerchantVerification.user).order_by(
+            MerchantVerification.created_at.desc(),
+            MerchantVerification.id.desc(),
+        )
     )
-    return render_template("admin_merchant_verifications.html", applications=applications)
+    applications = pagination.items
+    return render_template(
+        "admin_merchant_verifications.html",
+        applications=applications,
+        pagination=pagination,
+        page=pagination.page,
+        per_page=pagination.per_page,
+    )
 
 
 @admin_bp.route("/admin/merchant-verifications/<int:verification_id>/review", methods=["POST"])
