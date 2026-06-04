@@ -242,6 +242,7 @@ class Activity(db.Model):
     reviews = db.relationship("Review", back_populates="activity")
     activity_reviews = db.relationship("ActivityReview", back_populates="activity")
     comments = db.relationship("Comment", back_populates="activity")
+    circle_ratings = db.relationship("CircleRating", back_populates="activity")
 
 
 def ensure_activity_schema():
@@ -925,6 +926,7 @@ class CircleRating(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     circle_id = db.Column(db.Integer, db.ForeignKey("circle.id"), nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=True, index=True)
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -937,6 +939,7 @@ class CircleRating(db.Model):
 
     circle = db.relationship("Circle", back_populates="ratings")
     user = db.relationship("User", back_populates="circle_ratings")
+    activity = db.relationship("Activity", back_populates="circle_ratings")
 
 
 class TrustScoreLog(db.Model):
