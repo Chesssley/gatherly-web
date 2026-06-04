@@ -8,7 +8,7 @@
   </div>
 
   <h1>{{ display_name }}</h1>
-  <p class="profile-email">{{ user.email if session.get('user_id') else '@' ~ user.username }}</p>
+  <p class="profile-email">@{{ user.username }}</p>
 
   {% if user.bio %}
   <p class="profile-sidebar-bio">{{ user.bio }}</p>

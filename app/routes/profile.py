@@ -43,6 +43,44 @@ INTERESTS_MAX_LENGTH = 500
 AVATAR_UPLOAD_SUBDIR = "avatars"
 AVATAR_LIMIT = upload_limit("avatar")
 NEARBY_INITIAL_VISIBLE_COUNT = 6
+USER_SEARCH_PER_PAGE = 12
+RELATIONSHIP_PER_PAGE = 10
+PROFILE_SECTION_PER_PAGE = 9
+
+
+class ListPagination:
+    def __init__(self, items, page, per_page):
+        self.total = len(items)
+        self.per_page = per_page
+        self.pages = (self.total + per_page - 1) // per_page if self.total else 0
+        self.page = min(max(page, 1), self.pages or 1)
+        start = (self.page - 1) * per_page
+        self.items = items[start : start + per_page]
+        self.has_prev = self.page > 1
+        self.has_next = self.pages > self.page
+        self.prev_num = self.page - 1
+        self.next_num = self.page + 1
+
+    def iter_pages(self, left_edge=2, left_current=2, right_current=3, right_edge=2):
+        last = 0
+        for num in range(1, self.pages + 1):
+            if (
+                num <= left_edge
+                or (self.page - left_current - 1 < num < self.page + right_current)
+                or num > self.pages - right_edge
+            ):
+                if last + 1 != num:
+                    yield None
+                yield num
+                last = num
+
+
+def _pagination_page():
+    return max(request.args.get("page", 1, type=int) or 1, 1)
+
+
+def _paginate_items(items, per_page):
+    return ListPagination(items, _pagination_page(), per_page)
 
 
 def _section_filters(prefix):
@@ -60,7 +98,7 @@ def _section_reset_url(prefix, anchor):
     filtered_args = [
         (key, value)
         for key, value in request.args.items(multi=True)
-        if not key.startswith(f"{prefix}_")
+        if key != "page" and not key.startswith(f"{prefix}_")
     ]
     query_string = urlencode(filtered_args)
     anchor_suffix = f"#{anchor}" if anchor else ""
@@ -367,7 +405,7 @@ def _user_search_items(query_text):
                 User.bio.ilike(pattern),
             )
         )
-    return query.order_by(User.created_at.desc(), User.id.desc()).limit(60).all()
+    return query.order_by(User.created_at.desc(), User.id.desc()).all()
 
 
 def _relationship_items(user_id, relationship, query_text):
@@ -653,7 +691,7 @@ def view_profile(user_id):
 @login_required
 def user_search():
     query_text = request.args.get("q", "").strip()
-    users = _user_search_items(query_text)
+    pagination = _paginate_items(_user_search_items(query_text), USER_SEARCH_PER_PAGE)
     current_user_id = session["user_id"]
     following_ids = {
         row.followed_id
@@ -662,7 +700,8 @@ def user_search():
     return render_template(
         "users.html",
         query=query_text,
-        users=users,
+        users=pagination.items,
+        pagination=pagination,
         following_ids=following_ids,
         page_title="搜索用户",
         heading="搜索用户",
@@ -777,7 +816,10 @@ def followers(user_id):
     if visibility.profile_scope == PRIVATE_SCOPE and not is_owner:
         abort(404)
     query_text = request.args.get("q", "").strip()
-    rows = _relationship_items(user.id, "followers", query_text)
+    pagination = _paginate_items(
+        _relationship_items(user.id, "followers", query_text),
+        RELATIONSHIP_PER_PAGE,
+    )
     current_user_id = session["user_id"]
     following_ids = {
         row.followed_id
@@ -795,7 +837,8 @@ def followers(user_id):
         heading="粉丝",
         query=query_text,
         relationship="followers",
-        rows=rows,
+        rows=pagination.items,
+        pagination=pagination,
         following_ids=following_ids,
     )
 
@@ -810,7 +853,10 @@ def following(user_id):
     if visibility.profile_scope == PRIVATE_SCOPE and not is_owner:
         abort(404)
     query_text = request.args.get("q", "").strip()
-    rows = _relationship_items(user.id, "following", query_text)
+    pagination = _paginate_items(
+        _relationship_items(user.id, "following", query_text),
+        RELATIONSHIP_PER_PAGE,
+    )
     current_user_id = session["user_id"]
     following_ids = {
         row.followed_id
@@ -828,7 +874,8 @@ def following(user_id):
         heading="关注",
         query=query_text,
         relationship="following",
-        rows=rows,
+        rows=pagination.items,
+        pagination=pagination,
         following_ids=following_ids,
     )
 
@@ -845,6 +892,7 @@ def user_circles(user_id):
     if not (is_owner or visibility.circle_scope == PUBLIC_SCOPE):
         abort(404)
     filters = _section_filters("circle")
+    pagination = _paginate_items(_circle_items(user, filters), PROFILE_SECTION_PER_PAGE)
     return render_template(
         "user_circles.html",
         **_profile_context(
@@ -854,7 +902,8 @@ def user_circles(user_id):
             ip_region=current_ip_region,
         ),
         page_title=f"{get_user_display_name(user)} 加入的同好圈",
-        items=_circle_items(user, filters),
+        items=pagination.items,
+        pagination=pagination,
         filters=filters,
         reset_url=url_for("profile.user_circles", user_id=user.id),
     )
@@ -923,13 +972,15 @@ def _render_profile_section(section_key, template_title, heading, items, filter_
         ip_region=current_ip_region,
     )
     filters = _section_filters(filter_prefix)
+    pagination = _paginate_items(items(user, filters), PROFILE_SECTION_PER_PAGE)
     return render_template(
         "profile_section.html",
         **context,
         section_key=section_key,
         page_title=template_title,
         section_heading=heading,
-        items=items(user, filters),
+        items=pagination.items,
+        pagination=pagination,
         filters=filters,
         filter_prefix=filter_prefix,
         reset_url=_section_reset_url(filter_prefix, ""),

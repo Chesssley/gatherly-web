@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_pagination.html" import pagination_nav %}
 
 {% block title %}{{ page_title }} - Gatherly{% endblock %}
 
@@ -20,13 +21,14 @@
               <p class="eyebrow">People</p>
               <h1 id="follow-list-title">{{ heading }}</h1>
             </div>
-            <a class="button button-small button-secondary" href="{{ url_for('profile.user_search') }}">搜索用户</a>
           </div>
 
           <form class="people-search-form compact" method="get" role="search">
             <label class="sr-only" for="follow-search-q">在{{ heading }}中搜索</label>
             <input id="follow-search-q" name="q" type="search" value="{{ query }}" placeholder="在{{ heading }}中搜索用户">
-            <button class="button button-small" type="submit">搜索</button>
+            <button class="button button-small people-search-button" type="submit" aria-label="搜索">
+              <span aria-hidden="true">&#128269;</span>
+            </button>
           </form>
 
           <div class="user-card-list">
@@ -37,6 +39,7 @@
               <p class="rating-empty">暂无匹配用户。</p>
             {% endfor %}
           </div>
+          {{ pagination_nav(pagination) }}
         </section>
       </div>
     </div>
