@@ -87,7 +87,7 @@ Gatherly 不是复杂算法推荐平台。当前代码更接近一个轻量社�
 
 - `Review`：旧版活动评分，包含单一 `rating` 和 `comment`。
 - `ActivityReview`：活动多维评分，包含组织、场地、内容、价值、体验等维度。
-- `UserReview`：参与者互评，包含准时、友善、沟通、可靠、尊重、安全等维度。
+- `CircleRating`：同好圈评分，包含 1-5 分评分和可选评价文字。
 
 `TrustScoreLog` 记录用户信任分变化，配合用户 `trust_score` 字段支持基本信任机制。
 

@@ -56,7 +56,7 @@
 - 实现圈子发帖、图片、评论、楼中楼回复和互动。
 - 实现个人主页、关注、附近的人、个人内容搜索筛选。
 - 实现私信、通知和管理员后台多项管理能力。
-- 扩展评分与信任机制，包括 `ActivityReview`、`UserReview` 和 `TrustScoreLog`。
+- 扩展评分与信任机制，包括 `ActivityReview`、`CircleRating` 和 `TrustScoreLog`。
 
 ### 遇到的问题
 

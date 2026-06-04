@@ -1,10 +1,10 @@
-﻿erDiagram
+erDiagram
     USER ||--o{ ACTIVITY : organizes
+    CIRCLE ||--o{ ACTIVITY : links
     USER ||--o{ REGISTRATION : registers
     ACTIVITY ||--o{ REGISTRATION : has
     USER ||--o{ ACTIVITY_FAVORITE : favorites
     ACTIVITY ||--o{ ACTIVITY_FAVORITE : favorited_by
-    CIRCLE ||--o{ ACTIVITY : links
 
     USER ||--o{ CIRCLE : owns
     CIRCLE ||--o{ CIRCLE_MEMBER : has
@@ -12,7 +12,7 @@
     CIRCLE ||--o{ POST : contains
     USER ||--o{ POST : writes
     POST ||--o{ POST_IMAGE : has
-    CIRCLE ||--o| POST : pins
+    POST ||--o{ CIRCLE : pinned_by
 
     USER ||--o{ COMMENT : writes
     ACTIVITY ||--o{ COMMENT : receives
@@ -20,21 +20,19 @@
     COMMENT ||--o{ COMMENT : replies
     COMMENT ||--o{ COMMENT_IMAGE : has
 
-    USER ||--o{ INTERACTION : performs
-    USER ||--o| PROFILE_VISIBILITY : configures
-
     ACTIVITY ||--o{ REVIEW : legacy_reviews
     USER ||--o{ REVIEW : writes
     ACTIVITY ||--o{ ACTIVITY_REVIEW : receives
     USER ||--o{ ACTIVITY_REVIEW : writes
-    ACTIVITY ||--o{ USER_REVIEW : context
-    USER ||--o{ USER_REVIEW : gives
-    USER ||--o{ USER_REVIEW : receives
+    CIRCLE ||--o{ CIRCLE_RATING : receives
+    USER ||--o{ CIRCLE_RATING : writes
     USER ||--o{ TRUST_SCORE_LOG : has
     USER ||--o{ TRUST_SCORE_LOG : changes
 
     USER ||--o{ EMAIL_VERIFICATION_CODE : owns
     USER ||--o{ NOTIFICATION : receives
+    USER ||--o{ FEEDBACK : submits
+    USER ||--o{ FEEDBACK : replies
     USER ||--o{ DIRECT_MESSAGE : sends
     USER ||--o{ DIRECT_MESSAGE : receives
     USER ||--o{ DIRECT_MESSAGE_CONVERSATION_STATE : owns_state
@@ -43,6 +41,8 @@
     USER ||--o{ USER_FOLLOW : followed_by
     USER ||--o{ MERCHANT_VERIFICATION : applies
     USER ||--o{ MERCHANT_VERIFICATION : reviews
+    USER ||--o{ INTERACTION : performs
+    USER ||--o| PROFILE_VISIBILITY : configures
     USER ||--o{ ADMIN_LOG : writes
 
     USER {
@@ -97,12 +97,97 @@
 
     REGISTRATION {
         int id PK
-        int user_id FK "UK uq_registration_user_activity"
-        int activity_id FK "UK uq_registration_user_activity"
+        int user_id FK
+        int activity_id FK
         string status
         text cancel_reason
         datetime cancelled_at
         datetime register_time
+    }
+
+    EMAIL_VERIFICATION_CODE {
+        int id PK
+        int user_id FK
+        string email
+        string code
+        string purpose
+        datetime expires_at
+        datetime used_at
+        datetime created_at
+    }
+
+    NOTIFICATION {
+        int id PK
+        int recipient_id FK
+        string type
+        string title
+        text content
+        string related_type
+        int related_id
+        datetime read_at
+        datetime expires_at
+        datetime created_at
+    }
+
+    FEEDBACK {
+        int id PK
+        int user_id FK
+        string category
+        string title
+        text content
+        string status
+        text admin_reply
+        int replied_by_id FK
+        datetime replied_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    DIRECT_MESSAGE {
+        int id PK
+        int sender_id FK
+        int recipient_id FK
+        text content
+        string message_type
+        string image_url
+        datetime read_at
+        datetime expires_at
+        datetime created_at
+    }
+
+    DIRECT_MESSAGE_CONVERSATION_STATE {
+        int id PK
+        int user_id FK
+        int other_user_id FK
+        boolean is_hidden
+        datetime hidden_at
+        boolean is_deleted
+        datetime deleted_at
+        datetime cleared_at
+        datetime updated_at
+    }
+
+    USER_FOLLOW {
+        int id PK
+        int follower_id FK
+        int followed_id FK
+        datetime created_at
+    }
+
+    MERCHANT_VERIFICATION {
+        int id PK
+        int user_id FK
+        string business_name
+        string license_number
+        string document_url
+        text reason
+        string contact
+        string status
+        text reject_reason
+        int reviewer_id FK
+        datetime reviewed_at
+        datetime created_at
+        datetime updated_at
     }
 
     ACTIVITY_FAVORITE {
@@ -131,16 +216,6 @@
         datetime updated_at
     }
 
-    CIRCLE_MEMBER {
-        int id PK
-        int circle_id FK
-        int user_id FK
-        string role
-        string status
-        datetime joined_at
-        datetime updated_at
-    }
-
     POST {
         int id PK
         string title
@@ -157,6 +232,56 @@
         int post_id FK
         string image_url
         datetime created_at
+    }
+
+    ACTIVITY_REVIEW {
+        int id PK
+        int activity_id FK
+        int reviewer_id FK
+        int organization_score
+        int venue_score
+        int content_score
+        int value_score
+        int experience_score
+        float average_score
+        text comment
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+
+    CIRCLE_RATING {
+        int id PK
+        int circle_id FK
+        int user_id FK
+        int rating
+        text comment
+        datetime created_at
+        datetime updated_at
+    }
+
+    TRUST_SCORE_LOG {
+        int id PK
+        int user_id FK
+        int changed_by_id FK
+        string change_type
+        int delta
+        int score_before
+        int score_after
+        text reason
+        string related_type
+        int related_id
+        datetime created_at
+    }
+
+    CIRCLE_MEMBER {
+        int id PK
+        int circle_id FK
+        int user_id FK
+        string role
+        string status
+        datetime joined_at
+        datetime updated_at
     }
 
     COMMENT {
@@ -187,63 +312,6 @@
         datetime created_at
     }
 
-    REVIEW {
-        int id PK
-        int activity_id FK
-        int user_id FK
-        int rating
-        text comment
-        datetime created_at
-    }
-
-    ACTIVITY_REVIEW {
-        int id PK
-        int activity_id FK
-        int reviewer_id FK
-        int organization_score
-        int venue_score
-        int content_score
-        int value_score
-        int experience_score
-        float average_score
-        text comment
-        string status
-        datetime created_at
-        datetime updated_at
-    }
-
-    USER_REVIEW {
-        int id PK
-        int activity_id FK
-        int reviewer_id FK
-        int reviewee_id FK
-        int punctuality_score
-        int friendliness_score
-        int communication_score
-        int reliability_score
-        int respect_score
-        int safety_score
-        float average_score
-        text comment
-        string status
-        datetime created_at
-        datetime updated_at
-    }
-
-    TRUST_SCORE_LOG {
-        int id PK
-        int user_id FK
-        int changed_by_id FK
-        string change_type
-        int delta
-        int score_before
-        int score_after
-        text reason
-        string related_type
-        int related_id
-        datetime created_at
-    }
-
     PROFILE_VISIBILITY {
         int id PK
         int user_id FK
@@ -258,77 +326,6 @@
         datetime updated_at
     }
 
-    USER_FOLLOW {
-        int id PK
-        int follower_id FK
-        int followed_id FK
-        datetime created_at
-    }
-
-    DIRECT_MESSAGE {
-        int id PK
-        int sender_id FK
-        int recipient_id FK
-        text content
-        string message_type
-        string image_url
-        datetime read_at
-        datetime expires_at
-        datetime created_at
-    }
-
-    DIRECT_MESSAGE_CONVERSATION_STATE {
-        int id PK
-        int user_id FK
-        int other_user_id FK
-        boolean is_hidden
-        datetime hidden_at
-        boolean is_deleted
-        datetime deleted_at
-        datetime cleared_at
-        datetime updated_at
-    }
-
-    NOTIFICATION {
-        int id PK
-        int recipient_id FK
-        string type
-        string title
-        text content
-        string related_type
-        int related_id
-        datetime read_at
-        datetime expires_at
-        datetime created_at
-    }
-
-    EMAIL_VERIFICATION_CODE {
-        int id PK
-        int user_id FK
-        string email
-        string code
-        string purpose
-        datetime expires_at
-        datetime used_at
-        datetime created_at
-    }
-
-    MERCHANT_VERIFICATION {
-        int id PK
-        int user_id FK
-        string business_name
-        string license_number
-        string document_url
-        text reason
-        string contact
-        string status
-        text reject_reason
-        int reviewer_id FK
-        datetime reviewed_at
-        datetime created_at
-        datetime updated_at
-    }
-
     ADMIN_LOG {
         int id PK
         int admin_id FK
@@ -337,5 +334,14 @@
         int target_id
         text detail
         string ip_address
+        datetime created_at
+    }
+
+    REVIEW {
+        int id PK
+        int activity_id FK
+        int user_id FK
+        int rating
+        text comment
         datetime created_at
     }
