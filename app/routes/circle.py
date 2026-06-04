@@ -709,6 +709,21 @@ def _circle_rating_activity_label(activity):
     return f"{_format_circle_rating_activity_date(activity)} · {activity.title}"
 
 
+def _decorate_circle_rating_review(review):
+    review.activity_detail_id = None
+    review.activity_title = None
+    review.activity_label = ""
+    review.activity_date_label = ""
+
+    if review.activity:
+        review.activity_detail_id = review.activity.id
+        review.activity_title = review.activity.title
+        review.activity_label = _circle_rating_activity_label(review.activity)
+        review.activity_date_label = _format_circle_rating_activity_date(review.activity)
+    elif review.activity_id:
+        review.activity_label = "关联活动已不存在"
+
+
 def _circle_rating_context(circle, current_user):
     stats = _circle_rating_stats([circle.id]).get(
         circle.id,
@@ -739,8 +754,7 @@ def _circle_rating_context(circle, current_user):
         notice = "" if can_rate else "参与该同好圈活动且活动开始后，才可评分与评论。"
 
     for review in recent_reviews:
-        review.activity_label = _circle_rating_activity_label(review.activity)
-        review.activity_date_label = _format_circle_rating_activity_date(review.activity)
+        _decorate_circle_rating_review(review)
 
     return {
         "average_rating": stats["average_rating"],
