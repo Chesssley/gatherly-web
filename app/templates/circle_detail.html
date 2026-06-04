@@ -335,8 +335,10 @@
                             <p class="eyebrow">Photos</p>
                             <h2 id="circle-photos-title">照片 <span>{{ photo_items|length }}</span></h2>
                         </div>
-                        {% if current_user and is_member %}
+                        {% if current_user and (is_member or can_manage_circle) %}
                         <a class="circle-add-photo-button" href="{{ url_for('circle.create_post', circle_id=circle.id) }}">上传照片</a>
+                        {% elif current_user %}
+                        <span class="circle-add-photo-button is-disabled" aria-disabled="true">加入同好圈后可以上传照片</span>
                         {% else %}
                         <a class="circle-add-photo-button" href="{{ url_for('auth.login', next=request.url) }}">登录后上传照片</a>
                         {% endif %}
@@ -558,7 +560,7 @@
                 </section>
 
                 {% if can_manage_circle %}
-                <details class="circle-management-panel" open>
+                <details class="circle-management-panel">
                     <summary>管理圈子</summary>
                     {% if is_circle_owner or current_user.role == 'admin' %}
                     <section class="management-card circle-privacy-panel">

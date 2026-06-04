@@ -8752,6 +8752,15 @@ textarea.form-input {
   font-weight: 800;
 }
 
+.meetup-detail-circle-thumb {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #f3f0ea;
+}
+
 .meetup-detail-circle-card div {
   display: grid;
 }

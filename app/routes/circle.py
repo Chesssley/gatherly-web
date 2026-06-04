@@ -810,27 +810,49 @@ def _build_comment_threads(comments, current_user, circle, include_hidden=False)
 @circle_bp.route("/circles")
 def circles():
     _sync_system_circles()
-    circle_rows = Circle.query.filter(Circle.status.in_(["active", "private"])).all()
+    selected_circle_category = request.args.get("category", "").strip()
+    circle_query = Circle.query.filter(Circle.status.in_(["active", "private"]))
+    if selected_circle_category == "官方":
+        circle_query = circle_query.filter(Circle.is_system.is_(True))
+    if selected_circle_category == "新同好圈":
+        circle_query = circle_query.order_by(Circle.created_at.desc(), Circle.id.desc())
+    circle_rows = circle_query.all()
     decorated = [_decorate_circle(circle) for circle in circle_rows]
+    if selected_circle_category == "热门":
+        decorated = [circle for circle in decorated if circle.is_hot]
     circle_ids = [circle.id for circle in decorated]
     activities_by_circle, activity_counts_by_circle = _build_circle_activity_summaries(circle_ids)
     for circle in decorated:
         circle.recent_activities = activities_by_circle.get(circle.id, [])
         circle.recent_activity_count = activity_counts_by_circle.get(circle.id, 0)
-    decorated.sort(
-        key=lambda circle: (
-            circle.is_pinned,
-            circle.pinned_at or datetime.min,
-            circle.recent_activity_count,
-            circle.heat_score,
-            circle.member_count,
-            circle.post_count,
-            circle.updated_at or circle.created_at,
-            circle.created_at,
-        ),
-        reverse=True,
+    if selected_circle_category == "新同好圈":
+        decorated.sort(
+            key=lambda circle: (
+                circle.created_at or datetime.min,
+                circle.id,
+            ),
+            reverse=True,
+        )
+    else:
+        decorated.sort(
+            key=lambda circle: (
+                circle.is_pinned,
+                circle.pinned_at or datetime.min,
+                circle.recent_activity_count,
+                circle.heat_score,
+                circle.member_count,
+                circle.post_count,
+                circle.updated_at or circle.created_at,
+                circle.created_at,
+            ),
+            reverse=True,
+        )
+    return render_template(
+        "circle.html",
+        circles=decorated,
+        selected_circle_category=selected_circle_category,
+        **_upload_limit_context(),
     )
-    return render_template("circle.html", circles=decorated, **_upload_limit_context())
 
 
 @circle_bp.route("/circle")
@@ -1485,7 +1507,7 @@ def create_post(circle_id):
         flash("同好圈不存在或暂不可见。", "error")
         return redirect(url_for("circle.circles"))
 
-    if not _is_member(circle.id, user.id):
+    if not _is_member(circle.id, user.id) and not _can_manage_circle(user, circle):
         flash("加入同好圈后才能发帖。", "error")
         return redirect(url_for("circle.circle_detail", circle_id=circle.id))
 

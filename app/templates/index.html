@@ -274,13 +274,13 @@
                      role="tabpanel"
                      data-home-mini-panel="upcoming">
                     {% if sidebar_going_activity %}
-                    <article class="home-mini-event" aria-label="{{ sidebar_going_activity.title }}">
+                    <a class="home-mini-event" href="{{ sidebar_going_activity.detail_url }}" aria-label="{{ sidebar_going_activity.title }}">
                         <img src="{{ sidebar_going_activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ sidebar_going_activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
                         <span>
                             <strong>{{ sidebar_going_activity.title }}</strong>
                             <small>{{ sidebar_going_activity.sidebar_time or sidebar_going_activity.time }}</small>
                         </span>
-                    </article>
+                    </a>
                     {% elif session.get('user_id') %}
                     <p class="home-sidebar-empty">暂无即将开始的报名活动，去浏览更多活动吧。</p>
                     {% else %}
@@ -293,13 +293,13 @@
                      data-home-mini-panel="saved"
                      hidden>
                     {% if sidebar_saved_activity %}
-                    <article class="home-mini-event" aria-label="{{ sidebar_saved_activity.title }}">
+                    <a class="home-mini-event" href="{{ sidebar_saved_activity.detail_url }}" aria-label="{{ sidebar_saved_activity.title }}">
                         <img src="{{ sidebar_saved_activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ sidebar_saved_activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
                         <span>
                             <strong>{{ sidebar_saved_activity.title }}</strong>
                             <small>{{ sidebar_saved_activity.sidebar_time or sidebar_saved_activity.time }}</small>
                         </span>
-                    </article>
+                    </a>
                     {% elif session.get('user_id') %}
                     <p class="home-sidebar-empty">暂无收藏活动，可以先收藏感兴趣的活动。</p>
                     {% else %}
@@ -312,7 +312,7 @@
                 <div class="home-sidebar-tabs" id="home-mini-groups-title">
                     <span>你的同好圈{% if session.get('user_id') %} {{ home_circles|default([])|length }}{% endif %}</span>
                     {% if session.get('user_id') %}
-                    <a href="{{ url_for('circle.circles') }}">查看全部</a>
+                    <a href="{{ url_for('circle.my_groups') }}">查看全部</a>
                     {% endif %}
                 </div>
                 {% if session.get('user_id') %}
@@ -327,7 +327,7 @@
                     </a>
                     {% endif %}
                 {% else %}
-                <p class="home-sidebar-empty">暂无同好圈</p>
+                <p class="home-sidebar-empty">你还没有加入任何同好圈，加入圈子后这里会显示圈内活动和动态。</p>
                 {% endfor %}
                 <a class="home-find-groups" href="{{ url_for('circle.circles') }}">发现更多同好圈</a>
                 {% else %}
@@ -445,6 +445,7 @@
                 </div>
                 <div class="home-group-feed">
                     {% if session.get('user_id') %}
+                    {% if has_joined_circles %}
                     {% set last_date = namespace(value='') %}
                     {% for activity in group_activities|default([]) %}
                         {% if activity.home_date_label != last_date.value %}
@@ -497,6 +498,9 @@
                     {% else %}
                     <div class="recommended-empty-state">你的同好圈暂时没有近期活动。</div>
                     {% endfor %}
+                    {% else %}
+                    <div class="recommended-empty-state">你还没有加入任何同好圈，加入圈子后这里会显示圈内活动和动态。</div>
+                    {% endif %}
                     {% else %}
                     <div class="home-auth-prompt home-feed-auth-prompt">
                         <p>登录后可以查看来自你同好圈的活动。</p>
