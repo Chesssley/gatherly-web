@@ -297,7 +297,7 @@
 <section class="meetup-home">
     <div class="container meetup-home-layout">
         <aside class="meetup-home-sidebar" aria-label="首页信息栏">
-            <a class="home-profile-row" href="{{ url_for('profile.my_profile') if session.get('user_id') else url_for('auth.login') }}">
+            <a class="home-profile-row" href="{{ url_for('profile.my_profile') }}">
                 {% if home_user_card.avatar %}
                 <img class="home-profile-avatar" src="{{ home_user_card.avatar }}" alt="">
                 {% else %}
@@ -321,13 +321,13 @@
                             role="tab"
                             aria-selected="true"
                             aria-controls="home-mini-events-upcoming"
-                            data-home-mini-tab="upcoming">即将开始</button>
+                            data-home-mini-tab="upcoming">即将参加</button>
                     <button type="button"
                             role="tab"
                             aria-selected="false"
                             aria-controls="home-mini-events-saved"
-                            data-home-mini-tab="saved">收藏</button>
-                    <a href="{{ url_for('activity.my_events', tab='joined', status='upcoming') if session.get('user_id') else url_for('auth.login') }}"
+                            data-home-mini-tab="saved">已收藏</button>
+                    <a href="{{ url_for('activity.my_events', tab='joined', status='upcoming') }}"
                        data-home-mini-view-all>查看全部</a>
                 </div>
                 <div class="home-mini-event-panel is-active"
@@ -343,9 +343,10 @@
                         </span>
                     </a>
                     {% elif session.get('user_id') %}
-                    <p class="home-sidebar-empty">暂无即将开始的报名活动，去浏览更多活动吧。</p>
-                    {% else %}
-                    <p class="home-sidebar-empty">登录后可以查看即将开始的报名活动。</p>
+                    <div class="home-sidebar-empty-state">
+                        <strong>现在没有即将参加的活动</strong>
+                        <a class="home-sidebar-pill" href="{{ url_for('activity.search', scope='activities') }}">发现活动</a>
+                    </div>
                     {% endif %}
                 </div>
                 <div class="home-mini-event-panel"
@@ -362,21 +363,19 @@
                         </span>
                     </a>
                     {% elif session.get('user_id') %}
-                    <p class="home-sidebar-empty">暂无收藏活动，可以先收藏感兴趣的活动。</p>
-                    {% else %}
-                    <p class="home-sidebar-empty">登录后可以查看收藏活动。</p>
+                    <div class="home-sidebar-empty-state">
+                        <strong>还没有收藏活动</strong>
+                        <a class="home-sidebar-pill" href="{{ url_for('activity.search', scope='activities') }}">浏览活动</a>
+                    </div>
                     {% endif %}
                 </div>
             </section>
 
             <section class="home-sidebar-panel home-mini-groups" aria-labelledby="home-mini-groups-title">
                 <div class="home-sidebar-tabs" id="home-mini-groups-title">
-                    <span>你的同好圈{% if session.get('user_id') %} {{ home_circles|default([])|length }}{% endif %}</span>
-                    {% if session.get('user_id') %}
+                    <span>你的同好圈 {{ home_circles|default([])|length }}</span>
                     <a href="{{ url_for('circle.my_groups') }}">查看全部</a>
-                    {% endif %}
                 </div>
-                {% if session.get('user_id') %}
                 {% for circle in home_circles|default([]) %}
                     {% if loop.index <= 2 %}
                     <a class="home-mini-group" href="{{ circle.url }}">
@@ -388,21 +387,19 @@
                     </a>
                     {% endif %}
                 {% else %}
-                <p class="home-sidebar-empty">你还没有加入任何同好圈，加入圈子后这里会显示圈内活动和动态。</p>
+                <div class="home-sidebar-empty-state">
+                    <strong>还没有加入同好圈</strong>
+                    <span>加入同好圈后，这里会显示圈内活动和动态。</span>
+                </div>
                 {% endfor %}
                 <a class="home-find-groups" href="{{ url_for('circle.circles') }}">发现更多同好圈</a>
-                {% else %}
-                <div class="home-auth-prompt home-sidebar-auth-prompt">
-                    <p>登录后可以查看你的同好圈。</p>
-                </div>
-                {% endif %}
             </section>
         </aside>
 
         <main class="meetup-home-main" aria-label="首页活动流">
             <section class="home-feed-section recommended-section" id="for-you">
                 <div class="home-feed-heading">
-                    <h2>For you</h2>
+                    <h2>为你推荐</h2>
                     <a class="section-link" href="{{ url_for('activity.search', scope='activities') }}">浏览全部活动 <span aria-hidden="true">&#8594;</span></a>
                 </div>
                 <div class="home-for-you-wrap" data-recommended-carousel>
@@ -448,7 +445,7 @@
                                         {% endfor %}
                                     </span>
                                     {% endif %}
-                                    <span>{{ activity.current_people|default(0) }} attendees</span>
+                                    <span>{{ activity.current_people|default(0) }} 人已报名</span>
                                 </div>
                             </div>
                         </article>
@@ -462,8 +459,7 @@
 
             <section class="home-feed-section groups-feed-section" id="from-your-groups">
                 <div class="home-feed-heading">
-                    <h2>From your circles</h2>
-                    {% if session.get('user_id') %}
+                    <h2>来自你的同好圈</h2>
                     <div class="home-feed-actions">
                         <a class="section-link" href="{{ url_for('activity.search', scope='activities') }}">浏览全部活动 <span aria-hidden="true">&#8594;</span></a>
                         <div class="home-date-filter" data-home-date-filter>
@@ -502,10 +498,8 @@
                             </div>
                         </div>
                     </div>
-                    {% endif %}
                 </div>
                 <div class="home-group-feed">
-                    {% if session.get('user_id') %}
                     {% if has_joined_circles %}
                     {% set last_date = namespace(value='') %}
                     {% for activity in group_activities|default([]) %}
@@ -552,19 +546,24 @@
                                         {% endfor %}
                                     </span>
                                     {% endif %}
-                                    <span>{{ activity.current_people|default(0) }} attendees</span>
+                                    <span>{{ activity.current_people|default(0) }} 人已报名</span>
                                 </div>
                             </div>
                         </article>
                     {% else %}
-                    <div class="recommended-empty-state">你的同好圈暂时没有近期活动。</div>
+                    <div class="home-groups-empty-state">
+                        <span aria-hidden="true">Zzz</span>
+                        <h3>你的同好圈暂时很安静</h3>
+                        <p>可以浏览更多活动，或加入新的同好圈，找到下一场线下相遇。</p>
+                        <a class="button button-small" href="{{ url_for('activity.search', scope='activities') }}">发现活动</a>
+                    </div>
                     {% endfor %}
                     {% else %}
-                    <div class="recommended-empty-state">你还没有加入任何同好圈，加入圈子后这里会显示圈内活动和动态。</div>
-                    {% endif %}
-                    {% else %}
-                    <div class="home-auth-prompt home-feed-auth-prompt">
-                        <p>登录后可以查看来自你同好圈的活动。</p>
+                    <div class="home-groups-empty-state">
+                        <span aria-hidden="true">+</span>
+                        <h3>加入同好圈后，这里会更热闹</h3>
+                        <p>同好圈会汇总你关注的兴趣活动，让首页更贴近你的日常。</p>
+                        <a class="button button-small" href="{{ url_for('circle.circles') }}">发现同好圈</a>
                     </div>
                     {% endif %}
                 </div>
