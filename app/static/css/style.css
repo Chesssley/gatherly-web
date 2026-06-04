@@ -1291,6 +1291,157 @@ body.auth-modal-open {
   letter-spacing: 0;
 }
 
+/* Auth progress screen */
+body.auth-progress-open {
+  overflow: hidden;
+}
+
+.auth-progress-screen[hidden],
+.auth-progress-error[hidden] {
+  display: none !important;
+}
+
+.auth-progress-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  padding: 28px clamp(18px, 4vw, 48px);
+  background:
+    radial-gradient(circle at 16% 18%, rgba(47, 111, 99, 0.12), transparent 30%),
+    linear-gradient(180deg, #fbfdfb 0%, #eef8f3 100%);
+  color: var(--color-text);
+}
+
+.auth-progress-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  font-weight: 800;
+  color: #153f35;
+}
+
+.auth-progress-brand .brand-mark {
+  width: 34px;
+  height: 34px;
+  font-size: 17px;
+}
+
+.auth-progress-content {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 26px;
+  min-height: 0;
+  text-align: center;
+}
+
+.auth-progress-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  min-height: 26px;
+}
+
+.auth-progress-dots span {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #2f6f63;
+  box-shadow: 0 8px 18px rgba(47, 111, 99, 0.22);
+  animation: auth-progress-dot 0.9s ease-in-out infinite;
+}
+
+.auth-progress-dots span:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.auth-progress-dots span:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+.auth-progress-content p {
+  margin: 0;
+  font-size: clamp(22px, 3.2vw, 34px);
+  line-height: 1.25;
+  font-weight: 800;
+  color: #123f35;
+}
+
+.auth-progress-error {
+  position: fixed;
+  inset: 0;
+  z-index: 1450;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(18, 63, 53, 0.24);
+}
+
+.auth-progress-error-card {
+  width: min(100%, 380px);
+  padding: 28px;
+  border: 1px solid rgba(47, 111, 99, 0.16);
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(20, 38, 34, 0.18);
+  text-align: center;
+}
+
+.auth-progress-error-card h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  color: #123f35;
+}
+
+.auth-progress-error-card p {
+  margin: 0 0 22px;
+  color: var(--color-muted);
+  line-height: 1.7;
+}
+
+@keyframes auth-progress-dot {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.55;
+  }
+
+  40% {
+    transform: translateY(-12px);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .auth-progress-screen {
+    padding: 18px;
+  }
+
+  .auth-progress-brand {
+    font-size: 14px;
+  }
+
+  .auth-progress-brand .brand-mark {
+    width: 30px;
+    height: 30px;
+  }
+
+  .auth-progress-dots span {
+    width: 12px;
+    height: 12px;
+  }
+
+  .auth-progress-error-card {
+    padding: 24px 20px;
+  }
+}
+
 @media (max-width: 560px) {
   .auth-modal {
     align-items: end;
