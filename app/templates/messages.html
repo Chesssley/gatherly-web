@@ -19,8 +19,8 @@
         <div class="conversation-list" data-message-list-url="{{ url_for('messages.message_list') }}" data-empty-text="暂无私信联系人。">
           {% for item in conversations %}
           {% set last = item.last_message %}
-          <div class="conversation-list-row {% if active_user and active_user.id == item.user.id %}is-active{% endif %}" data-conversation-item data-conversation-id="{{ item.user.id }}">
-            <a class="conversation-item {% if active_user and active_user.id == item.user.id %}is-active{% endif %}" href="{{ url_for('messages.conversation', user_id=item.user.id) }}">
+          <div class="conversation-list-row {% if active_user and active_user.id == item.user.id %}is-active{% endif %} {% if item.unread_count %}is-unread{% endif %}" data-conversation-item data-conversation-id="{{ item.user.id }}">
+            <a class="conversation-item {% if active_user and active_user.id == item.user.id %}is-active{% endif %} {% if item.unread_count %}is-unread{% endif %}" href="{{ url_for('messages.conversation', user_id=item.user.id) }}">
               <span class="conversation-avatar">
                 {% if item.user.avatar %}
                   <img src="{{ item.user.avatar }}" alt="{{ item.display_name }}">

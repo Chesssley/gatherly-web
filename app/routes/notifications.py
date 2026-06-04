@@ -64,6 +64,13 @@ def _notification_summary_item(notification):
     }
 
 
+def _mark_notification_read(notification):
+    if notification.read_at is None:
+        notification.read_at = datetime.utcnow()
+        return True
+    return False
+
+
 @notifications_bp.app_context_processor
 def inject_unread_notification_count():
     user_id = session.get("user_id")
@@ -140,10 +147,22 @@ def mark_read(notification_id):
         id=notification_id,
         recipient_id=session["user_id"],
     ).first_or_404()
-    if notification.read_at is None:
-        notification.read_at = datetime.utcnow()
+    if _mark_notification_read(notification):
         db.session.commit()
     return redirect(request.form.get("next") or url_for("notifications.notification_list"))
+
+
+@notifications_bp.route("/<int:notification_id>/open")
+@login_required
+def open_notification(notification_id):
+    notification = Notification.query.filter_by(
+        id=notification_id,
+        recipient_id=session["user_id"],
+    ).first_or_404()
+    target_url = _notification_url(notification) or url_for("notifications.notification_list")
+    if _mark_notification_read(notification):
+        db.session.commit()
+    return redirect(target_url)
 
 
 @notifications_bp.route("/read-all", methods=["POST"])
