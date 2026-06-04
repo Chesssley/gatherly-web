@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_list_filters.html" import list_filters %}
+{% from "_pagination.html" import pagination_nav %}
 
 {% block title %}问题反馈管理 - Gatherly{% endblock %}
 
@@ -55,6 +56,7 @@
         </tbody>
       </table>
     </div>
+    {{ pagination_nav(pagination) }}
   </div>
 </section>
 {% endblock %}
