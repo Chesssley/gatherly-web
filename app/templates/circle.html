@@ -124,24 +124,24 @@
         <nav class="meetup-category-shell" aria-label="同好圈分类导航">
             <button class="category-scroll-arrow is-left" type="button" aria-label="向左滚动分类" onclick="this.parentElement.querySelector('.meetup-category-rail').scrollBy({left:-280,behavior:'smooth'})">&#8592;</button>
             <div class="meetup-category-rail icon-category-nav">
-                <a class="icon-category {% if not selected_circle_category %}is-active{% endif %}" href="{{ url_for('circle.circles') }}" data-category="all" data-filter-tags="">
+                <a class="icon-category js-gsap-chip {% if not selected_circle_category %}is-active{% endif %}" href="{{ url_for('circle.circles') }}" data-category="all" data-filter-tags="">
                     <span class="icon-category-symbol" aria-hidden="true">✨</span>
                     <span class="icon-category-label">全部同好圈</span>
                 </a>
-                <a class="icon-category {% if selected_circle_category == '热门' %}is-active{% endif %}" href="{{ url_for('circle.circles', category='热门') }}" data-category="热门" data-filter-tags="热门">
+                <a class="icon-category js-gsap-chip {% if selected_circle_category == '热门' %}is-active{% endif %}" href="{{ url_for('circle.circles', category='热门') }}" data-category="热门" data-filter-tags="热门">
                     <span class="icon-category-symbol" aria-hidden="true">🔥</span>
                     <span class="icon-category-label">热门</span>
                 </a>
-                <a class="icon-category {% if selected_circle_category == '官方' %}is-active{% endif %}" href="{{ url_for('circle.circles', category='官方') }}" data-category="官方" data-filter-tags="官方">
+                <a class="icon-category js-gsap-chip {% if selected_circle_category == '官方' %}is-active{% endif %}" href="{{ url_for('circle.circles', category='官方') }}" data-category="官方" data-filter-tags="官方">
                     <span class="icon-category-symbol" aria-hidden="true">✓</span>
                     <span class="icon-category-label">官方</span>
                 </a>
-                <a class="icon-category {% if selected_circle_category == '新同好圈' %}is-active{% endif %}" href="{{ url_for('circle.circles', category='新同好圈') }}" data-category="新同好圈" data-filter-tags="">
+                <a class="icon-category js-gsap-chip {% if selected_circle_category == '新同好圈' %}is-active{% endif %}" href="{{ url_for('circle.circles', category='新同好圈') }}" data-category="新同好圈" data-filter-tags="">
                     <span class="icon-category-symbol" aria-hidden="true">👥</span>
                     <span class="icon-category-label">新同好圈</span>
                 </a>
                 {% for category in circle_categories %}
-                <a class="icon-category {% if selected_circle_category == category.tag %}is-active{% endif %}" href="#" data-category="{{ category.tag }}" data-filter-tags="{{ category.aliases }}">
+                <a class="icon-category js-gsap-chip {% if selected_circle_category == category.tag %}is-active{% endif %}" href="#" data-category="{{ category.tag }}" data-filter-tags="{{ category.aliases }}">
                     <span class="icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
                     <span class="icon-category-label">{{ category.tag }}</span>
                 </a>
@@ -154,7 +154,7 @@
         </div>
         <div class="card-grid circle-grid circle-discovery-grid">
             {% for circle in circles %}
-            <article class="activity-card circle-card circle-discovery-card discover-card" data-tags="{{ circle.tag or '兴趣爱好' }},{{ circle.name }}{% if circle.is_hot %},热门{% endif %}{% if circle.is_system %},官方{% endif %}" data-time="any">
+            <article class="activity-card circle-card circle-discovery-card discover-card js-gsap-card" data-tags="{{ circle.tag or '兴趣爱好' }},{{ circle.name }}{% if circle.is_hot %},热门{% endif %}{% if circle.is_system %},官方{% endif %}" data-time="any">
                 <a class="circle-card-cover" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}">
                     <img src="{{ circle.cover_image_url|asset_url }}" alt="{{ circle.name }} cover">
                     <span class="circle-card-cover-overlay"></span>

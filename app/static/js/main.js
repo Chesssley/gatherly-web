@@ -10,6 +10,55 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initCurrentYear();
 
+  const initGsapMotion = () => {
+    const gsap = window.gsap;
+    if (!gsap) {
+      console.info("[Gatherly] GSAP not loaded, skip motion");
+      return;
+    }
+
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
+      console.info("[Gatherly] reduced motion enabled, skip GSAP motion");
+      return;
+    }
+
+    const cards = gsap.utils.toArray(".js-gsap-card");
+    const chips = gsap.utils.toArray(".js-gsap-chip");
+    console.info("[Gatherly] GSAP motion initialized", { cards: cards.length, chips: chips.length });
+
+    if (cards.length) {
+      gsap.fromTo(cards, {
+        autoAlpha: 0,
+        y: 36,
+        scale: 0.96,
+      }, {
+        autoAlpha: 1,
+        y: 0,
+        scale: 1,
+        duration: 0.6,
+        ease: "power3.out",
+        stagger: 0.09,
+        clearProps: "transform,opacity,visibility,willChange",
+      });
+    }
+
+    if (chips.length) {
+      gsap.fromTo(chips, {
+        autoAlpha: 0,
+        y: 14,
+      }, {
+        autoAlpha: 1,
+        y: 0,
+        duration: 0.38,
+        ease: "power2.out",
+        stagger: 0.045,
+        clearProps: "transform,opacity,visibility,willChange",
+      });
+    }
+  };
+
+  initGsapMotion();
+
   const flashMessages = document.querySelectorAll(".flash-msg, .flash-message");
   flashMessages.forEach(message => {
     window.setTimeout(() => {

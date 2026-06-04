@@ -4,7 +4,7 @@
 
 {% block content %}
 {% macro activity_card(activity, detail_url, favorite_activity_id, demo=false) %}
-<article class="activity-card discover-card" tabindex="0" role="link" data-card-url="{{ detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}" data-activity-type="{{ 'online' if activity.location and ('线上' in activity.location or 'Online' in activity.location or 'online' in activity.location) else 'offline' }}">
+<article class="activity-card discover-card js-gsap-card" tabindex="0" role="link" data-card-url="{{ detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}" data-activity-type="{{ 'online' if activity.location and ('线上' in activity.location or 'Online' in activity.location or 'online' in activity.location) else 'offline' }}">
     <div class="card-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
         <img src="{{ activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}"
              alt="{{ activity.title }}"
@@ -351,7 +351,7 @@
                     <button class="home-scroll-button is-previous" type="button" aria-label="查看上一组推荐活动" data-recommended-previous>&#8592;</button>
                     <div class="home-for-you-track" data-recommended-track>
                     {% for activity in featured_activities %}
-                        <article class="home-event-card" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
+                        <article class="home-event-card js-gsap-card" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
                             <div class="home-event-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
                                 <img src="{{ activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}" alt="{{ activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
                                 <div class="home-card-actions">
@@ -455,7 +455,7 @@
                         <p class="home-feed-date">{{ activity.home_date_label }}</p>
                         {% set last_date.value = activity.home_date_label %}
                         {% endif %}
-                        <article class="home-group-event" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
+                        <article class="home-group-event js-gsap-card" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
                             <div class="home-group-image">
                                 <img src="{{ activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}" alt="{{ activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
                                 <div class="home-card-actions">
@@ -626,7 +626,7 @@
                 <p class="interest-subtitle">点击分类即可筛选活动。</p>
             </div>
             <div class="interest-tags icon-category-nav" role="navigation" aria-label="活动分类">
-                <a class="interest-chip icon-category {% if not selected_category %}is-active{% endif %}"
+                <a class="interest-chip icon-category js-gsap-chip {% if not selected_category %}is-active{% endif %}"
                    href="{{ url_for('activity.index', time=selected_time) if selected_time != 'any' else url_for('activity.index') }}#discover-events"
                    data-category="all" data-filter-tags="">
                     <span class="icon-category-symbol" aria-hidden="true">✨</span>
@@ -635,7 +635,7 @@
                 {% for category in interest_categories %}
                 {% set is_special_activity_filter = category.tag in special_activity_filter_tags|default([]) %}
                 {% set category_filter_tags = '' if is_special_activity_filter else category.tag %}
-                <a class="interest-chip icon-category {% if selected_category == category.tag %}is-active{% endif %}"
+                <a class="interest-chip icon-category js-gsap-chip {% if selected_category == category.tag %}is-active{% endif %}"
                    href="{{ url_for('activity.index', category=category.tag, time=selected_time) if selected_time != 'any' else url_for('activity.index', category=category.tag) }}#discover-events"
                    data-category="{{ category.tag }}" data-filter-tags="{{ category_filter_tags }}">
                     <span class="icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
@@ -676,7 +676,7 @@
                 {"icon": "&#127939;", "name": "周末轻运动", "tag": "运动户外", "members": "419", "description": "新手友好的跑步和户外活动。"}
             ] %}
             {% for circle in home_circles %}
-            <article class="popular-circle-card">
+            <article class="popular-circle-card js-gsap-card">
                 <span class="circle-card-icon" aria-hidden="true">{{ circle.icon|safe }}</span>
                 <span class="tag">{{ circle.tag }}</span>
                 <h3>{{ circle.name }}</h3>
