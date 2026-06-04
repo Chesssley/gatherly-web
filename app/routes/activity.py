@@ -384,7 +384,6 @@ def _build_home_group_feed_sections(activities, selected_date):
             "is_selected": True,
             "activities": selected_activities,
             "empty_title": empty_title,
-            "empty_text": "下方仍会显示你加入的同好圈后续活动。",
         }
     ]
     selected_activity_ids = {item["id"] for item in selected_activities}

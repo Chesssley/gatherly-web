@@ -9894,7 +9894,7 @@ textarea.form-input {
 }
 
 .home-feed-subtitle {
-  margin: 0;
+  margin: 2px 0 0;
   color: #595959;
   font-size: 15px;
   font-weight: 700;
@@ -9906,7 +9906,7 @@ textarea.form-input {
   border-radius: 18px;
 }
 
-/* Home group feed grouped list */
+/* Home group feed date grouping */
 .home-group-feed {
   display: grid;
   gap: 0;
@@ -9917,7 +9917,11 @@ textarea.form-input {
 }
 
 .home-group-feed-block + .home-group-feed-block {
-  margin-top: 18px;
+  margin-top: 44px;
+}
+
+.home-group-feed-block.is-selected {
+  margin-top: 12px;
 }
 
 .home-feed-date {
@@ -9955,13 +9959,6 @@ textarea.form-input {
 
 .home-group-event-body {
   min-width: 0;
-}
-
-.home-group-card-date {
-  margin: 0 0 6px;
-  color: #555555;
-  font-size: 13px;
-  font-weight: 800;
 }
 
 .home-group-event h3 {
