@@ -166,17 +166,19 @@
     </div>
   </header>
 
-  <main>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div class="flash-messages container" role="status" aria-live="polite">
-          {% for category, message in messages %}
-            <div class="flash-msg {{ category }}">{{ message }}</div>
-          {% endfor %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    <div class="global-toast-region flash-messages" role="status" aria-live="polite" aria-atomic="false" data-toast-region{% if not messages %} hidden{% endif %}>
+      {% for category, message in messages %}
+        <div class="global-toast flash-msg {{ category }}" data-toast data-toast-type="{{ category|default('info', true) }}">
+          <span class="global-toast-indicator" aria-hidden="true"></span>
+          <p>{{ message }}</p>
+          <button class="global-toast-close" type="button" aria-label="关闭提示" data-toast-close>&times;</button>
         </div>
-      {% endif %}
-    {% endwith %}
+      {% endfor %}
+    </div>
+  {% endwith %}
 
+  <main>
     {% block content %}{% endblock %}
   </main>
 
@@ -265,7 +267,9 @@
   {% if email_code_success_alert %}
     <script>
       document.addEventListener("DOMContentLoaded", () => {
-        alert("若在邮箱没有看到验证码，请检查邮箱垃圾箱");
+        window.setTimeout(() => {
+          window.showGatherlyToast?.("若在邮箱没有看到验证码，请检查邮箱垃圾箱", "info");
+        }, 0);
       }, { once: true });
     </script>
   {% endif %}
