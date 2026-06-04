@@ -38,7 +38,7 @@
           <label class="form-label" for="email">邮箱</label>
           <input class="form-input" id="email" name="email" type="email" value="{{ user.email }}" maxlength="120" autocomplete="email" required>
           <p class="form-hint">修改邮箱时，请先向新邮箱发送验证码。</p>
-          <button class="button button-secondary" type="submit" name="purpose" value="change_email" formaction="{{ url_for('auth.send_account_email_code') }}" formmethod="post" formnovalidate>发送新邮箱验证码</button>
+          <button class="button button-secondary" type="submit" name="purpose" value="change_email" formaction="{{ url_for('auth.send_account_email_code') }}" formmethod="post" formnovalidate data-email-code-button>发送新邮箱验证码</button>
         </div>
         <div class="form-group">
           <label class="form-label" for="email_verification_code">新邮箱验证码</label>
@@ -57,7 +57,7 @@
           <label class="form-label" for="new_password">新密码</label>
           <input class="form-input" id="new_password" name="new_password" type="password" minlength="6" autocomplete="new-password">
           <p class="form-hint">不修改密码时请留空；新密码至少需要 6 个字符。</p>
-          <button class="button button-secondary" type="submit" name="purpose" value="change_password" formaction="{{ url_for('auth.send_account_email_code') }}" formmethod="post" formnovalidate>发送改密验证码</button>
+          <button class="button button-secondary" type="submit" name="purpose" value="change_password" formaction="{{ url_for('auth.send_account_email_code') }}" formmethod="post" formnovalidate data-email-code-button>发送改密验证码</button>
         </div>
         <div class="form-group">
           <label class="form-label" for="confirm_password">确认新密码</label>

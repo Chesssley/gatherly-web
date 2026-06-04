@@ -19,6 +19,7 @@ from app.models import (
 from app.forms import RegistrationForm
 from app.utils.email_verification import (
     email_configuration_error,
+    email_code_retry_after_seconds,
     is_email_code_rate_limited,
     is_console_email_provider,
     send_verification_code,
@@ -34,7 +35,6 @@ MERCHANT_DOCUMENT_UPLOAD_SUBDIR = "merchant-verifications"
 REGISTER_FORM_DRAFT_FIELDS = ("username", "email", "nickname", "city")
 EMAIL_CODE_SESSION_LIMIT_SECONDS = 60 * 60
 EMAIL_CODE_SESSION_LIMIT_MAX = 10
-EMAIL_CODE_RATE_LIMIT_MESSAGE = "验证码发送过于频繁，请稍后再试。"
 EMAIL_CODE_SPAM_FOLDER_MESSAGE = "若在邮箱没有看到验证码，请检查邮箱垃圾箱"
 EMAIL_CODE_SUCCESS_ALERT_SESSION_KEY = "email_code_success_alert"
 DELETE_ACCOUNT_CONFIRM_TEXT = "DELETE MY ACCOUNT"
@@ -89,8 +89,8 @@ def _clear_register_form_draft():
     session.pop("register_email_draft", None)
 
 
-def _is_session_email_code_rate_limited():
-    now = time.time()
+def _session_email_code_attempts(now=None):
+    now = now or time.time()
     recent_attempts = []
     for value in session.get("email_code_send_attempts", []):
         try:
@@ -100,6 +100,21 @@ def _is_session_email_code_rate_limited():
         if now - timestamp < EMAIL_CODE_SESSION_LIMIT_SECONDS:
             recent_attempts.append(timestamp)
     session["email_code_send_attempts"] = recent_attempts
+    return recent_attempts
+
+
+def _session_email_code_retry_after_seconds():
+    now = time.time()
+    recent_attempts = sorted(_session_email_code_attempts(now))
+    if len(recent_attempts) < EMAIL_CODE_SESSION_LIMIT_MAX:
+        return 0
+    unlock_index = max(0, len(recent_attempts) - EMAIL_CODE_SESSION_LIMIT_MAX)
+    retry_after = EMAIL_CODE_SESSION_LIMIT_SECONDS - (now - recent_attempts[unlock_index])
+    return max(0, int(retry_after) + 1)
+
+
+def _is_session_email_code_rate_limited():
+    recent_attempts = _session_email_code_attempts()
     return len(recent_attempts) >= EMAIL_CODE_SESSION_LIMIT_MAX
 
 
@@ -193,6 +208,18 @@ def _is_email_code_send_rate_limited(email, purpose):
     )
 
 
+def _email_code_send_retry_after_seconds(email=None, purpose=None):
+    return max(
+        _session_email_code_retry_after_seconds(),
+        email_code_retry_after_seconds(email, purpose) if email and purpose else 0,
+    )
+
+
+def _email_code_rate_limit_message(seconds):
+    seconds = max(1, int(seconds or 1))
+    return f"验证码发送过于频繁，请在 {seconds} 秒后重试。"
+
+
 def _flash_email_code_send_result(sent, success_message="验证码已发送，请查收邮箱。"):
     if sent:
         if is_console_email_provider():
@@ -229,7 +256,8 @@ def send_register_code():
         flash("该邮箱已被注册，请使用其他邮箱或直接登录。", "error")
         return redirect(url_for("auth.register"))
     if _is_email_code_send_rate_limited(email, "register"):
-        flash(EMAIL_CODE_RATE_LIMIT_MESSAGE, "error")
+        retry_after = _email_code_send_retry_after_seconds(email, "register")
+        flash(_email_code_rate_limit_message(retry_after), "error")
         return redirect(url_for("auth.register"))
 
     try:
@@ -272,7 +300,8 @@ def send_account_email_code():
         return _redirect_after_code_send()
 
     if _is_email_code_send_rate_limited(email, purpose):
-        flash(EMAIL_CODE_RATE_LIMIT_MESSAGE, "error")
+        retry_after = _email_code_send_retry_after_seconds(email, purpose)
+        flash(_email_code_rate_limit_message(retry_after), "error")
         return _redirect_after_code_send()
 
     try:
@@ -298,12 +327,14 @@ def send_reset_password_code():
         flash("邮箱不能超过 120 个字符。", "error")
         return redirect(url_for("auth.forgot_password"))
     if _is_session_email_code_rate_limited():
-        flash(EMAIL_CODE_RATE_LIMIT_MESSAGE, "error")
+        retry_after = _email_code_send_retry_after_seconds()
+        flash(_email_code_rate_limit_message(retry_after), "error")
         return redirect(url_for("auth.forgot_password"))
 
     user = User.query.filter_by(email=email, status="active").first()
     if user and is_email_code_rate_limited(email, "reset_password"):
-        flash(EMAIL_CODE_RATE_LIMIT_MESSAGE, "error")
+        retry_after = _email_code_send_retry_after_seconds(email, "reset_password")
+        flash(_email_code_rate_limit_message(retry_after), "error")
         return redirect(url_for("auth.forgot_password"))
 
     _record_session_email_code_attempt()

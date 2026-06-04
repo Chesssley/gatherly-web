@@ -1,5 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   console.log("Gatherly Flask app initialized.");
+  const emailCodeCooldownPattern = /请在\s*(\d+)\s*秒后重试/;
+  const emailCodeCooldownText = seconds => `验证码发送过于频繁，请在 ${seconds} 秒后重试。`;
 
   const initCurrentYear = () => {
     const year = String(new Date().getFullYear());
@@ -61,6 +63,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const flashMessages = document.querySelectorAll(".flash-msg, .flash-message");
   flashMessages.forEach(message => {
+    if (emailCodeCooldownPattern.test(message.textContent || "")) {
+      return;
+    }
+
     window.setTimeout(() => {
       const removeMessage = () => {
         if (!message.isConnected) {
@@ -78,6 +84,65 @@ document.addEventListener("DOMContentLoaded", () => {
       window.setTimeout(removeMessage, 600);
     }, 3000);
   });
+
+  const initEmailCodeCooldown = () => {
+    const buttons = Array.from(document.querySelectorAll("[data-email-code-button]"));
+    const cooldownMessages = Array.from(document.querySelectorAll(".flash-msg, .flash-message"))
+      .filter(message => emailCodeCooldownPattern.test(message.textContent || ""));
+    const remainingSeconds = cooldownMessages
+      .map(message => {
+        const match = (message.textContent || "").match(emailCodeCooldownPattern);
+        return match ? Number(match[1]) : 0;
+      })
+      .filter(Number.isFinite);
+
+    let remaining = Math.max(0, ...remainingSeconds);
+    if (!remaining) {
+      return;
+    }
+
+    buttons.forEach(button => {
+      if (!button.dataset.emailCodeOriginalText) {
+        button.dataset.emailCodeOriginalText = button.textContent.trim() || "发送验证码";
+      }
+    });
+
+    const renderCooldown = () => {
+      cooldownMessages.forEach(message => {
+        message.textContent = remaining > 0
+          ? emailCodeCooldownText(remaining)
+          : "现在可以重新发送验证码。";
+      });
+      buttons.forEach(button => {
+        if (remaining > 0) {
+          button.disabled = true;
+          button.setAttribute("aria-disabled", "true");
+          button.textContent = `请在 ${remaining} 秒后重试`;
+        } else {
+          button.disabled = false;
+          button.removeAttribute("aria-disabled");
+          button.textContent = button.dataset.emailCodeOriginalText || "发送验证码";
+        }
+      });
+    };
+
+    renderCooldown();
+    const timer = window.setInterval(() => {
+      remaining -= 1;
+      renderCooldown();
+      if (remaining <= 0) {
+        window.clearInterval(timer);
+        window.setTimeout(() => {
+          cooldownMessages.forEach(message => {
+            message.classList.add("is-fading");
+            message.addEventListener("transitionend", () => message.remove(), { once: true });
+          });
+        }, 1800);
+      }
+    }, 1000);
+  };
+
+  initEmailCodeCooldown();
 
   const initGlobalSearchSuggestions = () => {
     const forms = Array.from(document.querySelectorAll("[data-search-suggestions]"));

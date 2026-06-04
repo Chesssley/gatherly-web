@@ -3,6 +3,7 @@
 
 import hashlib
 import hmac
+import math
 import os
 import secrets
 import smtplib
@@ -76,21 +77,37 @@ def is_console_email_provider():
 
 def is_email_code_rate_limited(email, purpose):
     """Return True when an email+purpose has too many recent code sends."""
+    return email_code_retry_after_seconds(email, purpose) > 0
+
+
+def email_code_retry_after_seconds(email, purpose):
+    """Return seconds until another email+purpose code send is allowed."""
     email = _normalized_email(email)
     purpose = (purpose or "").strip()
     if not email or not purpose:
-        return False
+        return 0
 
     now = datetime.utcnow()
+    retry_after_seconds = 0
     for window, max_attempts in EMAIL_CODE_RATE_LIMIT_RULES:
-        recent_count = EmailVerificationCode.query.filter(
-            EmailVerificationCode.email == email,
-            EmailVerificationCode.purpose == purpose,
-            EmailVerificationCode.created_at >= now - window,
-        ).count()
-        if recent_count >= max_attempts:
-            return True
-    return False
+        recent_rows = (
+            EmailVerificationCode.query.filter(
+                EmailVerificationCode.email == email,
+                EmailVerificationCode.purpose == purpose,
+                EmailVerificationCode.created_at >= now - window,
+            )
+            .order_by(EmailVerificationCode.created_at.asc())
+            .all()
+        )
+        recent_count = len(recent_rows)
+        if recent_count < max_attempts:
+            continue
+
+        unlock_index = max(0, recent_count - max_attempts)
+        unlock_at = recent_rows[unlock_index].created_at + window
+        seconds = math.ceil((unlock_at - now).total_seconds())
+        retry_after_seconds = max(retry_after_seconds, seconds)
+    return max(0, retry_after_seconds)
 
 
 def _email_api_timeout():

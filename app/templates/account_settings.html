@@ -34,7 +34,7 @@
             <div class="form-group">
               <label class="form-label" for="email_verification_code">新邮箱验证码</label>
               <input class="form-input" id="email_verification_code" name="email_verification_code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="6 位数字验证码" required>
-              <button class="button button-secondary" type="submit" name="purpose" value="change_email" formaction="{{ url_for('auth.send_account_email_code') }}" formmethod="post" formnovalidate>发送新邮箱验证码</button>
+              <button class="button button-secondary" type="submit" name="purpose" value="change_email" formaction="{{ url_for('auth.send_account_email_code') }}" formmethod="post" formnovalidate data-email-code-button>发送新邮箱验证码</button>
             </div>
             <div class="form-group">
               <label class="form-label" for="change_email_current_password">当前密码</label>
@@ -76,7 +76,7 @@
             <div class="form-group">
               <label class="form-label" for="password_verification_code">改密验证码</label>
               <input class="form-input" id="password_verification_code" name="password_verification_code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="发送到 {{ user.email }}" required>
-              <button class="button button-secondary" type="submit" name="purpose" value="change_password" formaction="{{ url_for('auth.send_account_email_code') }}" formmethod="post" formnovalidate>发送改密验证码</button>
+              <button class="button button-secondary" type="submit" name="purpose" value="change_password" formaction="{{ url_for('auth.send_account_email_code') }}" formmethod="post" formnovalidate data-email-code-button>发送改密验证码</button>
             </div>
             <div class="form-actions">
               <button class="button" type="submit">保存新密码</button>
