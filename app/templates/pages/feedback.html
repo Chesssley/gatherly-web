@@ -8,35 +8,51 @@
     <header class="page-heading">
       <p class="eyebrow">Feedback</p>
       <h1>问题反馈</h1>
-      <p>这是课程项目演示版反馈表单。当前不会写入数据库，提交成功后团队会在后续迭代中统一查看。</p>
+      <p>告诉我们你在使用 Gatherly 时遇到的问题或建议。管理员会在后台查看，并通过通知中心回复你。</p>
     </header>
 
-    <form class="info-card feedback-form" method="post" action="{{ url_for('pages.feedback') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-      <div class="form-group">
-        <label class="form-label" for="feedback_type">反馈类型</label>
-        <select class="form-input" id="feedback_type" name="feedback_type" required>
-          {% set selected_type = request.form.get('feedback_type', '功能问题') %}
-          {% for option in ['功能问题', '页面显示问题', '活动/报名问题', '同好圈/帖子问题', '私信/通知问题', '其他建议'] %}
-            <option value="{{ option }}" {% if selected_type == option %}selected{% endif %}>{{ option }}</option>
-          {% endfor %}
-        </select>
+    {% if login_required_for_feedback %}
+      <div class="info-card feedback-login-card">
+        <div class="info-section">
+          <h2>登录后提交反馈</h2>
+          <p>反馈会绑定到你的账号，方便管理员在处理后直接通过通知中心回复。</p>
+        </div>
+        <div class="page-actions">
+          <a class="button" href="{{ url_for('auth.login', next=url_for('pages.feedback')) }}">登录后提交</a>
+          <a class="button button-secondary" href="{{ url_for('activity.index') }}">返回首页</a>
+        </div>
       </div>
+    {% else %}
+      <form class="info-card feedback-form" method="post" action="{{ url_for('pages.feedback') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-      <div class="form-group">
-        <label class="form-label" for="contact">联系方式 <span>可选</span></label>
-        <input class="form-input" id="contact" name="contact" type="text" maxlength="160" value="{{ request.form.get('contact', '') }}" placeholder="邮箱、GitHub 账号或其他可联系信息">
-      </div>
+        <div class="form-group">
+          <label class="form-label" for="category">反馈类型</label>
+          <select class="form-input" id="category" name="category" required>
+            {% set selected_category = request.form.get('category', categories[0]) %}
+            {% for option in categories %}
+              <option value="{{ option }}" {% if selected_category == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </div>
 
-      <div class="form-group">
-        <label class="form-label" for="content">反馈内容</label>
-        <textarea class="form-input" id="content" name="content" rows="7" minlength="10" maxlength="1000" required placeholder="请描述你遇到的问题、相关页面、复现步骤或改进建议。">{{ request.form.get('content', '') }}</textarea>
-        <p class="form-help">建议 10 到 1000 个字。请不要提交身份证、银行卡、验证码等敏感个人信息。</p>
-      </div>
+        <div class="form-group">
+          <label class="form-label" for="title">反馈标题</label>
+          <input class="form-input" id="title" name="title" type="text" maxlength="120" required value="{{ request.form.get('title', '') }}" placeholder="用一句话概括问题">
+        </div>
 
-      <button class="button feedback-submit" type="submit">提交反馈</button>
-    </form>
+        <div class="form-group">
+          <label class="form-label" for="content">反馈内容</label>
+          <textarea class="form-input" id="content" name="content" rows="7" minlength="10" maxlength="1000" required placeholder="请描述你遇到的问题、相关页面、复现步骤或改进建议。">{{ request.form.get('content', '') }}</textarea>
+          <p class="form-help">内容需为 10 到 1000 个字。请不要提交身份证、银行卡、验证码等敏感个人信息。</p>
+        </div>
+
+        <div class="feedback-form-actions">
+          <button class="button feedback-submit" type="submit">提交反馈</button>
+          <a class="text-link" href="{{ url_for('pages.my_feedback') }}">查看我的反馈</a>
+        </div>
+      </form>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

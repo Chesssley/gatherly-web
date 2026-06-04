@@ -129,6 +129,16 @@ class User(db.Model):
         foreign_keys="MerchantVerification.reviewer_id",
         back_populates="reviewer",
     )
+    submitted_feedback = db.relationship(
+        "Feedback",
+        foreign_keys="Feedback.user_id",
+        back_populates="user",
+    )
+    feedback_replies = db.relationship(
+        "Feedback",
+        foreign_keys="Feedback.replied_by_id",
+        back_populates="replied_by",
+    )
 
     @property
     def password(self):
@@ -393,6 +403,36 @@ class Notification(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     recipient = db.relationship("User", back_populates="notifications")
+
+
+class Feedback(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    category = db.Column(db.String(50), nullable=False)
+    title = db.Column(db.String(120), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default="open", nullable=False, index=True)
+    admin_reply = db.Column(db.Text)
+    replied_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=True)
+    replied_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = db.Column(
+        db.DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    user = db.relationship(
+        "User",
+        foreign_keys=[user_id],
+        back_populates="submitted_feedback",
+    )
+    replied_by = db.relationship(
+        "User",
+        foreign_keys=[replied_by_id],
+        back_populates="feedback_replies",
+    )
 
 
 NOTIFICATION_RETENTION_DAYS = 90

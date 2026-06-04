@@ -4,7 +4,7 @@
 {% block content %}
 <section class="section"><div class="container">
   <nav class="admin-nav" aria-label="后台管理导航">
-    <a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a><a href="{{ url_for('admin.admin_account') }}">账号设置</a><a href="{{ url_for('admin.admin_users') }}">用户</a><a class="is-active" href="{{ url_for('admin.admin_activities') }}">活动</a><a href="{{ url_for('admin.admin_circles') }}">同好圈</a><a href="{{ url_for('admin.admin_posts') }}">帖子</a><a href="{{ url_for('admin.admin_comments') }}">评论</a><a href="{{ url_for('admin.admin_dashboard') }}#operation-logs">操作日志</a>
+    <a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a><a href="{{ url_for('admin.admin_account') }}">账号设置</a><a href="{{ url_for('admin.admin_users') }}">用户</a><a class="is-active" href="{{ url_for('admin.admin_activities') }}">活动</a><a href="{{ url_for('admin.admin_circles') }}">同好圈</a><a href="{{ url_for('admin.admin_posts') }}">帖子</a><a href="{{ url_for('admin.admin_comments') }}">评论</a><a href="{{ url_for('admin.admin_feedback') }}">问题反馈</a><a href="{{ url_for('admin.admin_dashboard') }}#operation-logs">操作日志</a>
   </nav>
   <div class="page-title"><p class="eyebrow">Admin Activities</p><h1>活动管理</h1><p>查看活动、维护状态，并指定首页近期推荐的精选活动。</p></div>
   {{ list_filters('admin.admin_activities', filters, status_options) }}

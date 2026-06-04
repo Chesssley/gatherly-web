@@ -3,7 +3,7 @@ from functools import wraps
 from ipaddress import ip_address
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
-from sqlalchemy import func, or_, text
+from sqlalchemy import case, func, or_, text
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -13,6 +13,7 @@ from app.models import (
     Circle,
     CircleMember,
     Comment,
+    Feedback,
     Interaction,
     MerchantVerification,
     Post,
@@ -32,6 +33,7 @@ ACTIVITY_STATUSES = {"open", "hidden", "closed", "cancelled"}
 ADMIN_ACTIVITY_CANCEL_REASON = "管理员后台取消活动"
 CIRCLE_STATUSES = {"active", "hidden"}
 CONTENT_STATUSES = {"published", "hidden"}
+FEEDBACK_STATUSES = ("open", "replied", "closed")
 SORT_OPTIONS = {"newest", "oldest"}
 
 
@@ -317,9 +319,126 @@ def admin_dashboard():
         "circles": Circle.query.filter(Circle.status != "deleted").count(),
         "posts": Post.query.count(),
         "comments": Comment.query.count(),
+        "feedback_open": Feedback.query.filter_by(status="open").count(),
     }
     logs = AdminLog.query.order_by(AdminLog.created_at.desc()).limit(30).all()
     return render_template("admin_dashboard.html", stats=stats, logs=logs)
+
+
+@admin_bp.route("/admin/feedback")
+@admin_required
+def admin_feedback():
+    filters = _list_filters()
+    query = Feedback.query.join(Feedback.user)
+    if filters["status"] in FEEDBACK_STATUSES:
+        query = query.filter(Feedback.status == filters["status"])
+    if filters["type"]:
+        query = query.filter(Feedback.category == filters["type"])
+    if filters["q"]:
+        pattern = f"%{filters['q']}%"
+        query = query.filter(
+            or_(
+                Feedback.title.ilike(pattern),
+                Feedback.content.ilike(pattern),
+                Feedback.category.ilike(pattern),
+                User.username.ilike(pattern),
+                User.nickname.ilike(pattern),
+                User.email.ilike(pattern),
+            )
+        )
+
+    status_rank = case(
+        (Feedback.status == "open", 0),
+        (Feedback.status == "replied", 1),
+        else_=2,
+    )
+    if filters["sort"] == "oldest":
+        query = query.order_by(status_rank, Feedback.created_at.asc(), Feedback.id.asc())
+    else:
+        query = query.order_by(status_rank, Feedback.created_at.desc(), Feedback.id.desc())
+
+    feedback_items = query.all()
+    category_options = [
+        row[0]
+        for row in db.session.query(Feedback.category)
+        .distinct()
+        .order_by(Feedback.category)
+        .all()
+        if row[0]
+    ]
+    return render_template(
+        "admin_feedback_list.html",
+        feedback_items=feedback_items,
+        filters=filters,
+        status_options=FEEDBACK_STATUSES,
+        type_options=category_options,
+    )
+
+
+@admin_bp.route("/admin/feedback/<int:feedback_id>")
+@admin_required
+def admin_feedback_detail(feedback_id):
+    feedback_item = Feedback.query.get_or_404(feedback_id)
+    return render_template("admin_feedback_detail.html", feedback=feedback_item)
+
+
+@admin_bp.route("/admin/feedback/<int:feedback_id>/reply", methods=["POST"])
+@admin_required
+def reply_feedback(feedback_id):
+    feedback_item = Feedback.query.get_or_404(feedback_id)
+    reply_content = request.form.get("admin_reply", "").strip()
+    if not reply_content:
+        flash("请填写回复内容。", "error")
+        return redirect(url_for("admin.admin_feedback_detail", feedback_id=feedback_item.id))
+    if len(reply_content) > 1000:
+        flash("回复内容不能超过 1000 个字。", "error")
+        return redirect(url_for("admin.admin_feedback_detail", feedback_id=feedback_item.id))
+
+    admin = get_current_user()
+    feedback_item.admin_reply = reply_content
+    feedback_item.replied_by_id = admin.id
+    feedback_item.replied_at = datetime.utcnow()
+    feedback_item.status = "replied"
+    create_notification(
+        feedback_item.user_id,
+        "feedback_reply",
+        "你的反馈已收到回复",
+        f"管理员已回复你的问题反馈：{feedback_item.title}",
+        "feedback",
+        feedback_item.id,
+    )
+    log_admin_action(
+        admin.id,
+        "reply_feedback",
+        "feedback",
+        feedback_item.id,
+        f"category: {feedback_item.category}; title: {feedback_item.title}",
+    )
+    db.session.commit()
+    flash("反馈回复已发送给用户。", "success")
+    return redirect(url_for("admin.admin_feedback_detail", feedback_id=feedback_item.id))
+
+
+@admin_bp.route("/admin/feedback/<int:feedback_id>/close", methods=["POST"])
+@admin_required
+def close_feedback(feedback_id):
+    feedback_item = Feedback.query.get_or_404(feedback_id)
+    if feedback_item.status == "closed":
+        flash("该反馈已经关闭。", "info")
+        return redirect(url_for("admin.admin_feedback_detail", feedback_id=feedback_item.id))
+
+    previous_status = feedback_item.status
+    feedback_item.status = "closed"
+    log_admin_action(
+        get_current_user().id,
+        "close_feedback",
+        "feedback",
+        feedback_item.id,
+        f"status: {previous_status} -> closed; category: {feedback_item.category}; title: {feedback_item.title}",
+    )
+    db.session.commit()
+    flash("反馈已关闭。", "success")
+    return redirect(url_for("admin.admin_feedback_detail", feedback_id=feedback_item.id))
 
 
 @admin_bp.route("/admin/logs")
