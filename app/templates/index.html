@@ -559,11 +559,7 @@
                         </article>
                         {% endfor %}
                         {% elif section.is_selected %}
-                        <div class="home-groups-empty-state home-groups-filter-empty">
-                            <span aria-hidden="true">0</span>
-                            <h3>{{ section.empty_title }}</h3>
-                            <p>{{ section.empty_text }}</p>
-                        </div>
+                        <p class="home-groups-filter-empty">{{ section.empty_title }}</p>
                         {% endif %}
                     </section>
                     {% else %}

@@ -10028,23 +10028,12 @@ textarea.form-input {
 }
 
 .home-groups-filter-empty {
-  justify-items: start;
-  max-width: none;
   margin: 0 0 24px;
-  padding: 22px 0 28px;
+  padding: 0 0 24px;
   border-bottom: 1px solid #e7e7e7;
-  text-align: left;
-}
-
-.home-groups-filter-empty > span {
-  min-width: 42px;
-  height: 34px;
-  margin-bottom: 10px;
-  font-size: 17px;
-}
-
-.home-groups-filter-empty p {
-  max-width: 460px;
+  color: #595959;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 @media (max-width: 1180px) {
