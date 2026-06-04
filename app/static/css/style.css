@@ -9882,9 +9882,70 @@ textarea.form-input {
   margin-bottom: 28px;
 }
 
+/* Home group feed time filter */
+.groups-feed-section .home-feed-heading {
+  align-items: flex-start;
+}
+
+.home-feed-title {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.home-feed-subtitle {
+  margin: 0;
+  color: #595959;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.groups-feed-section .home-date-popover {
+  width: 150px;
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.home-date-options {
+  display: grid;
+  gap: 2px;
+}
+
+.home-date-option {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.home-date-option:hover,
+.home-date-option:focus-visible {
+  background: #f4f2ff;
+  color: #4f2fd7;
+  outline: 0;
+}
+
+.home-date-option.is-active {
+  background: #eee9ff;
+  color: #4f2fd7;
+}
+
+/* Home group feed grouped list */
 .home-group-feed {
   display: grid;
   gap: 0;
+}
+
+.home-group-feed-block {
+  display: grid;
+}
+
+.home-group-feed-block + .home-group-feed-block {
+  margin-top: 18px;
 }
 
 .home-feed-date {
@@ -9922,6 +9983,13 @@ textarea.form-input {
 
 .home-group-event-body {
   min-width: 0;
+}
+
+.home-group-card-date {
+  margin: 0 0 6px;
+  color: #555555;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .home-group-event h3 {
@@ -9985,6 +10053,26 @@ textarea.form-input {
   margin: 0 0 18px;
   font-size: 14px;
   line-height: 1.65;
+}
+
+.home-groups-filter-empty {
+  justify-items: start;
+  max-width: none;
+  margin: 0 0 24px;
+  padding: 22px 0 28px;
+  border-bottom: 1px solid #e7e7e7;
+  text-align: left;
+}
+
+.home-groups-filter-empty > span {
+  min-width: 42px;
+  height: 34px;
+  margin-bottom: 10px;
+  font-size: 17px;
+}
+
+.home-groups-filter-empty p {
+  max-width: 460px;
 }
 
 @media (max-width: 1180px) {
