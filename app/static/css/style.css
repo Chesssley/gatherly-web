@@ -8893,6 +8893,326 @@ textarea.form-input {
   }
 }
 
+/* Guest homepage */
+.guest-home {
+  overflow: hidden;
+  padding: 74px 0 58px;
+  background: #ffffff;
+}
+
+.guest-home-hero {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(320px, 560px) minmax(180px, 1fr);
+  gap: clamp(24px, 4vw, 58px);
+  align-items: center;
+  min-height: 438px;
+}
+
+.guest-hero-copy {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.guest-hero-copy .eyebrow {
+  margin-bottom: 14px;
+  color: var(--color-primary-dark);
+}
+
+.guest-hero-copy h1 {
+  max-width: 560px;
+  margin: 0;
+  color: #202124;
+  font-size: clamp(42px, 5vw, 70px);
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.guest-hero-copy p:not(.eyebrow) {
+  max-width: 520px;
+  margin: 22px 0 0;
+  color: #4f4f4f;
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.guest-primary-action {
+  min-width: 132px;
+  min-height: 44px;
+  margin-top: 28px;
+  border-color: #222222;
+  border-radius: 999px;
+  background: #222222;
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.guest-primary-action:hover {
+  border-color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
+.guest-hero-collage {
+  position: relative;
+  min-height: 390px;
+}
+
+.guest-photo-card {
+  position: absolute;
+  width: min(82%, 270px);
+  margin: 0;
+}
+
+.guest-photo-card::before {
+  position: absolute;
+  inset: 14px -13px -13px 18px;
+  z-index: 0;
+  border-radius: 999px;
+  background: #ffd7e5;
+  content: "";
+  transform: rotate(-7deg);
+}
+
+.guest-photo-card img {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.78;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.guest-photo-card figcaption,
+.guest-doodle {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: #292929;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.guest-photo-card figcaption {
+  right: 24px;
+  bottom: -7px;
+  background: #ffcf74;
+  transform: rotate(-5deg);
+}
+
+.guest-hero-collage.is-left .is-photo-top {
+  top: 18px;
+  right: 0;
+}
+
+.guest-hero-collage.is-left .is-photo-bottom {
+  bottom: 14px;
+  left: 8px;
+}
+
+.guest-hero-collage.is-right .is-photo-top {
+  top: 10px;
+  left: 0;
+}
+
+.guest-hero-collage.is-right .is-photo-bottom {
+  right: 6px;
+  bottom: 26px;
+}
+
+.guest-hero-collage.is-right .guest-photo-card::before {
+  background: #f9c95f;
+  transform: rotate(8deg);
+}
+
+.guest-hero-collage.is-left .is-photo-bottom::before {
+  background: #f7aac1;
+}
+
+.guest-hero-collage.is-right .is-photo-top::before {
+  background: #dcd0ff;
+}
+
+.guest-doodle {
+  background: #e2d6ff;
+  transform: rotate(5deg);
+}
+
+.guest-doodle.is-pin {
+  top: 132px;
+  left: 18px;
+}
+
+.guest-doodle.is-note {
+  right: 18px;
+  bottom: 92px;
+  min-width: 30px;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  font-size: 24px;
+}
+
+.guest-doodle.is-friends {
+  top: 96px;
+  right: 16px;
+}
+
+.guest-doodle.is-spark {
+  bottom: 88px;
+  left: 18px;
+  min-width: 32px;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  font-size: 28px;
+  transform: rotate(18deg);
+}
+
+.guest-events-section {
+  padding: 30px 0 76px;
+  background: #ffffff;
+}
+
+.guest-events-section .container {
+  max-width: 1120px;
+}
+
+.guest-events-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.guest-events-heading h2 {
+  margin: 0;
+  font-size: clamp(28px, 3vw, 38px);
+  line-height: 1.2;
+}
+
+.guest-event-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.guest-event-grid .discover-card {
+  min-width: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.guest-event-grid .discover-card .card-image {
+  height: 160px;
+  border-radius: 14px;
+}
+
+.guest-event-grid .discover-card .card-body {
+  padding: 14px 0 0;
+}
+
+.guest-event-grid .discover-card .card-title {
+  font-size: 18px;
+}
+
+@media (max-width: 980px) {
+  .guest-home {
+    padding-top: 54px;
+  }
+
+  .guest-home-hero {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .guest-hero-copy {
+    order: 1;
+  }
+
+  .guest-hero-collage {
+    order: 2;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    min-height: 0;
+  }
+
+  .guest-hero-collage.is-right {
+    display: none;
+  }
+
+  .guest-photo-card {
+    position: relative;
+    inset: auto !important;
+    width: 100%;
+  }
+
+  .guest-doodle {
+    display: none;
+  }
+
+  .guest-event-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .guest-home {
+    padding: 42px 0 36px;
+  }
+
+  .guest-home-hero {
+    width: min(100% - 28px, 520px);
+  }
+
+  .guest-hero-copy h1 {
+    font-size: 42px;
+  }
+
+  .guest-hero-copy p:not(.eyebrow) {
+    font-size: 15px;
+  }
+
+  .guest-primary-action {
+    width: 100%;
+  }
+
+  .guest-hero-collage {
+    gap: 12px;
+  }
+
+  .guest-photo-card figcaption {
+    right: 12px;
+    font-size: 11px;
+  }
+
+  .guest-events-section {
+    padding-bottom: 52px;
+  }
+
+  .guest-events-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .guest-event-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .guest-event-grid .discover-card .card-image {
+    height: 190px;
+  }
+}
+
 /* ============================================
    Meetup-style activity detail page (UI-06)
    ============================================ */
