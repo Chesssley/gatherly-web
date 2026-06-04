@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}完成注册 - 聚场 / Gatherly{% endblock %}
+
+{% block content %}
+<section class="signup-onboarding-page" data-signup-onboarding data-min-age="{{ min_age }}">
+  <div class="signup-onboarding-shell container">
+    <div class="signup-onboarding-art" aria-hidden="true">
+      <span class="signup-art-bubble signup-art-bubble-a"></span>
+      <span class="signup-art-bubble signup-art-bubble-b"></span>
+      <span class="signup-art-card signup-art-card-a">周末徒步</span>
+      <span class="signup-art-card signup-art-card-b">独立电影</span>
+      <span class="signup-art-card signup-art-card-c">桌游夜</span>
+    </div>
+
+    <form class="signup-onboarding-panel" method="post" action="{{ url_for('auth.signup_onboarding') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="signup-onboarding-header">
+        <p class="signup-onboarding-brand">聚场 / Gatherly</p>
+        <h1>完成你的新用户设置</h1>
+        <p>我们会根据这些选择，为你整理更合适的活动和同好圈。</p>
+      </div>
+
+      <div class="signup-progress" aria-label="注册进度">
+        <div class="signup-progress-track">
+          <span class="signup-progress-fill" data-onboarding-progress></span>
+        </div>
+        <ol class="signup-progress-steps">
+          <li class="is-active" data-onboarding-progress-step>使用目的</li>
+          <li data-onboarding-progress-step>生日</li>
+          <li data-onboarding-progress-step>偏好</li>
+          <li data-onboarding-progress-step>兴趣</li>
+          <li data-onboarding-progress-step>完成</li>
+        </ol>
+      </div>
+
+      {% if onboarding_errors %}
+        <div class="signup-onboarding-alert" role="alert">
+          {% for error in onboarding_errors %}
+            <p>{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="signup-onboarding-alert" role="alert" data-onboarding-error hidden></div>
+
+      <div class="signup-onboarding-step is-active" data-onboarding-step>
+        <div class="signup-step-heading">
+          <span>第 1 步</span>
+          <h2>你想怎样使用聚场？</h2>
+        </div>
+        <div class="signup-choice-grid">
+          {% for value, label in purpose_options.items() %}
+            <label class="signup-choice-card">
+              <input type="radio" name="purpose" value="{{ value }}" {% if form_values.get('purpose') == value %}checked{% endif %} required>
+              <span>{{ label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="signup-onboarding-step" data-onboarding-step hidden>
+        <div class="signup-step-heading">
+          <span>第 2 步</span>
+          <h2>告诉我们你的生日</h2>
+          <p>生日只用于确认注册资格，不会在个人主页公开展示。</p>
+        </div>
+        <label class="signup-date-field">
+          <span>生日</span>
+          <input class="form-input" type="date" name="birthdate" value="{{ form_values.get('birthdate', '') }}" required>
+        </label>
+      </div>
+
+      <div class="signup-onboarding-step" data-onboarding-step hidden>
+        <div class="signup-step-heading">
+          <span>第 3 步</span>
+          <h2>选择你的性别 / 偏好</h2>
+          <p>这会帮助聚场在推荐和安全设置中提供更贴近你的体验。</p>
+        </div>
+        <div class="signup-choice-grid">
+          {% for value, label in gender_options.items() %}
+            <label class="signup-choice-card">
+              <input type="radio" name="gender" value="{{ value }}" {% if form_values.get('gender') == value %}checked{% endif %} required>
+              <span>{{ label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="signup-onboarding-step" data-onboarding-step hidden>
+        <div class="signup-step-heading">
+          <span>第 4 步</span>
+          <h2>选择你感兴趣的主题</h2>
+          <p>至少选择 1 个，可以多选。</p>
+        </div>
+        <div class="signup-interest-toolbar">
+          <label class="sr-only" for="signup-interest-search">搜索兴趣</label>
+          <input id="signup-interest-search" class="form-input" type="search" placeholder="搜索兴趣" autocomplete="off" data-interest-search>
+          <span data-onboarding-selected-count>{{ selected_interests|length }}</span>
+        </div>
+        <div class="signup-interest-grid">
+          {% for category in interest_categories %}
+            <label class="signup-interest-chip" data-interest-option data-interest-name="{{ category.tag }}">
+              <input type="checkbox" name="interests" value="{{ category.tag }}" {% if category.tag in selected_interests %}checked{% endif %}>
+              <span aria-hidden="true">{{ category.icon }}</span>
+              <strong>{{ category.tag }}</strong>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="signup-onboarding-step" data-onboarding-step hidden>
+        <div class="signup-step-heading">
+          <span>第 5 步</span>
+          <h2>加入推荐同好圈</h2>
+          <p>你可以先加入感兴趣的圈子，也可以直接完成注册。</p>
+        </div>
+        {% if recommended_circles %}
+          <div class="signup-circle-grid">
+            {% for circle in recommended_circles %}
+              <label class="signup-circle-card">
+                <input type="checkbox" name="circle_ids" value="{{ circle.id }}" checked>
+                <span class="signup-circle-cover">
+                  {% if circle.cover_image %}
+                    <img src="{{ circle.cover_image|asset_url }}" alt="">
+                  {% else %}
+                    <span>{{ (circle.tag or circle.name or '圈')[:1] }}</span>
+                  {% endif %}
+                </span>
+                <span class="signup-circle-body">
+                  <strong>{{ circle.name }}</strong>
+                  <em>{{ circle.tag or '同好圈' }} · {{ circle.member_count or 0 }} 人</em>
+                  {% if circle.description %}
+                    <small>{{ circle.description|striptags|truncate(48) }}</small>
+                  {% endif %}
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="signup-empty-circles">
+            <strong>暂时没有匹配的推荐圈子</strong>
+            <p>完成注册后，你仍然可以在同好圈页面继续探索。</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="signup-onboarding-actions">
+        <button class="button button-ghost" type="button" data-onboarding-prev hidden>上一步</button>
+        <button class="button" type="button" data-onboarding-next>下一步</button>
+        <button class="button" type="submit" data-onboarding-submit hidden>完成注册</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

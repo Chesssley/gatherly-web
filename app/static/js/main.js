@@ -144,6 +144,153 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initEmailCodeCooldown();
 
+  const initSignupOnboarding = () => {
+    const root = document.querySelector("[data-signup-onboarding]");
+    if (!root) {
+      return;
+    }
+
+    const steps = Array.from(root.querySelectorAll("[data-onboarding-step]"));
+    const progressSteps = Array.from(root.querySelectorAll("[data-onboarding-progress-step]"));
+    const progressFill = root.querySelector("[data-onboarding-progress]");
+    const prevButton = root.querySelector("[data-onboarding-prev]");
+    const nextButton = root.querySelector("[data-onboarding-next]");
+    const submitButton = root.querySelector("[data-onboarding-submit]");
+    const errorBox = root.querySelector("[data-onboarding-error]");
+    const selectedCount = root.querySelector("[data-onboarding-selected-count]");
+    const interestSearch = root.querySelector("[data-interest-search]");
+    const interestOptions = Array.from(root.querySelectorAll("[data-interest-option]"));
+    const minAge = Number(root.dataset.minAge || 13);
+    let activeStep = 0;
+
+    const setError = message => {
+      if (!errorBox) {
+        return;
+      }
+      errorBox.textContent = message || "";
+      errorBox.hidden = !message;
+    };
+
+    const selectedInterests = () => Array.from(root.querySelectorAll("input[name='interests']:checked"));
+
+    const calculateAge = value => {
+      if (!value) {
+        return null;
+      }
+      const birthday = new Date(`${value}T00:00:00`);
+      const today = new Date();
+      if (Number.isNaN(birthday.getTime()) || birthday > today) {
+        return null;
+      }
+      let age = today.getFullYear() - birthday.getFullYear();
+      const monthDiff = today.getMonth() - birthday.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthday.getDate())) {
+        age -= 1;
+      }
+      return age;
+    };
+
+    const validateStep = index => {
+      if (index === 0 && !root.querySelector("input[name='purpose']:checked")) {
+        return "请选择你使用聚场的主要目的。";
+      }
+      if (index === 1) {
+        const value = root.querySelector("input[name='birthdate']")?.value || "";
+        const age = calculateAge(value);
+        if (age === null) {
+          return "请填写有效的生日。";
+        }
+        if (age < minAge) {
+          return `你需要年满 ${minAge} 岁才能注册聚场。`;
+        }
+      }
+      if (index === 2 && !root.querySelector("input[name='gender']:checked")) {
+        return "请选择性别 / 偏好，或选择暂不透露。";
+      }
+      if (index === 3 && !selectedInterests().length) {
+        return "请至少选择 1 个兴趣。";
+      }
+      return "";
+    };
+
+    const updateSelectedCount = () => {
+      if (selectedCount) {
+        selectedCount.textContent = selectedInterests().length;
+      }
+    };
+
+    const render = () => {
+      steps.forEach((step, index) => {
+        const isActive = index === activeStep;
+        step.classList.toggle("is-active", isActive);
+        step.hidden = !isActive;
+      });
+      progressSteps.forEach((step, index) => {
+        step.classList.toggle("is-active", index === activeStep);
+        step.classList.toggle("is-complete", index < activeStep);
+      });
+      if (progressFill) {
+        progressFill.style.width = `${((activeStep + 1) / steps.length) * 100}%`;
+      }
+      if (prevButton) {
+        prevButton.hidden = activeStep === 0;
+      }
+      if (nextButton) {
+        nextButton.hidden = activeStep === steps.length - 1;
+      }
+      if (submitButton) {
+        submitButton.hidden = activeStep !== steps.length - 1;
+      }
+      updateSelectedCount();
+    };
+
+    nextButton?.addEventListener("click", () => {
+      const error = validateStep(activeStep);
+      if (error) {
+        setError(error);
+        return;
+      }
+      setError("");
+      activeStep = Math.min(activeStep + 1, steps.length - 1);
+      render();
+    });
+
+    prevButton?.addEventListener("click", () => {
+      setError("");
+      activeStep = Math.max(activeStep - 1, 0);
+      render();
+    });
+
+    root.querySelector("form")?.addEventListener("submit", event => {
+      for (let index = 0; index < steps.length - 1; index += 1) {
+        const error = validateStep(index);
+        if (error) {
+          event.preventDefault();
+          activeStep = index;
+          render();
+          setError(error);
+          return;
+        }
+      }
+    });
+
+    root.querySelectorAll("input[name='interests']").forEach(input => {
+      input.addEventListener("change", updateSelectedCount);
+    });
+
+    interestSearch?.addEventListener("input", () => {
+      const query = interestSearch.value.trim().toLowerCase();
+      interestOptions.forEach(option => {
+        const name = (option.dataset.interestName || option.textContent || "").toLowerCase();
+        option.hidden = Boolean(query) && !name.includes(query);
+      });
+    });
+
+    render();
+  };
+
+  initSignupOnboarding();
+
   const initAuthModal = () => {
     const modal = document.querySelector("[data-auth-modal]");
     if (!modal) {
@@ -378,6 +525,10 @@ document.addEventListener("DOMContentLoaded", () => {
       setFormBusy(registerCodeForm, true);
       try {
         const result = await postForm(registerCodeForm, null, formData);
+        if (result.redirect) {
+          window.location.href = result.redirect;
+          return;
+        }
         const email = registerCodeForm.querySelector("input[name='email']")?.value || "";
         loginForm?.querySelector("input[name='email']")?.setAttribute("value", email);
         const loginEmail = loginForm?.querySelector("input[name='email']");
