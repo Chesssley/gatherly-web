@@ -212,20 +212,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const navigateToSearch = () => {
         const query = keywordInput.value.trim();
-        if (!query) {
+        const city = cityInput?.value.trim() || "";
+        if (!query && !city) {
           closeMenu();
           return false;
         }
 
         const url = new URL(searchUrl, window.location.origin);
-        url.searchParams.set("q", query);
-        const city = cityInput?.value.trim();
+        if (query) {
+          url.searchParams.set("q", query);
+        }
         if (city) {
           url.searchParams.set("city", city);
         }
         window.location.href = url.toString();
         return true;
       };
+
+      form.addEventListener("click", event => {
+        const clickedControl = event.target.closest?.("input, button");
+        if (
+          clickedControl
+          || event.target.closest(".search-suggestions-menu")
+        ) {
+          return;
+        }
+
+        if (!cityInput) {
+          keywordInput.focus();
+          return;
+        }
+
+        const cityRect = cityInput.getBoundingClientRect();
+        const keywordRect = keywordInput.getBoundingClientRect();
+        const dividerX = (keywordRect.right + cityRect.left) / 2;
+        const targetInput = event.clientX >= dividerX ? cityInput : keywordInput;
+        targetInput.focus();
+      });
 
       keywordInput.addEventListener("input", queueFetch);
       keywordInput.addEventListener("focus", () => {

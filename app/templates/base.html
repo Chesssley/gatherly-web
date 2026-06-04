@@ -250,6 +250,14 @@
     </div>
   </footer>
 
+  {% set email_code_success_alert = session.pop('email_code_success_alert', None) %}
+  {% if email_code_success_alert %}
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        alert("若在邮箱没有看到验证码，请检查邮箱垃圾箱");
+      }, { once: true });
+    </script>
+  {% endif %}
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

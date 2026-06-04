@@ -17,6 +17,8 @@ from app.models import (
     Circle,
     CircleMember,
     Comment,
+    CommentImage,
+    Interaction,
     ProfileVisibility,
     Registration,
     TrustScoreLog,
@@ -49,6 +51,10 @@ SEARCH_QUERY_MAX_LENGTH = 50
 SEARCH_SUGGESTION_LIMIT = 5
 SEARCH_RESULT_ACTIVITY_LIMIT = 60
 SEARCH_RESULT_LIST_LIMIT = 12
+RECENT_CIRCLE_ACTIVITY_LIMIT = 20
+NEW_CIRCLE_ACTIVITY_TAG = "新同好圈"
+MY_CIRCLE_ACTIVITY_TAG = "来自我的同好圈"
+SPECIAL_ACTIVITY_FILTER_TAGS = {NEW_CIRCLE_ACTIVITY_TAG, MY_CIRCLE_ACTIVITY_TAG}
 CANCEL_REASON_LABELS = {
     "time_conflict": "时间冲突",
     "venue_issue": "场地问题",
@@ -62,6 +68,8 @@ ACTIVITY_IMAGE_LIMIT = upload_limit("activity_cover")
 ACTIVITY_IMAGE_UPLOAD_SUBDIR = "activities"
 ACTIVITY_CARD_AVATAR_LIMIT = 4
 ACTIVITY_ATTENDEE_DISPLAY_LIMIT = 7
+COMMENT_IMAGE_LIMIT = upload_limit("comment_images")
+COMMENT_UPLOAD_SUBDIR = "comments"
 DEFAULT_ACTIVITY_TIMEZONE = "Asia/Shanghai"
 CHINESE_WEEKDAYS = ("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")
 
@@ -153,6 +161,69 @@ def _validated_circle_id(raw_circle_id):
         return None
     circle = Circle.query.filter_by(id=circle_id, status="active").first()
     return circle.id if circle else None
+
+
+def _recent_circle_ids(limit=RECENT_CIRCLE_ACTIVITY_LIMIT):
+    order_by = (
+        (Circle.created_at.desc(), Circle.id.desc())
+        if hasattr(Circle, "created_at")
+        else (Circle.id.desc(),)
+    )
+    return [
+        circle.id
+        for circle in (
+            Circle.query.filter_by(status="active")
+            .order_by(*order_by)
+            .limit(limit)
+            .all()
+        )
+    ]
+
+
+def _joined_circle_ids(user_id):
+    if not user_id:
+        return []
+    return [
+        row.circle_id
+        for row in CircleMember.query.filter_by(user_id=user_id, status="active").all()
+    ]
+
+
+def _empty_activity_query(query):
+    return query.filter(Activity.id.is_(None))
+
+
+def _apply_activity_category_filter(query, selected_category, joined_circle_ids=None):
+    if not selected_category:
+        return query
+
+    if selected_category == NEW_CIRCLE_ACTIVITY_TAG:
+        recent_circle_ids = _recent_circle_ids()
+        return (
+            query.filter(Activity.circle_id.in_(recent_circle_ids))
+            if recent_circle_ids
+            else _empty_activity_query(query)
+        )
+
+    if selected_category == MY_CIRCLE_ACTIVITY_TAG:
+        joined_circle_ids = joined_circle_ids or []
+        return (
+            query.filter(Activity.circle_id.in_(joined_circle_ids))
+            if joined_circle_ids
+            else _empty_activity_query(query)
+        )
+
+    category_filters = [
+        Activity.tags.ilike(f"%{tag}%")
+        for tag in _interest_filter_tags(selected_category)
+    ]
+    return query.filter(or_(*category_filters))
+
+
+def _activity_empty_message(selected_category):
+    if selected_category == NEW_CIRCLE_ACTIVITY_TAG:
+        return "最近创建的同好圈暂时还没有关联活动。"
+    return None
 
 
 def _selected_activity_tags():
@@ -491,10 +562,149 @@ def _get_activity_attendees(activity):
 
 def _get_activity_comments(activity_id):
     return (
-        Comment.query.filter_by(activity_id=activity_id, status="published")
-        .order_by(Comment.created_at.desc(), Comment.id.desc())
+        Comment.query.filter_by(activity_id=activity_id)
+        .order_by(Comment.created_at.asc(), Comment.id.asc())
         .all()
     )
+
+
+def _interaction_counts(target_type, target_id):
+    rows = (
+        db.session.query(Interaction.action_type, func.count(Interaction.id))
+        .filter(Interaction.target_type == target_type, Interaction.target_id == target_id)
+        .group_by(Interaction.action_type)
+        .all()
+    )
+    counts = {"like": 0, "favorite": 0, "share": 0}
+    counts.update({action: count for action, count in rows})
+    return counts
+
+
+def _user_interaction_states(user_id, target_type, target_id):
+    if not user_id:
+        return {"like": False, "favorite": False}
+
+    rows = Interaction.query.filter(
+        Interaction.user_id == user_id,
+        Interaction.target_type == target_type,
+        Interaction.target_id == target_id,
+        Interaction.action_type.in_(["like", "favorite"]),
+    ).all()
+    actions = {row.action_type for row in rows}
+    return {
+        "like": "like" in actions,
+        "favorite": "favorite" in actions,
+    }
+
+
+def _toggle_interaction(user_id, target_type, target_id, action):
+    existing = Interaction.query.filter_by(
+        user_id=user_id,
+        target_type=target_type,
+        target_id=target_id,
+        action_type=action,
+    ).first()
+    if existing is not None and action in {"like", "favorite"}:
+        db.session.delete(existing)
+        db.session.commit()
+        return "removed"
+
+    if existing is None:
+        db.session.add(
+            Interaction(
+                user_id=user_id,
+                target_type=target_type,
+                target_id=target_id,
+                action_type=action,
+            )
+        )
+        db.session.commit()
+        return "added"
+
+    return "unchanged"
+
+
+def _can_manage_activity_comment(user, activity, author_id):
+    return bool(
+        user
+        and activity
+        and (
+            user.role == "admin"
+            or activity.organizer_id == user.id
+            or author_id == user.id
+        )
+    )
+
+
+def _build_activity_comment_item(
+    comment,
+    current_user,
+    activity,
+    replies_by_parent,
+    depth=0,
+    include_hidden=False,
+):
+    is_published = comment.status == "published"
+    is_visible = is_published or (include_hidden and comment.status == "hidden")
+    return {
+        "comment": comment,
+        "is_deleted": not is_visible,
+        "depth": min(depth, 3),
+        "counts": _interaction_counts("comment", comment.id) if is_published else {"like": 0, "favorite": 0},
+        "states": (
+            _user_interaction_states(
+                current_user.id if current_user else None,
+                "comment",
+                comment.id,
+            )
+            if is_published
+            else {"like": False, "favorite": False}
+        ),
+        "can_delete": (
+            is_published
+            and _can_manage_activity_comment(current_user, activity, comment.author_id)
+        ),
+        "replies": [
+            _build_activity_comment_item(
+                reply,
+                current_user,
+                activity,
+                replies_by_parent,
+                depth + 1,
+                include_hidden=include_hidden,
+            )
+            for reply in replies_by_parent.get(comment.id, [])
+            if reply.status == "published" or (include_hidden and reply.status == "hidden")
+        ],
+    }
+
+
+def _build_activity_comment_threads(comments, current_user, activity, include_hidden=False):
+    replies_by_parent = {}
+    for comment in comments:
+        if comment.parent_id is not None:
+            replies_by_parent.setdefault(comment.parent_id, []).append(comment)
+
+    root_comments = []
+    for comment in comments:
+        if comment.parent_id is not None:
+            continue
+        has_visible_replies = any(
+            reply.status == "published" or (include_hidden and reply.status == "hidden")
+            for reply in replies_by_parent.get(comment.id, [])
+        )
+        if comment.status == "published" or (include_hidden and comment.status == "hidden") or has_visible_replies:
+            root_comments.append(
+                _build_activity_comment_item(
+                    comment,
+                    current_user,
+                    activity,
+                    replies_by_parent,
+                    include_hidden=include_hidden,
+                )
+            )
+
+    return root_comments
 
 
 def _activity_to_summary(
@@ -736,10 +946,10 @@ def search():
     selected_time = request.args.get("time", "any").strip() or "any"
     if selected_time not in {"any", "today", "tomorrow", "week", "weekend", "month"}:
         selected_time = "any"
-    if not query_text and not browse_all_mode:
+    if not query_text and not city_query and not browse_all_mode:
         return redirect(url_for("activity.index"))
 
-    if browse_all_mode and not query_text:
+    if not query_text:
         activity_query = Activity.query.filter(Activity.status == "open")
     else:
         activity_query = _activity_search_query(query_text)
@@ -748,12 +958,11 @@ def search():
         activity_query = activity_query.filter(
             or_(Activity.city.ilike(city_pattern), Activity.location.ilike(city_pattern))
         )
-    if selected_category:
-        category_filters = [
-            Activity.tags.ilike(f"%{tag}%")
-            for tag in _interest_filter_tags(selected_category)
-        ]
-        activity_query = activity_query.filter(or_(*category_filters))
+    activity_query = _apply_activity_category_filter(
+        activity_query,
+        selected_category,
+        _joined_circle_ids(session.get("user_id")),
+    )
     db_activities = _safe_search_rows(
         activity_query.order_by(Activity.start_time.asc(), Activity.id.desc()),
         SEARCH_RESULT_ACTIVITY_LIMIT,
@@ -835,6 +1044,8 @@ def search():
         selected_tag="",
         selected_category=selected_category,
         selected_time=selected_time,
+        activity_empty_message=_activity_empty_message(selected_category),
+        special_activity_filter_tags=SPECIAL_ACTIVITY_FILTER_TAGS,
         visible_tag_count=len(OFFICIAL_INTEREST_TAGS),
         favorite_activity_ids=favorite_activity_ids,
     )
@@ -882,6 +1093,8 @@ def _render_homepage_fallback():
         selected_tag=selected_category,
         selected_category=selected_category,
         selected_time=selected_time,
+        activity_empty_message=_activity_empty_message(selected_category),
+        special_activity_filter_tags=SPECIAL_ACTIVITY_FILTER_TAGS,
         visible_tag_count=len(OFFICIAL_INTEREST_TAGS),
         favorite_activity_ids=set(),
         registered_activity_ids=set(),
@@ -903,13 +1116,13 @@ def _index_impl():
     categories = interest_tags
     visible_tag_count = len(interest_tags)
     featured_db_activities = Activity.query.filter(Activity.status == "open").all()
+    current_user = None
+    joined_circle_ids = []
+    if "user_id" in session:
+        current_user = User.query.get(session["user_id"])
+        joined_circle_ids = _joined_circle_ids(session["user_id"])
     query = Activity.query
-    if selected_category:
-        category_filters = [
-            Activity.tags.ilike(f"%{tag}%")
-            for tag in _interest_filter_tags(selected_category)
-        ]
-        query = query.filter(or_(*category_filters))
+    query = _apply_activity_category_filter(query, selected_category, joined_circle_ids)
     db_activities = query.all()
     reg_counts = dict(
         db.session.query(Registration.activity_id, func.count(Registration.id))
@@ -981,8 +1194,7 @@ def _index_impl():
         )
     )
     current_user_city = None
-    if "user_id" in session:
-        current_user = User.query.get(session["user_id"])
+    if current_user:
         current_user_city = current_user.city if current_user else None
     normalized_activities = _sort_same_city_first(normalized_activities, current_user_city)
     hot_activity_ids = {
@@ -1032,13 +1244,10 @@ def _index_impl():
 
     favorite_activity_ids = set()
     registered_activity_ids = set()
-    current_user = None
-    joined_circle_ids = []
     favorite_rows = []
     registered_rows = []
     if "user_id" in session:
         user_id = session["user_id"]
-        current_user = User.query.get(user_id)
         favorite_rows = (
             ActivityFavorite.query.filter_by(user_id=user_id)
             .order_by(ActivityFavorite.created_at.desc())
@@ -1055,10 +1264,6 @@ def _index_impl():
 
         favorite_activity_ids = {favorite.activity_id for favorite in favorite_rows}
         registered_activity_ids = {registration.activity_id for registration in registered_rows}
-        joined_circle_ids = [
-            row.circle_id
-            for row in CircleMember.query.filter_by(user_id=user_id, status="active").all()
-        ]
 
     circle_activity_counts = dict(
         db.session.query(Activity.circle_id, func.count(Activity.id))
@@ -1185,6 +1390,8 @@ def _index_impl():
         selected_tag=selected_category,
         selected_category=selected_category,
         selected_time=selected_time,
+        activity_empty_message=_activity_empty_message(selected_category),
+        special_activity_filter_tags=SPECIAL_ACTIVITY_FILTER_TAGS,
         visible_tag_count=visible_tag_count,
         favorite_activity_ids=favorite_activity_ids,
         registered_activity_ids=registered_activity_ids,
@@ -1306,8 +1513,21 @@ def activity_detail(activity_id):
         abort(404)
     max_participants = db_activity.max_participants
     preparation = db_activity.preparation
-    comments = _get_activity_comments(activity_id)
     attendees = _get_activity_attendees(db_activity)
+    current_user = User.query.get(session["user_id"]) if "user_id" in session else None
+    comments = _get_activity_comments(activity_id)
+    include_hidden_comments = bool(current_user and current_user.role == "admin")
+    visible_comment_count = sum(
+        comment.status == "published"
+        or (include_hidden_comments and comment.status == "hidden")
+        for comment in comments
+    )
+    comment_threads = _build_activity_comment_threads(
+        comments,
+        current_user,
+        db_activity,
+        include_hidden=include_hidden_comments,
+    )
 
     user_registered = False
     is_favorited = False
@@ -1326,7 +1546,6 @@ def activity_detail(activity_id):
             and registration.status in RATING_ELIGIBLE_STATUSES
         )
 
-    current_user = User.query.get(session["user_id"]) if "user_id" in session else None
     can_manage_activity = _can_manage_activity(current_user, db_activity)
     activity_phase = _activity_phase(db_activity)
     is_cancel_action = activity_phase == "upcoming"
@@ -1406,8 +1625,10 @@ def activity_detail(activity_id):
         activity_phase=activity_phase,
         attendees=attendees[:ACTIVITY_ATTENDEE_DISPLAY_LIMIT],
         attendee_overflow_count=max(0, len(attendees) - ACTIVITY_ATTENDEE_DISPLAY_LIMIT),
-        comments=comments,
-        comment_count=len(comments),
+        comments=comment_threads,
+        comment_count=visible_comment_count,
+        comment_image_limit=COMMENT_IMAGE_LIMIT,
+        current_user=current_user,
     )
 
 
@@ -1756,25 +1977,102 @@ def register_activity(activity_id):
 
 
 @activity_bp.route("/activity/<int:activity_id>/comments", methods=["POST"])
-@login_required
 def comment_activity(activity_id):
     Activity.query.get_or_404(activity_id)
+    if "user_id" not in session:
+        return redirect(url_for("auth.login", next=url_for("activity.activity_detail", activity_id=activity_id)))
+
     content = request.form.get("content", "").strip()
-    if not content:
-        flash("请填写评论内容。", "error")
+    parent_id = request.form.get("parent_id", type=int)
+    parent_comment = None
+    if parent_id:
+        parent_comment = Comment.query.filter_by(
+            id=parent_id,
+            activity_id=activity_id,
+            status="published",
+        ).first()
+        if parent_comment is None:
+            flash("无法回复不存在或已删除的评论。", "error")
+            return redirect(url_for("activity.activity_detail", activity_id=activity_id, _anchor="activity-comments"))
+
+    try:
+        validated_images = validate_upload_files(
+            request.files.getlist("images"),
+            "comment_images",
+        )
+        image_paths = save_image_files(validated_images, COMMENT_UPLOAD_SUBDIR)
+    except ValueError as exc:
+        flash(str(exc), "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id, _anchor="activity-comments"))
+
+    if not content and not image_paths:
+        flash("评论内容不能为空。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id, _anchor="activity-comments"))
+
     if len(content) > 1000:
         flash("评论内容不能超过 1000 个字符。", "error")
+        delete_saved_images(image_paths)
         return redirect(url_for("activity.activity_detail", activity_id=activity_id, _anchor="activity-comments"))
 
     comment = Comment(
         author_id=session["user_id"],
         activity_id=activity_id,
-        content=content,
+        parent_id=parent_comment.id if parent_comment else None,
+        content=content or " ",
     )
-    db.session.add(comment)
+    try:
+        db.session.add(comment)
+        db.session.flush()
+        for image_url in image_paths:
+            db.session.add(CommentImage(comment_id=comment.id, image_url=image_url))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        delete_saved_images(image_paths)
+        flash("评论发布失败，请稍后重试。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id, _anchor="activity-comments"))
+
+    flash("回复已发布。" if parent_comment else "评论已发布。", "success")
+    return redirect(url_for("activity.activity_detail", activity_id=activity_id, _anchor=f"comment-{comment.id}"))
+
+
+@activity_bp.route("/activity/comment/<int:comment_id>/delete", methods=["POST"])
+def delete_activity_comment(comment_id):
+    if "user_id" not in session:
+        flash("请先登录后再删除内容。", "error")
+        return redirect(url_for("auth.login"))
+
+    comment = Comment.query.get_or_404(comment_id)
+    if not comment.activity_id:
+        abort(404)
+    db_activity = Activity.query.get_or_404(comment.activity_id)
+    current_user = User.query.get(session["user_id"])
+    if not _can_manage_activity_comment(current_user, db_activity, comment.author_id):
+        flash("没有权限删除该内容。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=db_activity.id, _anchor=f"comment-{comment.id}"))
+
+    comment.status = "deleted"
     db.session.commit()
-    flash("评论已发布。", "success")
+    flash("评论已删除。", "success")
+    return redirect(url_for("activity.activity_detail", activity_id=db_activity.id, _anchor="activity-comments"))
+
+
+@activity_bp.route("/activity/<int:activity_id>/comment/<int:comment_id>/interact/<action>", methods=["POST"])
+def interact_activity_comment(activity_id, comment_id, action):
+    if action not in {"like", "favorite"}:
+        flash("不支持的互动类型。", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+    if "user_id" not in session:
+        return redirect(url_for("auth.login", next=url_for("activity.activity_detail", activity_id=activity_id)))
+
+    Activity.query.get_or_404(activity_id)
+    comment = Comment.query.filter_by(
+        id=comment_id,
+        activity_id=activity_id,
+        status="published",
+    ).first_or_404()
+    _toggle_interaction(session["user_id"], "comment", comment.id, action)
+    flash("操作已记录。", "success")
     return redirect(url_for("activity.activity_detail", activity_id=activity_id, _anchor=f"comment-{comment.id}"))
 
 

@@ -35,6 +35,131 @@
     {% endif %}
 {% endmacro %}
 
+{% macro circle_icon(name) %}
+<svg class="circle-ui-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    {% if name == "heart" %}
+    <path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"></path>
+    {% elif name == "comment" %}
+    <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.4 9.4 0 0 1-4.2-1.3L3 20l1.5-4.3A8.3 8.3 0 0 1 3 11.5a9 9 0 0 1 18 0Z"></path>
+    {% elif name == "bookmark" %}
+    <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z"></path>
+    {% elif name == "reply" %}
+    <path d="m9 17-5-5 5-5"></path><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path>
+    {% else %}
+    <circle cx="12" cy="12" r="9"></circle>
+    {% endif %}
+</svg>
+{% endmacro %}
+
+{% macro comment_avatar(user, size="small") %}
+    {% if user.avatar %}
+    <img class="avatar-{{ size }}" src="{{ user.avatar }}" alt="{{ user.nickname or user.username }}">
+    {% else %}
+    <span class="avatar-{{ size }} avatar-placeholder">{{ (user.nickname or user.username)[:1] }}</span>
+    {% endif %}
+{% endmacro %}
+
+{% macro render_activity_comment_thread(comment_item, activity, current_user) %}
+{% set comment = comment_item.comment %}
+<div class="comment-item {% if comment.parent_id %}comment-reply comment-level-{{ comment_item.depth }}{% endif %}" id="comment-{{ comment.id }}">
+    {% if comment_item.is_deleted %}
+    <p class="comment-deleted">该评论已删除</p>
+    {% else %}
+    <div class="comment-author-row">
+        <a class="profile-link" href="{{ url_for('profile.view_profile', user_id=comment.author.id) }}">
+            {{ comment_avatar(comment.author) }}
+            <strong>{{ comment.author.nickname or comment.author.username }}</strong>
+        </a>
+        <time datetime="{{ comment.created_at.isoformat() }}">{{ comment.created_at.strftime("%m-%d %H:%M") }}</time>
+    </div>
+    {% if comment.status == "hidden" %}
+    <span class="tag circle-hidden-tag">已隐藏</span>
+    {% endif %}
+    {% if comment.content|trim %}
+    <p>{{ comment.content }}</p>
+    {% endif %}
+    {% if comment.images %}
+    <div class="circle-image-grid comment-image-grid">
+        {% for image in comment.images %}
+        <a href="{{ image.image_url|asset_url }}" target="_blank" rel="noopener">
+            <img src="{{ image.image_url|asset_url }}" alt="评论图片 {{ loop.index }}">
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <div class="comment-action-bar" aria-label="评论操作">
+        {% if current_user %}
+        <form method="POST" action="{{ url_for('activity.interact_activity_comment', activity_id=activity.id, comment_id=comment.id, action='like') }}">
+            <button class="circle-action-button comment-action-button {% if comment_item.states.like %}is-active{% endif %}" type="submit">
+                {{ circle_icon("heart") }}<span>{{ comment_item.counts.like }}</span>
+            </button>
+        </form>
+        <form method="POST" action="{{ url_for('activity.interact_activity_comment', activity_id=activity.id, comment_id=comment.id, action='favorite') }}">
+            <button class="circle-action-button comment-action-button {% if comment_item.states.favorite %}is-active{% endif %}" type="submit">
+                {{ circle_icon("bookmark") }}<span>{{ comment_item.counts.favorite }}</span>
+            </button>
+        </form>
+        <button class="circle-action-button comment-action-button" type="button" data-reply-toggle="reply-form-{{ comment.id }}">{{ circle_icon("reply") }}<span>回复</span></button>
+        {% if comment_item.can_delete %}
+        <form method="POST" action="{{ url_for('activity.delete_activity_comment', comment_id=comment.id) }}" onsubmit="return confirm('确定删除这条评论吗？');">
+            <button class="circle-action-button comment-action-button circle-delete-button" type="submit">删除</button>
+        </form>
+        {% endif %}
+        {% else %}
+        <button class="circle-action-button comment-action-button" type="button" data-login-required>{{ circle_icon("heart") }}<span>{{ comment_item.counts.like }}</span></button>
+        <button class="circle-action-button comment-action-button" type="button" data-login-required>{{ circle_icon("bookmark") }}<span>{{ comment_item.counts.favorite }}</span></button>
+        <button class="circle-action-button comment-action-button" type="button" data-login-required>{{ circle_icon("reply") }}<span>回复</span></button>
+        {% endif %}
+    </div>
+
+    {% if current_user %}
+    <form
+        class="circle-comment-form comment-reply-form is-hidden"
+        id="reply-form-{{ comment.id }}"
+        method="POST"
+        action="{{ url_for('activity.comment_activity', activity_id=activity.id) }}"
+        enctype="multipart/form-data"
+    >
+        <input type="hidden" name="parent_id" value="{{ comment.id }}">
+        <label class="form-label" for="reply-content-{{ comment.id }}">回复 {{ comment.author.nickname or comment.author.username }}</label>
+        <textarea class="form-input" id="reply-content-{{ comment.id }}" name="content" rows="2"></textarea>
+        <div class="file-upload-control">
+            <input
+                class="circle-file-input"
+                type="file"
+                id="reply-images-{{ comment.id }}"
+                name="images"
+                accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
+                data-file-count-target="reply-image-count-{{ comment.id }}"
+                data-image-upload
+                data-max-count="{{ comment_image_limit.max_files }}"
+                data-max-bytes="{{ comment_image_limit.max_file_size }}"
+            >
+            <label class="file-upload-button" for="reply-images-{{ comment.id }}">选择图片</label>
+            <span class="file-upload-count" id="reply-image-count-{{ comment.id }}">未选择图片</span>
+        </div>
+        <button class="button button-small" type="submit">发布回复</button>
+    </form>
+    {% endif %}
+    {% endif %}
+
+    {% if comment_item.replies %}
+    <div class="comment-replies" data-reply-group>
+        {% for reply_item in comment_item.replies %}
+        <div data-reply-item {% if loop.index > 2 %}hidden{% endif %}>
+            {{ render_activity_comment_thread(reply_item, activity, current_user) }}
+        </div>
+        {% endfor %}
+        {% if comment_item.replies | length > 2 %}
+        <button class="reply-expand-button" type="button" data-replies-toggle data-hidden-count="{{ comment_item.replies | length - 2 }}" aria-expanded="false">
+            展开更多回复（{{ comment_item.replies | length - 2 }}）
+        </button>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}
+
 {% block content %}
 {% set activity_status = activity.status|default('', true)|lower %}
 {% set event_cancelled = activity_status == 'cancelled' %}
@@ -84,16 +209,16 @@
                     </div>
 
                     {% if activity.circle_id and circle_name %}
-                    <div class="meetup-detail-circle-card">
+                    <a class="meetup-detail-circle-card" href="{{ url_for('circle.circle_detail', circle_id=activity.circle_id) }}">
                         <img class="meetup-detail-circle-thumb"
                              src="{{ activity.circle_cover_url or url_for('static', filename='images/circle_covers/default.webp') }}"
                              alt="{{ circle_name }} 缩略图"
                              onerror="this.src='{{ url_for('static', filename='images/circle_covers/default.webp') }}'">
                         <div>
                             <span>所属同好圈</span>
-                            <strong><a href="{{ url_for('circle.circle_detail', circle_id=activity.circle_id) }}">{{ circle_name }}</a></strong>
+                            <strong>{{ circle_name }}</strong>
                         </div>
-                    </div>
+                    </a>
                     {% endif %}
                 </header>
 
@@ -157,33 +282,49 @@
                         <h2>评论</h2>
                         <span>{{ comment_count }} 条</span>
                     </div>
-                    {% if session.get('user_id') %}
-                    <form class="meetup-detail-comment-form" method="post" action="{{ url_for('activity.comment_activity', activity_id=activity.id) }}">
-                        <label class="sr-only" for="activity-comment-content">发表评论</label>
-                        <textarea id="activity-comment-content" name="content" rows="3" maxlength="1000" placeholder="分享你对活动的想法" required></textarea>
+                    <div class="comment-list">
+                        {% for comment_item in comments %}
+                        {{ render_activity_comment_thread(comment_item, activity, current_user) }}
+                        {% endfor %}
+                        {% if not comments %}
+                        <p class="meetup-detail-muted">暂无公开评论，欢迎分享你的想法。</p>
+                        {% endif %}
+                    </div>
+
+                    {% if current_user %}
+                    <form
+                        class="circle-comment-form"
+                        method="POST"
+                        action="{{ url_for('activity.comment_activity', activity_id=activity.id) }}"
+                        enctype="multipart/form-data"
+                    >
+                        <label class="form-label" for="activity-comment-content">发表评论</label>
+                        <textarea class="form-input" id="activity-comment-content" name="content" rows="3"></textarea>
+                        <label class="form-label" for="activity-comment-images">评论图片</label>
+                        <div class="file-upload-control">
+                            <input
+                                class="circle-file-input"
+                                type="file"
+                                id="activity-comment-images"
+                                name="images"
+                                accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
+                                data-file-count-target="activity-comment-image-count"
+                                data-image-upload
+                                data-max-count="{{ comment_image_limit.max_files }}"
+                                data-max-bytes="{{ comment_image_limit.max_file_size }}"
+                            >
+                            <label class="file-upload-button" for="activity-comment-images">选择图片</label>
+                            <span class="file-upload-count" id="activity-comment-image-count">未选择图片</span>
+                        </div>
                         <button class="button button-small" type="submit">发布评论</button>
                     </form>
                     {% else %}
-                    <p class="meetup-detail-muted"><a href="{{ url_for('auth.login', next=url_for('activity.activity_detail', activity_id=activity.id)) }}">登录后</a>可以发表评论。</p>
-                    {% endif %}
-                    <div class="meetup-detail-comment-list">
-                        {% for comment in comments %}
-                        <article class="meetup-detail-comment" id="comment-{{ comment.id }}">
-                            <a class="meetup-detail-comment-author" href="{{ url_for('profile.view_profile', user_id=comment.author.id) }}">
-                                {% if comment.author.avatar %}
-                                <img class="avatar-small" src="{{ comment.author.avatar }}" alt="{{ comment.author.nickname or comment.author.username }}">
-                                {% else %}
-                                <span class="avatar-small avatar-placeholder">{{ (comment.author.nickname or comment.author.username)[:1]|upper }}</span>
-                                {% endif %}
-                                <strong>{{ comment.author.nickname or comment.author.username }}</strong>
-                            </a>
-                            <time datetime="{{ comment.created_at.isoformat() }}">{{ comment.created_at.strftime('%m-%d %H:%M') }}</time>
-                            <p>{{ comment.content }}</p>
-                        </article>
-                        {% else %}
-                        <p class="meetup-detail-muted">暂无公开评论，欢迎分享你的想法。</p>
-                        {% endfor %}
+                    <div class="login-prompt">
+                        <p>登录或注册后可以评论、点赞、收藏和分享。</p>
+                        <a class="button button-small" href="{{ url_for('auth.login', next=request.url) }}">登录</a>
+                        <a class="button button-small button-secondary" href="{{ url_for('auth.register') }}">注册</a>
                     </div>
+                    {% endif %}
                 </section>
 
                 <section class="user-review-section meetup-detail-rating-section" id="participant-feedback">
@@ -280,77 +421,79 @@
                     {{ registration_button() }}
                 </div>
                 {% if can_manage_activity %}
-                <section class="meetup-detail-management-card">
-                    <h2>活动管理</h2>
-                    <form class="meetup-detail-management-form"
-                          method="post"
-                          action="{{ url_for('activity.update_activity_settings', activity_id=activity.id) }}">
-                        <label for="activity-circle-id">关联同好圈</label>
-                        <select id="activity-circle-id" name="circle_id">
-                            <option value="">不关联同好圈</option>
-                            {% for circle in activity_circles %}
-                            <option value="{{ circle.id }}" {% if activity.circle_id == circle.id %}selected{% endif %}>
-                                {{ circle.name }}{% if circle.tag %} · {{ circle.tag }}{% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
+                <details class="meetup-detail-management-card">
+                    <summary class="meetup-detail-management-summary">活动管理</summary>
+                    <div class="meetup-detail-management-body">
+                        <form class="meetup-detail-management-form"
+                              method="post"
+                              action="{{ url_for('activity.update_activity_settings', activity_id=activity.id) }}">
+                            <label for="activity-circle-id">关联同好圈</label>
+                            <select id="activity-circle-id" name="circle_id">
+                                <option value="">不关联同好圈</option>
+                                {% for circle in activity_circles %}
+                                <option value="{{ circle.id }}" {% if activity.circle_id == circle.id %}selected{% endif %}>
+                                    {{ circle.name }}{% if circle.tag %} · {{ circle.tag }}{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
 
-                        <label for="activity-primary-tag">兴趣探索分类</label>
-                        <select id="activity-primary-tag" name="primary_tag" required>
-                            {% for category in interest_categories %}
-                            <option value="{{ category.tag }}" {% if activity.category == category.tag %}selected{% endif %}>{{ category.icon }} {{ category.tag }}</option>
+                            <label for="activity-primary-tag">兴趣探索分类</label>
+                            <select id="activity-primary-tag" name="primary_tag" required>
+                                {% for category in interest_categories %}
+                                <option value="{{ category.tag }}" {% if activity.category == category.tag %}selected{% endif %}>{{ category.icon }} {{ category.tag }}</option>
+                                {% endfor %}
+                            </select>
+                            {% for tag in activity.tags %}
+                                {% if tag != activity.category %}
+                                <input type="hidden" name="tags" value="{{ tag }}">
+                                {% endif %}
                             {% endfor %}
-                        </select>
-                        {% for tag in activity.tags %}
-                            {% if tag != activity.category %}
-                            <input type="hidden" name="tags" value="{{ tag }}">
-                            {% endif %}
-                        {% endfor %}
 
-                        <button class="button button-small" type="submit">保存关联信息</button>
-                    </form>
-                    {% if event_cancelled %}
-                        <p>活动已取消{% if activity.cancel_reason %}：{{ activity.cancel_reason }}{% endif %}</p>
-                    {% elif event_ended %}
-                        <p>活动已结束，参与者互评和评论区域已开放。</p>
-                        <a class="button button-secondary" href="#participant-feedback">前往参与者互评</a>
-                    {% else %}
-                        <p>{{ '活动尚未开始，可以取消活动。取消时需要选择理由。' if is_cancel_action else '活动正在进行中，可以提前结束活动。结束后将开放参与者互评和评论区域。' }}</p>
-                        {% if is_cancel_action %}
-                        <details class="meetup-detail-cancel-details">
-                            <summary class="button button-danger">取消活动</summary>
+                            <button class="button button-small" type="submit">保存关联信息</button>
+                        </form>
+                        {% if event_cancelled %}
+                            <p>活动已取消{% if activity.cancel_reason %}：{{ activity.cancel_reason }}{% endif %}</p>
+                        {% elif event_ended %}
+                            <p>活动已结束，参与者互评和评论区域已开放。</p>
+                            <a class="button button-secondary" href="#participant-feedback">前往参与者互评</a>
+                        {% else %}
+                            <p>{{ '活动尚未开始，可以取消活动。取消时需要选择理由。' if is_cancel_action else '活动正在进行中，可以提前结束活动。结束后将开放参与者互评和评论区域。' }}</p>
+                            {% if is_cancel_action %}
+                            <details class="meetup-detail-cancel-details">
+                                <summary class="button button-danger">取消活动</summary>
+                                <form class="meetup-detail-management-form"
+                                      method="post"
+                                      action="{{ url_for('activity.close_activity', activity_id=activity.id) }}"
+                                      onsubmit="return confirm('确定取消这个活动吗？取消后不可恢复。');">
+                                <label for="cancel-reason">取消理由</label>
+                                <select id="cancel-reason" name="cancel_reason" required data-cancel-reason>
+                                    <option value="">请选择取消理由</option>
+                                    {% for reason_value, reason_label in cancel_reason_labels.items() %}
+                                        <option value="{{ reason_value }}">{{ reason_label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <label for="custom-reason" data-custom-reason-label hidden>自定义理由</label>
+                                <textarea id="custom-reason"
+                                          name="custom_reason"
+                                          rows="3"
+                                          maxlength="300"
+                                          placeholder="请填写具体取消理由"
+                                          data-custom-reason
+                                          hidden></textarea>
+                                    <button class="button button-danger" type="submit">确认取消活动</button>
+                                </form>
+                            </details>
+                            {% else %}
                             <form class="meetup-detail-management-form"
                                   method="post"
                                   action="{{ url_for('activity.close_activity', activity_id=activity.id) }}"
-                                  onsubmit="return confirm('确定取消这个活动吗？取消后不可恢复。');">
-                            <label for="cancel-reason">取消理由</label>
-                            <select id="cancel-reason" name="cancel_reason" required data-cancel-reason>
-                                <option value="">请选择取消理由</option>
-                                {% for reason_value, reason_label in cancel_reason_labels.items() %}
-                                    <option value="{{ reason_value }}">{{ reason_label }}</option>
-                                {% endfor %}
-                            </select>
-                            <label for="custom-reason" data-custom-reason-label hidden>自定义理由</label>
-                            <textarea id="custom-reason"
-                                      name="custom_reason"
-                                      rows="3"
-                                      maxlength="300"
-                                      placeholder="请填写具体取消理由"
-                                      data-custom-reason
-                                      hidden></textarea>
-                                <button class="button button-danger" type="submit">确认取消活动</button>
+                                  onsubmit="return confirm('确定结束这个活动吗？结束后将开放参与者互评。');">
+                                <button class="button button-danger" type="submit">结束活动</button>
                             </form>
-                        </details>
-                        {% else %}
-                        <form class="meetup-detail-management-form"
-                              method="post"
-                              action="{{ url_for('activity.close_activity', activity_id=activity.id) }}"
-                              onsubmit="return confirm('确定结束这个活动吗？结束后将开放参与者互评。');">
-                            <button class="button button-danger" type="submit">结束活动</button>
-                        </form>
+                            {% endif %}
                         {% endif %}
-                    {% endif %}
-                </section>
+                    </div>
+                </details>
                 {% endif %}
             </aside>
         </div>
