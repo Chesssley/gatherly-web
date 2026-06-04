@@ -4,11 +4,13 @@
 import os
 import time
 import unicodedata
-from datetime import datetime
+from datetime import date, datetime
 
 from flask import Blueprint, current_app, jsonify, render_template, redirect, url_for, flash, request, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.models import (
+    Circle,
+    CircleMember,
     MerchantVerification,
     User,
     create_notification,
@@ -42,7 +44,22 @@ LOGIN_FAILURE_WINDOW_SECONDS = 5 * 60
 LOGIN_FAILURE_MAX_ATTEMPTS = 5
 LOGIN_FAILURE_COOLDOWN_MESSAGE = "登录尝试过于频繁，请稍后再试。"
 LOGIN_FAILURE_MESSAGE = "邮箱或密码错误"
+PENDING_ONBOARDING_USER_SESSION_KEY = "pending_onboarding_user_id"
+SIGNUP_MIN_AGE = 13
 _login_failure_attempts = {}
+
+SIGNUP_PURPOSE_OPTIONS = {
+    "find_events": "发现活动，认识同好",
+    "host_events": "创建同好圈或组织活动",
+    "both": "两者都想试试",
+}
+
+SIGNUP_GENDER_OPTIONS = {
+    "female": "女性",
+    "male": "男性",
+    "non_binary": "非二元 / 多元性别",
+    "prefer_not": "暂不透露",
+}
 
 
 @auth_bp.before_app_request
@@ -87,6 +104,20 @@ def _get_register_form_draft():
 def _clear_register_form_draft():
     session.pop("register_form_draft", None)
     session.pop("register_email_draft", None)
+
+
+def _clear_pending_onboarding():
+    session.pop(PENDING_ONBOARDING_USER_SESSION_KEY, None)
+
+
+def _pending_onboarding_user():
+    user_id = session.get(PENDING_ONBOARDING_USER_SESSION_KEY)
+    if not user_id:
+        return None
+    user = User.query.get(user_id)
+    if user is None:
+        _clear_pending_onboarding()
+    return user
 
 
 def _session_email_code_attempts(now=None):
@@ -269,6 +300,97 @@ def _registration_form_errors(form):
     for field_errors in form.errors.values():
         errors.extend(field_errors)
     return errors
+
+
+def _signup_interest_categories():
+    try:
+        from app.routes.circle import CIRCLE_CREATE_INTEREST_CATEGORIES
+    except Exception:
+        return [
+            {"icon": "🎉", "tag": "社交活动"},
+            {"icon": "🎨", "tag": "兴趣爱好"},
+            {"icon": "🌲", "tag": "旅行与户外"},
+            {"icon": "🎮", "tag": "游戏"},
+            {"icon": "🎵", "tag": "音乐"},
+            {"icon": "💻", "tag": "科技"},
+        ]
+    return CIRCLE_CREATE_INTEREST_CATEGORIES
+
+
+def _signup_interest_tags():
+    return [category["tag"] for category in _signup_interest_categories()]
+
+
+def _selected_signup_interests():
+    available = set(_signup_interest_tags())
+    selected = []
+    for value in request.form.getlist("interests"):
+        tag = value.strip()
+        if tag in available and tag not in selected:
+            selected.append(tag)
+    return selected
+
+
+def _age_from_birthdate(raw_value):
+    try:
+        birthday = datetime.strptime((raw_value or "").strip(), "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    today = date.today()
+    if birthday > today:
+        return None
+    return today.year - birthday.year - ((today.month, today.day) < (birthday.month, birthday.day))
+
+
+def _recommended_onboarding_circles(interests, limit=6):
+    query = Circle.query.filter_by(status="active")
+    circles = (
+        query.order_by(Circle.is_pinned.desc(), Circle.is_system.desc(), Circle.member_count.desc())
+        .limit(40)
+        .all()
+    )
+    if not circles:
+        return []
+
+    interests = set(interests or [])
+
+    def circle_score(circle):
+        score = 0
+        searchable = " ".join(
+            value
+            for value in (circle.name, circle.tag, circle.description)
+            if value
+        )
+        if circle.tag in interests:
+            score += 20
+        score += sum(6 for interest in interests if interest and interest in searchable)
+        if circle.is_pinned:
+            score += 4
+        if circle.is_system:
+            score += 2
+        score += min(circle.member_count or 0, 50) / 50
+        return score
+
+    ranked = sorted(circles, key=circle_score, reverse=True)
+    return ranked[:limit]
+
+
+def _onboarding_template_context(user, form_values=None, errors=None):
+    interests = _selected_signup_interests() if request.method == "POST" else []
+    if not interests and user and user.interests:
+        interests = [item.strip() for item in user.interests.replace("，", ",").split(",") if item.strip()]
+    recommended_circles = _recommended_onboarding_circles(interests)
+    return {
+        "pending_user": user,
+        "purpose_options": SIGNUP_PURPOSE_OPTIONS,
+        "gender_options": SIGNUP_GENDER_OPTIONS,
+        "interest_categories": _signup_interest_categories(),
+        "selected_interests": interests,
+        "recommended_circles": recommended_circles,
+        "form_values": form_values or {},
+        "onboarding_errors": errors or [],
+        "min_age": SIGNUP_MIN_AGE,
+    }
 
 
 @auth_bp.route("/register/send-code", methods=["POST"])
@@ -837,10 +959,15 @@ def register():
             db.session.add(new_user)
             db.session.commit()
             _clear_register_form_draft()
-            flash("注册成功！现在可以登录了。", "success")
+            session[PENDING_ONBOARDING_USER_SESSION_KEY] = new_user.id
+            flash("邮箱验证通过，请完成最后几步设置。", "success")
             if wants_json:
-                return _json_success("注册成功！现在可以登录了。", email=email)
-            return redirect(url_for("auth.login"))
+                return _json_success(
+                    "邮箱验证通过，请继续完成注册。",
+                    email=email,
+                    redirect=url_for("auth.signup_onboarding"),
+                )
+            return redirect(url_for("auth.signup_onboarding"))
         except Exception as e:
             db.session.rollback()
             if "UNIQUE constraint failed" in str(e):
@@ -864,4 +991,95 @@ def register():
         "register.html",
         form=form,
         register_form_draft=register_form_draft,
+    )
+
+
+@auth_bp.route("/register/onboarding", methods=["GET", "POST"])
+def signup_onboarding():
+    if session.get("user_id"):
+        return redirect(url_for("activity.index"))
+
+    user = _pending_onboarding_user()
+    if user is None:
+        flash("请先完成邮箱验证后继续注册。", "error")
+        return redirect(url_for("auth.register"))
+
+    if request.method == "POST":
+        form_values = {
+            "purpose": request.form.get("purpose", "").strip(),
+            "birthdate": request.form.get("birthdate", "").strip(),
+            "gender": request.form.get("gender", "").strip(),
+        }
+        selected_interests = _selected_signup_interests()
+        selected_circle_ids = []
+        for value in request.form.getlist("circle_ids"):
+            try:
+                selected_circle_ids.append(int(value))
+            except (TypeError, ValueError):
+                continue
+
+        errors = []
+        if form_values["purpose"] not in SIGNUP_PURPOSE_OPTIONS:
+            errors.append("请选择你使用聚场的主要目的。")
+        age = _age_from_birthdate(form_values["birthdate"])
+        if age is None:
+            errors.append("请填写有效的生日。")
+        elif age < SIGNUP_MIN_AGE:
+            errors.append(f"你需要年满 {SIGNUP_MIN_AGE} 岁才能注册聚场。")
+        if form_values["gender"] not in SIGNUP_GENDER_OPTIONS:
+            errors.append("请选择性别 / 偏好，或选择暂不透露。")
+        if not selected_interests:
+            errors.append("请至少选择 1 个兴趣。")
+        if len(", ".join(selected_interests)) > 500:
+            errors.append("兴趣标签总长度不能超过 500 个字符。")
+
+        if errors:
+            return render_template(
+                "signup_onboarding.html",
+                **_onboarding_template_context(user, form_values=form_values, errors=errors),
+            )
+
+        try:
+            user.interests = ", ".join(selected_interests)
+            if selected_circle_ids:
+                circles = Circle.query.filter(
+                    Circle.id.in_(selected_circle_ids),
+                    Circle.status == "active",
+                ).all()
+                existing_memberships = {
+                    row.circle_id
+                    for row in CircleMember.query.filter_by(user_id=user.id).all()
+                }
+                for circle in circles:
+                    if circle.id in existing_memberships:
+                        continue
+                    db.session.add(
+                        CircleMember(
+                            circle_id=circle.id,
+                            user_id=user.id,
+                            status="active",
+                        )
+                    )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception("Failed to complete signup onboarding")
+            return render_template(
+                "signup_onboarding.html",
+                **_onboarding_template_context(
+                    user,
+                    form_values=form_values,
+                    errors=["完成注册失败，请稍后再试。"],
+                ),
+            )
+
+        session.clear()
+        session["user_id"] = user.id
+        session["nickname"] = user.nickname or user.username
+        flash("欢迎加入聚场！已根据你的兴趣准备首页推荐。", "success")
+        return redirect(url_for("activity.index"))
+
+    return render_template(
+        "signup_onboarding.html",
+        **_onboarding_template_context(user),
     )

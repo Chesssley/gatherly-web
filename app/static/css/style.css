@@ -14828,6 +14828,397 @@ main {
   align-items: start;
 }
 
+.signup-onboarding-page {
+  position: relative;
+  min-height: calc(100vh - 72px);
+  padding: 52px 0 72px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 14%, rgba(242, 191, 82, 0.24), transparent 28%),
+    radial-gradient(circle at 86% 20%, rgba(47, 111, 99, 0.16), transparent 30%),
+    var(--color-bg);
+}
+
+.signup-onboarding-shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(360px, 620px);
+  gap: 36px;
+  align-items: center;
+}
+
+.signup-onboarding-art {
+  position: relative;
+  min-height: 520px;
+}
+
+.signup-art-bubble,
+.signup-art-card {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(36, 86, 77, 0.18);
+  box-shadow: 0 18px 44px rgba(34, 34, 34, 0.12);
+}
+
+.signup-art-bubble {
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.signup-art-bubble-a {
+  width: 172px;
+  height: 172px;
+  top: 28px;
+  left: 18px;
+}
+
+.signup-art-bubble-b {
+  width: 240px;
+  height: 240px;
+  right: 16px;
+  bottom: 42px;
+  background: #e8f0ed;
+}
+
+.signup-art-card {
+  min-height: 52px;
+  padding: 0 18px;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--color-primary-dark);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.signup-art-card-a {
+  top: 118px;
+  right: 44px;
+}
+
+.signup-art-card-b {
+  top: 280px;
+  left: 0;
+}
+
+.signup-art-card-c {
+  right: 80px;
+  bottom: 126px;
+}
+
+.signup-onboarding-panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 22px;
+  width: 100%;
+  padding: 32px;
+  border: 1px solid rgba(222, 216, 207, 0.9);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 22px 60px rgba(34, 34, 34, 0.12);
+}
+
+.signup-onboarding-header {
+  display: grid;
+  gap: 8px;
+}
+
+.signup-onboarding-brand {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.signup-onboarding-header h1 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 32px;
+  line-height: 1.2;
+}
+
+.signup-onboarding-header p,
+.signup-step-heading p,
+.signup-empty-circles p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.signup-progress {
+  display: grid;
+  gap: 10px;
+}
+
+.signup-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8e1d8;
+}
+
+.signup-progress-fill {
+  display: block;
+  width: 20%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+  transition: width 0.2s ease;
+}
+
+.signup-progress-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.signup-progress-steps li {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signup-progress-steps li.is-active,
+.signup-progress-steps li.is-complete {
+  color: var(--color-primary-dark);
+}
+
+.signup-onboarding-alert {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #efb8b0;
+  border-radius: 8px;
+  background: #fff2f0;
+  color: #8a2f22;
+  font-size: 14px;
+}
+
+.signup-onboarding-alert[hidden] {
+  display: none;
+}
+
+.signup-onboarding-alert p {
+  margin: 0;
+}
+
+.signup-onboarding-step {
+  display: grid;
+  gap: 20px;
+}
+
+.signup-onboarding-step[hidden] {
+  display: none;
+}
+
+.signup-step-heading {
+  display: grid;
+  gap: 8px;
+}
+
+.signup-step-heading span {
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.signup-step-heading h2 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.24;
+}
+
+.signup-choice-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.signup-choice-card,
+.signup-interest-chip,
+.signup-circle-card {
+  cursor: pointer;
+}
+
+.signup-choice-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 58px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.signup-choice-card:has(input:checked),
+.signup-interest-chip:has(input:checked),
+.signup-circle-card:has(input:checked) {
+  border-color: var(--color-primary);
+  background: #edf6f2;
+  box-shadow: 0 0 0 2px rgba(47, 111, 99, 0.12);
+}
+
+.signup-date-field {
+  display: grid;
+  gap: 8px;
+  color: var(--color-primary-dark);
+  font-weight: 800;
+}
+
+.signup-interest-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.signup-interest-toolbar > span {
+  min-width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f0b84f;
+  color: #3a2a0d;
+  font-weight: 900;
+}
+
+.signup-interest-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-height: 320px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.signup-interest-chip {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.signup-interest-chip[hidden] {
+  display: none;
+}
+
+.signup-interest-chip strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
+.signup-circle-grid {
+  display: grid;
+  gap: 12px;
+  max-height: 380px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.signup-circle-card {
+  display: grid;
+  grid-template-columns: auto 74px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.signup-circle-cover {
+  width: 74px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #e8f0ed;
+}
+
+.signup-circle-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.signup-circle-cover > span {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary-dark);
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.signup-circle-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.signup-circle-body strong,
+.signup-circle-body small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signup-circle-body em {
+  color: var(--color-primary);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.signup-circle-body small {
+  color: var(--color-muted);
+}
+
+.signup-empty-circles {
+  padding: 18px;
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  background: #fbfaf7;
+}
+
+.signup-empty-circles strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--color-primary-dark);
+}
+
+.signup-onboarding-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.signup-onboarding-actions .button {
+  min-width: 128px;
+}
+
 @media (min-width: 620px) {
   .footer-nav {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -14894,5 +15285,62 @@ main {
   .feedback-detail-grid,
   .feedback-meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .signup-onboarding-page {
+    padding: 28px 0 48px;
+  }
+
+  .signup-onboarding-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .signup-onboarding-art {
+    display: none;
+  }
+
+  .signup-onboarding-panel {
+    padding: 22px 16px;
+  }
+
+  .signup-onboarding-header h1 {
+    font-size: 26px;
+  }
+
+  .signup-step-heading h2 {
+    font-size: 22px;
+  }
+
+  .signup-progress-steps {
+    grid-template-columns: repeat(5, minmax(42px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .signup-choice-card,
+  .signup-interest-chip,
+  .signup-circle-card {
+    overflow-wrap: anywhere;
+  }
+
+  .signup-interest-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .signup-circle-card {
+    grid-template-columns: auto 58px minmax(0, 1fr);
+  }
+
+  .signup-circle-cover {
+    width: 58px;
+  }
+
+  .signup-onboarding-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .signup-onboarding-actions .button {
+    width: 100%;
   }
 }
