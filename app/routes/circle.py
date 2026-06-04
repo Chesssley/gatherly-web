@@ -33,8 +33,14 @@ COMMENT_UPLOAD_SUBDIR = "comments"
 CIRCLE_COVER_ASSET_SUBDIR = "images/circle_covers/"
 CIRCLE_COVER_UPLOAD_SUBDIR = "circles"
 CIRCLE_COVER_UPLOAD_PREFIX = "images/circles/"
-CIRCLE_COVER_ALLOWED_SUBDIRS = (CIRCLE_COVER_ASSET_SUBDIR, CIRCLE_COVER_UPLOAD_PREFIX)
-DEFAULT_CIRCLE_COVER = f"{CIRCLE_COVER_ASSET_SUBDIR}default.webp"
+PLACEHOLDER_ASSET_SUBDIR = "images/placeholders/"
+CIRCLE_COVER_ALLOWED_SUBDIRS = (
+    CIRCLE_COVER_ASSET_SUBDIR,
+    CIRCLE_COVER_UPLOAD_PREFIX,
+    PLACEHOLDER_ASSET_SUBDIR,
+)
+LEGACY_DEFAULT_CIRCLE_COVER = f"{CIRCLE_COVER_ASSET_SUBDIR}default.webp"
+DEFAULT_CIRCLE_COVER = f"{PLACEHOLDER_ASSET_SUBDIR}circle-placeholder.svg"
 CIRCLE_COVER_LIMIT = upload_limit("circle_cover")
 OFFICIAL_CIRCLE_COVER_MAX_BYTES = 500 * 1024
 CIRCLE_COVER_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".svg"}
@@ -120,7 +126,7 @@ def _official_default_cover_paths():
         f"{CIRCLE_COVER_UPLOAD_PREFIX}{filename}"
         for filename in _LEGACY_OFFICIAL_CIRCLE_COVERS
     }
-    return current_paths | legacy_paths | {DEFAULT_CIRCLE_COVER}
+    return current_paths | legacy_paths | {DEFAULT_CIRCLE_COVER, LEGACY_DEFAULT_CIRCLE_COVER}
 
 
 def _is_official_default_cover(image_path):

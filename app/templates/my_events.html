@@ -79,9 +79,9 @@
       <article class="my-events-card">
         <a class="my-events-card-link" href="{{ url_for('activity.activity_detail', activity_id=activity.id) }}">
           <div class="my-events-card-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
-            <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
+            <img src="{{ activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}"
                  alt="{{ activity.title }}"
-                 onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                 onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
           </div>
           <div class="my-events-card-body">
             <div class="my-events-card-tags">
