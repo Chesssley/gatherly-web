@@ -130,6 +130,20 @@ def _available_activity_circles():
     )
 
 
+def _circle_cover_url(circle):
+    if not circle:
+        return ""
+    cover_image = getattr(circle, "cover_image", None)
+    if (
+        cover_image
+        and str(cover_image).startswith(
+            ("http://", "https://", "/static/", "static/", "app/static/", "images/circles/", "images/circle_covers/")
+        )
+    ):
+        return storage_url(cover_image)
+    return storage_url("images/circle_covers/default.webp")
+
+
 def _validated_circle_id(raw_circle_id):
     if not raw_circle_id:
         return None
@@ -524,6 +538,7 @@ def _activity_to_summary(
         "tags": tags or [category],
         "circle_id": activity.circle_id,
         "circle_name": activity.circle.name if activity.circle else "",
+        "circle_cover_url": _circle_cover_url(activity.circle),
         "image_url": activity.image,
         "organizer": (
             "Gatherly官方"
@@ -1051,26 +1066,17 @@ def _index_impl():
         .group_by(Activity.circle_id)
         .all()
     )
+    has_joined_circles = bool(joined_circle_ids)
     circle_query = Circle.query.filter_by(status="active")
     if joined_circle_ids:
-        joined_circles = circle_query.filter(Circle.id.in_(joined_circle_ids)).all()
+        joined_circles = (
+            circle_query.filter(Circle.id.in_(joined_circle_ids))
+            .order_by(Circle.is_pinned.desc(), Circle.updated_at.desc(), Circle.id.desc())
+            .limit(4)
+            .all()
+        )
     else:
         joined_circles = []
-    recommended_circles = (
-        Circle.query.filter_by(status="active")
-        .order_by(Circle.is_pinned.desc(), Circle.member_count.desc(), Circle.updated_at.desc())
-        .limit(6)
-        .all()
-    )
-    circle_rows = []
-    seen_circle_ids = set()
-    for circle in joined_circles + recommended_circles:
-        if circle.id in seen_circle_ids:
-            continue
-        seen_circle_ids.add(circle.id)
-        circle_rows.append(circle)
-        if len(circle_rows) >= 4:
-            break
     home_circles = [
         {
             "id": circle.id,
@@ -1090,7 +1096,7 @@ def _index_impl():
             "is_joined": circle.id in joined_circle_ids,
             "url": url_for("circle.circle_detail", circle_id=circle.id),
         }
-        for circle in circle_rows
+        for circle in joined_circles
     ]
 
     group_db_activities = []
@@ -1104,18 +1110,6 @@ def _index_impl():
             .limit(8)
             .all()
         )
-    if not group_db_activities:
-        recommended_circle_ids = [circle.id for circle in recommended_circles[:4]]
-        if recommended_circle_ids:
-            group_db_activities = (
-                Activity.query.filter(
-                    Activity.status == "open",
-                    Activity.circle_id.in_(recommended_circle_ids),
-                )
-                .order_by(Activity.is_featured.desc(), Activity.start_time.asc(), Activity.id.desc())
-                .limit(8)
-                .all()
-            )
     normalized_by_id = {activity["id"]: activity for activity in featured_normalized_activities}
     group_activities = [
         normalized_by_id[activity.id]
@@ -1123,8 +1117,6 @@ def _index_impl():
         if activity.id in normalized_by_id
         and normalized_by_id[activity.id]["phase"] in {"upcoming", "ongoing"}
     ]
-    if not group_activities:
-        group_activities = featured_activities[:6] or filtered_activities[:6]
     sidebar_going_activity = None
     sidebar_saved_activity = None
     if current_user:
@@ -1181,6 +1173,7 @@ def _index_impl():
         featured_activities=featured_activities,
         group_activities=group_activities,
         home_circles=home_circles,
+        has_joined_circles=has_joined_circles,
         home_user_card=home_user_card,
         home_calendar=_home_calendar_payload(),
         sidebar_going_activity=sidebar_going_activity,

@@ -35,6 +35,7 @@ REGISTER_FORM_DRAFT_FIELDS = ("username", "email", "nickname", "city")
 EMAIL_CODE_SESSION_LIMIT_SECONDS = 60 * 60
 EMAIL_CODE_SESSION_LIMIT_MAX = 10
 EMAIL_CODE_RATE_LIMIT_MESSAGE = "验证码发送过于频繁，请稍后再试。"
+EMAIL_CODE_SPAM_FOLDER_MESSAGE = "若在邮箱没有看到验证码，请检查邮箱垃圾箱"
 DELETE_ACCOUNT_CONFIRM_TEXT = "DELETE MY ACCOUNT"
 LOGIN_FAILURE_WINDOW_SECONDS = 5 * 60
 LOGIN_FAILURE_MAX_ATTEMPTS = 5
@@ -197,10 +198,12 @@ def _flash_email_code_send_result(sent, success_message="验证码已发送，�
             flash("本地未配置邮件服务，验证码已打印到控制台。", "info")
         else:
             flash(success_message, "success")
+        flash(EMAIL_CODE_SPAM_FOLDER_MESSAGE, "info")
     elif configuration_error := email_configuration_error():
         flash(configuration_error, "error")
     elif is_console_email_provider():
         flash("本地未配置邮件服务，验证码已打印到控制台。", "info")
+        flash(EMAIL_CODE_SPAM_FOLDER_MESSAGE, "info")
     else:
         flash("验证码发送失败，请稍后再试。", "error")
 
@@ -320,6 +323,7 @@ def send_reset_password_code():
             )
         else:
             flash("如果该邮箱已注册，验证码将发送到对应邮箱。", "success")
+            flash(EMAIL_CODE_SPAM_FOLDER_MESSAGE, "info")
     return redirect(url_for("auth.forgot_password"))
 
 

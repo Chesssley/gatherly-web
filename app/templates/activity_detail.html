@@ -85,7 +85,10 @@
 
                     {% if activity.circle_id and circle_name %}
                     <div class="meetup-detail-circle-card">
-                        <span class="meetup-detail-circle-mark" aria-hidden="true">G</span>
+                        <img class="meetup-detail-circle-thumb"
+                             src="{{ activity.circle_cover_url or url_for('static', filename='images/circle_covers/default.webp') }}"
+                             alt="{{ circle_name }} 缩略图"
+                             onerror="this.src='{{ url_for('static', filename='images/circle_covers/default.webp') }}'">
                         <div>
                             <span>所属同好圈</span>
                             <strong><a href="{{ url_for('circle.circle_detail', circle_id=activity.circle_id) }}">{{ circle_name }}</a></strong>
