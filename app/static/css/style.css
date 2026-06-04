@@ -5592,6 +5592,27 @@ textarea.form-input {
   margin-bottom: 20px;
 }
 
+.people-search-form input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.people-search-button {
+  display: inline-grid;
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  padding-right: 0;
+  padding-left: 0;
+  place-items: center;
+  line-height: 1;
+}
+
+.profile-section-content .admin-pagination,
+.users-page .admin-pagination {
+  margin-top: 20px;
+}
+
 .nearby-control-panel {
   display: flex;
   align-items: center;
@@ -9756,10 +9777,16 @@ textarea.form-input {
 
   .nearby-toggle-form,
   .nearby-toggle-form .button,
+  .people-search-form input,
+  .people-search-form .people-search-button,
   .user-card-actions .button,
   .user-card-actions form,
   .user-card-actions button {
     width: 100%;
+  }
+
+  .people-search-form .people-search-button {
+    flex-basis: 44px;
   }
 }
 

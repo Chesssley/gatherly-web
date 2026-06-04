@@ -1,5 +1,6 @@
 {% macro pagination_link(page_num, label, classes='', aria_label='') %}
-  {% set args = request.args.to_dict() %}
+  {% set args = request.view_args.copy() if request.view_args else {} %}
+  {% set _ = args.update(request.args.to_dict()) %}
   {% set _ = args.update({'page': page_num}) %}
   <a class="admin-pagination-link {{ classes }}" href="{{ url_for(request.endpoint, **args) }}"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}>{{ label }}</a>
 {% endmacro %}

@@ -4,7 +4,7 @@
 <form class="list-filter-card" method="get" action="{{ request.path }}{% if anchor %}#{{ anchor }}{% endif %}">
   {% if prefix %}
     {% for key, value in request.args.items() %}
-      {% if not key.startswith(field_prefix) %}
+      {% if key != 'page' and not key.startswith(field_prefix) %}
       <input type="hidden" name="{{ key }}" value="{{ value }}">
       {% endif %}
     {% endfor %}

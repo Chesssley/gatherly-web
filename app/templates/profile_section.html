@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_list_filters.html" import list_filters %}
+{% from "_pagination.html" import pagination_nav %}
 
 {% block title %}{{ page_title }} - Gatherly{% endblock %}
 
@@ -145,6 +146,7 @@
               {% endfor %}
             {% endif %}
           </div>
+          {{ pagination_nav(pagination) }}
         </section>
       </div>
     </div>
