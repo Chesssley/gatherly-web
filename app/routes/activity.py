@@ -14,6 +14,7 @@ from app.models import (
     Activity,
     ActivityFavorite,
     ActivityReview,
+    AdminLog,
     Circle,
     CircleMember,
     CircleRating,
@@ -29,7 +30,7 @@ from app.models import (
 from app.services.storage import storage_url
 from app.utils.upload_limits import upload_limit
 from app.utils.upload_utils import delete_saved_images, save_image_files, validate_upload_files
-from app.utils.location_utils import locations_match, normalize_city
+from app.utils.location_utils import get_client_ip, locations_match, normalize_city
 
 def login_required(f):
     """登录态检查装饰器，未登录重定向到登录页"""
@@ -477,11 +478,15 @@ def _format_activity_sidebar_time(activity):
     return f"{start_label} to {end_label} {gmt_offset}"
 
 
+def _is_system_admin(user):
+    return bool(user and user.role == "admin")
+
+
 def _can_manage_activity(user, activity):
     return bool(
         user
         and activity
-        and (user.role == "admin" or activity.organizer_id == user.id)
+        and (_is_system_admin(user) or activity.organizer_id == user.id)
     )
 
 
@@ -839,6 +844,8 @@ def _activity_to_summary(
         "time": activity.start_time.strftime("%Y-%m-%d %H:%M") if activity.start_time else "时间待定",
         "home_date_label": _format_home_feed_date_label(activity.start_time),
         "end_time": activity.end_time.strftime("%Y-%m-%d %H:%M") if activity.end_time else None,
+        "start_time_input": activity.start_time.strftime("%Y-%m-%dT%H:%M") if activity.start_time else "",
+        "end_time_input": activity.end_time.strftime("%Y-%m-%dT%H:%M") if activity.end_time else "",
         "timezone": activity.timezone or DEFAULT_ACTIVITY_TIMEZONE,
         "gmt_offset": _gmt_offset_label(activity) if activity.start_time else "",
         "sidebar_time": _format_activity_sidebar_time(activity),
@@ -1704,6 +1711,7 @@ def activity_detail(activity_id):
         )
 
     can_manage_activity = _can_manage_activity(current_user, db_activity)
+    can_admin_update_activity_time = _is_system_admin(current_user)
     activity_phase = _activity_phase(db_activity)
     is_cancel_action = activity_phase == "upcoming"
     can_cancel_registration = bool(
@@ -1724,6 +1732,7 @@ def activity_detail(activity_id):
         user_registered=user_registered,
         is_favorited=is_favorited,
         can_manage_activity=can_manage_activity,
+        can_admin_update_activity_time=can_admin_update_activity_time,
         is_cancel_action=is_cancel_action,
         can_cancel_registration=can_cancel_registration,
         cancel_reason_labels=CANCEL_REASON_LABELS,
@@ -1738,6 +1747,88 @@ def activity_detail(activity_id):
         comment_image_limit=COMMENT_IMAGE_LIMIT,
         current_user=current_user,
     )
+
+
+def _parse_admin_activity_datetime(raw_value, label, errors):
+    value = (raw_value or "").strip()
+    if not value:
+        errors.append(f"{label}不能为空。")
+        return None
+    if "T" not in value and " " not in value:
+        errors.append(f"{label}格式不正确。")
+        return None
+    try:
+        parsed_value = datetime.fromisoformat(value)
+    except ValueError:
+        errors.append(f"{label}格式不正确。")
+        return None
+    if parsed_value.tzinfo is not None:
+        parsed_value = parsed_value.astimezone(_activity_timezone(None)).replace(tzinfo=None)
+    return parsed_value
+
+
+def _admin_time_log_value(value):
+    return value.isoformat(sep=" ", timespec="minutes") if value else "None"
+
+
+@activity_bp.route("/activity/<int:activity_id>/admin/update-time", methods=["POST"])
+def admin_update_activity_time(activity_id):
+    db_activity = Activity.query.get_or_404(activity_id)
+    if "user_id" not in session:
+        flash("请先登录后再进行管理员操作。", "error")
+        return redirect(
+            url_for(
+                "auth.login",
+                next=url_for("activity.activity_detail", activity_id=activity_id),
+            )
+        )
+
+    current_user = User.query.get(session["user_id"])
+    if not _is_system_admin(current_user):
+        abort(403)
+
+    errors = []
+    start_time = _parse_admin_activity_datetime(
+        request.form.get("start_time"),
+        "活动开始时间",
+        errors,
+    )
+    end_time = _parse_admin_activity_datetime(
+        request.form.get("end_time"),
+        "活动结束时间",
+        errors,
+    )
+    if start_time and end_time and end_time <= start_time:
+        errors.append("活动结束时间必须晚于活动开始时间。")
+
+    if errors:
+        for error in errors:
+            flash(error, "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
+    old_start_time = db_activity.start_time
+    old_end_time = db_activity.end_time
+    db_activity.start_time = start_time
+    db_activity.end_time = end_time
+    db.session.add(
+        AdminLog(
+            admin_id=current_user.id,
+            action="update_activity_time",
+            target_type="activity",
+            target_id=db_activity.id,
+            detail=(
+                f"activity_id: {db_activity.id}; "
+                f"start_time: {_admin_time_log_value(old_start_time)} -> "
+                f"{_admin_time_log_value(start_time)}; "
+                f"end_time: {_admin_time_log_value(old_end_time)} -> "
+                f"{_admin_time_log_value(end_time)}"
+            ),
+            ip_address=get_client_ip(),
+        )
+    )
+    db.session.commit()
+    flash("活动时间已更新。", "success")
+    return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
 
 @activity_bp.route("/activity/<int:activity_id>/close", methods=["POST"])
