@@ -72,6 +72,16 @@ COMMENT_IMAGE_LIMIT = upload_limit("comment_images")
 COMMENT_UPLOAD_SUBDIR = "comments"
 DEFAULT_ACTIVITY_TIMEZONE = "Asia/Shanghai"
 CHINESE_WEEKDAYS = ("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")
+SHORT_CHINESE_WEEKDAYS = ("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+DISCOVERY_TIME_FILTERS = {"any", "today", "tomorrow", "week", "weekend", "month"}
+HOME_GROUP_FEED_FILTERS = ("today", "tomorrow", "week", "future")
+HOME_GROUP_FEED_FILTER_LABELS = {
+    "today": "今天",
+    "tomorrow": "明天",
+    "week": "本周",
+    "future": "未来",
+}
+HOME_GROUP_ACTIVITY_LIMIT = 40
 
 OFFICIAL_INTEREST_CATEGORIES = [
     {"icon": "👥", "tag": "新同好圈", "aliases": []},
@@ -315,7 +325,102 @@ def _format_home_feed_date_label(value):
         return "今天"
     if activity_date == today + timedelta(days=1):
         return "明天"
-    return f"{value.month}月{value.day}日"
+    return f"{SHORT_CHINESE_WEEKDAYS[value.weekday()]} {value.month}月{value.day}日"
+
+
+def _normalize_home_group_filter(value):
+    return value if value in HOME_GROUP_FEED_FILTERS else "today"
+
+
+def _home_group_filter_label(value):
+    return HOME_GROUP_FEED_FILTER_LABELS.get(
+        _normalize_home_group_filter(value),
+        HOME_GROUP_FEED_FILTER_LABELS["today"],
+    )
+
+
+def _summary_start_date(activity):
+    start_time = activity.get("start_datetime")
+    return start_time.date() if start_time else None
+
+
+def _matches_home_group_filter(activity, selected_filter, today=None):
+    today = today or datetime.now().date()
+    start_date = _summary_start_date(activity)
+    if not start_date:
+        return False
+    if selected_filter == "today":
+        return start_date == today
+    if selected_filter == "tomorrow":
+        return start_date == today + timedelta(days=1)
+    if selected_filter == "week":
+        week_end = today + timedelta(days=6 - today.weekday())
+        return today <= start_date <= week_end
+    if selected_filter == "future":
+        return start_date >= today
+    return False
+
+
+def _is_later_home_group_activity(activity, selected_filter, today=None):
+    today = today or datetime.now().date()
+    start_date = _summary_start_date(activity)
+    if not start_date:
+        return False
+    if selected_filter == "today":
+        return start_date > today
+    if selected_filter == "tomorrow":
+        return start_date > today + timedelta(days=1)
+    if selected_filter == "week":
+        week_end = today + timedelta(days=6 - today.weekday())
+        return start_date > week_end
+    if selected_filter == "future":
+        return False
+    return start_date >= today
+
+
+def _build_home_group_feed_sections(activities, selected_filter):
+    selected_filter = _normalize_home_group_filter(selected_filter)
+    today = datetime.now().date()
+    ordered_activities = sorted(
+        activities,
+        key=lambda activity: (
+            activity.get("start_datetime") or datetime.max,
+            activity.get("id") or 0,
+        ),
+    )
+    selected_activities = [
+        activity
+        for activity in ordered_activities
+        if _matches_home_group_filter(activity, selected_filter, today)
+    ]
+    sections = [
+        {
+            "key": selected_filter,
+            "label": _home_group_filter_label(selected_filter),
+            "is_selected": True,
+            "activities": selected_activities,
+            "empty_title": f"{_home_group_filter_label(selected_filter)}暂无圈内活动",
+            "empty_text": "下方仍会显示你加入的同好圈后续活动。",
+        }
+    ]
+    later_activities = [
+        activity
+        for activity in ordered_activities
+        if activity["id"] not in {item["id"] for item in selected_activities}
+        and _is_later_home_group_activity(activity, selected_filter, today)
+    ]
+    if later_activities:
+        sections.append(
+            {
+                "key": "upcoming",
+                "label": "接下来的活动",
+                "is_selected": False,
+                "activities": later_activities,
+                "empty_title": "",
+                "empty_text": "",
+            }
+        )
+    return sections
 
 
 def _home_calendar_payload(today=None):
@@ -732,6 +837,7 @@ def _activity_to_summary(
         "detail": activity.detail,
         "city": activity.city,
         "location": activity.location,
+        "start_datetime": activity.start_time,
         "time": activity.start_time.strftime("%Y-%m-%d %H:%M") if activity.start_time else "时间待定",
         "home_date_label": _format_home_feed_date_label(activity.start_time),
         "end_time": activity.end_time.strftime("%Y-%m-%d %H:%M") if activity.end_time else None,
@@ -1068,13 +1174,21 @@ def _render_homepage_fallback():
     if selected_category not in OFFICIAL_INTEREST_TAGS:
         selected_category = ""
     selected_time = request.args.get("time", "any").strip() or "any"
-    if selected_time not in {"any", "today", "tomorrow", "week", "weekend", "month"}:
+    if selected_time not in DISCOVERY_TIME_FILTERS:
         selected_time = "any"
+    home_group_selected_time = _normalize_home_group_filter(request.args.get("time", "").strip())
     return render_template(
         "index.html",
         activities=[],
         featured_activities=[],
         group_activities=[],
+        home_group_feed_sections=[],
+        home_group_selected_time=home_group_selected_time,
+        home_group_filter_label=_home_group_filter_label(home_group_selected_time),
+        home_group_time_filters=[
+            {"value": value, "label": _home_group_filter_label(value)}
+            for value in HOME_GROUP_FEED_FILTERS
+        ],
         home_circles=[],
         home_user_card={
             "display_name": "访客",
@@ -1105,11 +1219,13 @@ def _index_impl():
         request.args.get("category", "").strip()
         or request.args.get("tag", "").strip()
     )
-    selected_time = request.args.get("time", "any").strip() or "any"
+    requested_time = request.args.get("time", "any").strip() or "any"
+    selected_time = requested_time
+    home_group_selected_time = _normalize_home_group_filter(requested_time)
     selected_category = _canonical_interest_tag(selected_category)
     if selected_category not in OFFICIAL_INTEREST_TAGS:
         selected_category = ""
-    if selected_time not in {"any", "today", "tomorrow", "week", "weekend", "month"}:
+    if selected_time not in DISCOVERY_TIME_FILTERS:
         selected_time = "any"
     interest_tags = OFFICIAL_INTEREST_TAGS
     categories = interest_tags
@@ -1323,9 +1439,10 @@ def _index_impl():
             Activity.query.filter(
                 Activity.status == "open",
                 Activity.circle_id.in_(joined_circle_ids),
+                Activity.start_time.isnot(None),
             )
             .order_by(Activity.start_time.asc(), Activity.id.desc())
-            .limit(8)
+            .limit(HOME_GROUP_ACTIVITY_LIMIT)
             .all()
         )
     normalized_by_id = {activity["id"]: activity for activity in featured_normalized_activities}
@@ -1335,6 +1452,16 @@ def _index_impl():
         if activity.id in normalized_by_id
         and normalized_by_id[activity.id]["phase"] in {"upcoming", "ongoing"}
     ]
+    group_activities.sort(
+        key=lambda activity: (
+            activity.get("start_datetime") or datetime.max,
+            activity.get("id") or 0,
+        )
+    )
+    home_group_feed_sections = _build_home_group_feed_sections(
+        group_activities,
+        home_group_selected_time,
+    )
     sidebar_going_activity = None
     sidebar_saved_activity = None
     if current_user:
@@ -1392,6 +1519,13 @@ def _index_impl():
         activities=filtered_activities,
         featured_activities=featured_activities,
         group_activities=group_activities,
+        home_group_feed_sections=home_group_feed_sections,
+        home_group_selected_time=home_group_selected_time,
+        home_group_filter_label=_home_group_filter_label(home_group_selected_time),
+        home_group_time_filters=[
+            {"value": value, "label": _home_group_filter_label(value)}
+            for value in HOME_GROUP_FEED_FILTERS
+        ],
         home_circles=home_circles,
         has_joined_circles=has_joined_circles,
         home_user_card=home_user_card,

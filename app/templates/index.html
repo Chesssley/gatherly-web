@@ -462,40 +462,21 @@
 
             <section class="home-feed-section groups-feed-section" id="from-your-groups">
                 <div class="home-feed-heading">
-                    <h2>来自你的同好圈</h2>
+                    <div class="home-feed-title">
+                        <h2>来自你的同好圈</h2>
+                        <p class="home-feed-subtitle" data-home-group-filter-label>{{ home_group_filter_label|default('今天') }}</p>
+                    </div>
                     <div class="home-feed-actions">
                         <a class="section-link" href="{{ url_for('activity.search', scope='activities') }}">浏览全部活动 <span aria-hidden="true">&#8594;</span></a>
                         <div class="home-date-filter" data-home-date-filter>
-                            <button class="home-today-filter" type="button" aria-expanded="false" data-home-date-toggle>今天 <span aria-hidden="true">&#8964;</span></button>
-                            <div class="home-date-popover"
-                                 data-home-date-popover
-                                 data-home-calendar-year="{{ home_calendar.year }}"
-                                 data-home-calendar-month="{{ home_calendar.month }}"
-                                 data-home-calendar-selected-date="{{ home_calendar.selected_date }}"
-                                 data-home-calendar-today="{{ home_calendar.today_date }}"
-                                 hidden>
-                                <div class="home-date-calendar-header">
-                                    <button type="button" aria-label="上个月" data-home-calendar-previous>&#8249;</button>
-                                    <strong data-home-calendar-title>{{ home_calendar.label }}</strong>
-                                    <button type="button" aria-label="下个月" data-home-calendar-next>&#8250;</button>
-                                </div>
-                                <div class="home-date-weekdays" aria-hidden="true">
-                                    {% for day_name in home_calendar.weekdays %}
-                                    <span>{{ day_name }}</span>
-                                    {% endfor %}
-                                </div>
-                                <div class="home-date-days" data-home-calendar-days>
-                                    {% for week in home_calendar.weeks %}
-                                        {% for day in week %}
-                                        <button class="{% if not day.is_current_month %}is-muted{% endif %} {% if day.is_past %}is-disabled{% endif %} {% if day.is_today %}is-selected{% endif %}"
-                                                type="button"
-                                                data-home-date-day="{{ day.day }}"
-                                                data-home-date-value="{{ day.date }}"
-                                                data-home-date-label="{{ day.display_label }}"
-                                                data-home-date-current-month="{{ 'true' if day.is_current_month else 'false' }}"
-                                                aria-pressed="{{ 'true' if day.is_today else 'false' }}"
-                                                {% if day.is_past %}disabled{% endif %}>{{ day.day }}</button>
-                                        {% endfor %}
+                            <button class="home-today-filter" type="button" aria-expanded="false" data-home-date-toggle>{{ home_group_filter_label|default('今天') }} <span aria-hidden="true">&#8964;</span></button>
+                            <div class="home-date-popover" data-home-date-popover hidden>
+                                <div class="home-date-options">
+                                    {% for option in home_group_time_filters|default([]) %}
+                                    <a class="home-date-option {% if option.value == (home_group_selected_time|default('today')) %}is-active{% endif %}"
+                                       href="{{ url_for('activity.index', category=selected_category, time=option.value) if selected_category else url_for('activity.index', time=option.value) }}#from-your-groups"
+                                       data-time-filter="{{ option.value }}"
+                                       data-home-group-filter-option>{{ option.label }}</a>
                                     {% endfor %}
                                 </div>
                             </div>
@@ -504,17 +485,17 @@
                 </div>
                 <div class="home-group-feed">
                     {% if has_joined_circles %}
-                    {% set last_date = namespace(value='') %}
-                    {% for activity in group_activities|default([]) %}
-                        {% if activity.home_date_label != last_date.value %}
-                        <p class="home-feed-date">{{ activity.home_date_label }}</p>
-                        {% set last_date.value = activity.home_date_label %}
-                        {% endif %}
+                    {% for section in home_group_feed_sections|default([]) %}
+                    <section class="home-group-feed-block {% if section.is_selected %}is-selected{% endif %}" aria-label="{{ section.label }}">
+                        <p class="home-feed-date">{{ section.label }}</p>
+                        {% if section.activities %}
+                        {% for activity in section.activities %}
                         <article class="home-group-event js-gsap-card" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
                             <div class="home-group-image">
                                 <img src="{{ activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}" alt="{{ activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
                             </div>
                             <div class="home-group-event-body">
+                                <p class="home-group-card-date">{{ activity.home_date_label }}</p>
                                 <h3>{{ activity.title }}</h3>
                                 <p>{{ activity.sidebar_time or activity.time }}</p>
                                 <p>{{ activity.circle_name or activity.organizer }}{% if activity.circle_name %} · {% if activity.circle_rating_average %}{{ '%.1f'|format(activity.circle_rating_average) }} ★{% else %}暂无评分{% endif %}{% endif %}</p>
@@ -553,6 +534,15 @@
                                 </button>
                             </div>
                         </article>
+                        {% endfor %}
+                        {% elif section.is_selected %}
+                        <div class="home-groups-empty-state home-groups-filter-empty">
+                            <span aria-hidden="true">0</span>
+                            <h3>{{ section.empty_title }}</h3>
+                            <p>{{ section.empty_text }}</p>
+                        </div>
+                        {% endif %}
+                    </section>
                     {% else %}
                     <div class="home-groups-empty-state">
                         <span aria-hidden="true">Zzz</span>
