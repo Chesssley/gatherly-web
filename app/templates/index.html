@@ -236,6 +236,64 @@
     </div>
 </section>
 {% else %}
+{% if not session.get('user_id') %}
+<section class="guest-home" aria-labelledby="guest-home-title">
+    <div class="container guest-home-hero">
+        <div class="guest-hero-collage is-left" aria-hidden="true">
+            <figure class="guest-photo-card is-photo-top">
+                <img src="{{ url_for('static', filename='images/activities/city-photo-walk.webp') }}" alt="">
+                <figcaption>城市散步</figcaption>
+            </figure>
+            <figure class="guest-photo-card is-photo-bottom">
+                <img src="{{ url_for('static', filename='images/activities/coffee-workshop.webp') }}" alt="">
+                <figcaption>咖啡小聚</figcaption>
+            </figure>
+            <span class="guest-doodle is-pin">附近</span>
+            <span class="guest-doodle is-note">&#9834;</span>
+        </div>
+
+        <div class="guest-hero-copy">
+            <p class="eyebrow">Gatherly 聚场</p>
+            <h1 id="guest-home-title">让兴趣变成线下相遇</h1>
+            <p>在聚场找到城市里的小众活动、同好圈和真实的人。摄影散步、咖啡体验、桌游夜、读书会，都可以从一次报名开始。</p>
+            <a class="button guest-primary-action" href="{{ url_for('auth.register') }}">加入聚场</a>
+        </div>
+
+        <div class="guest-hero-collage is-right" aria-hidden="true">
+            <figure class="guest-photo-card is-photo-top">
+                <img src="{{ url_for('static', filename='images/activities/board-game-social.webp') }}" alt="">
+                <figcaption>桌游社交</figcaption>
+            </figure>
+            <figure class="guest-photo-card is-photo-bottom">
+                <img src="{{ url_for('static', filename='images/activities/indie-film-night.webp') }}" alt="">
+                <figcaption>独立放映</figcaption>
+            </figure>
+            <span class="guest-doodle is-friends">认识同好</span>
+            <span class="guest-doodle is-spark">+</span>
+        </div>
+    </div>
+</section>
+
+<section class="guest-events-section" aria-labelledby="guest-events-title">
+    <div class="container">
+        <div class="guest-events-heading">
+            <div>
+                <p class="eyebrow">Discover</p>
+                <h2 id="guest-events-title">近期值得参加的活动</h2>
+            </div>
+            <a class="section-link" href="{{ url_for('activity.search', scope='activities') }}">查看全部活动 <span aria-hidden="true">&#8594;</span></a>
+        </div>
+        {% set guest_events = featured_activities[:4] if featured_activities else activities[:4] %}
+        <div class="guest-event-grid">
+            {% for activity in guest_events %}
+                {{ activity_card(activity, activity.detail_url, activity.id, activity.demo|default(false)) }}
+            {% else %}
+                <div class="recommended-empty-state">近期暂无可推荐活动。</div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% else %}
 <section class="meetup-home">
     <div class="container meetup-home-layout">
         <aside class="meetup-home-sidebar" aria-label="首页信息栏">
@@ -514,6 +572,7 @@
         </main>
     </div>
 </section>
+{% endif %}
 
 {% if false %}
 <section class="home-intro">
