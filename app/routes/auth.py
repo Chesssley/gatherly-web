@@ -6,7 +6,7 @@ import time
 import unicodedata
 from datetime import datetime
 
-from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, session
+from flask import Blueprint, current_app, jsonify, render_template, redirect, url_for, flash, request, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.models import (
     MerchantVerification,
@@ -241,22 +241,71 @@ def _normalize_delete_confirm_text(value):
     return value.strip().upper()
 
 
+def _wants_auth_json():
+    return (
+        request.accept_mimetypes.best == "application/json"
+        or request.headers.get("Accept", "").lower().find("application/json") != -1
+        or request.form.get("auth_modal_flow") == "1"
+    )
+
+
+def _json_error(message, status=400, errors=None, retry_after=None):
+    payload = {"ok": False, "message": message}
+    if errors:
+        payload["errors"] = errors
+    if retry_after is not None:
+        payload["retry_after"] = max(1, int(retry_after or 1))
+    return jsonify(payload), status
+
+
+def _json_success(message, **extra):
+    payload = {"ok": True, "message": message}
+    payload.update(extra)
+    return jsonify(payload)
+
+
+def _registration_form_errors(form):
+    errors = []
+    for field_errors in form.errors.values():
+        errors.extend(field_errors)
+    return errors
+
+
 @auth_bp.route("/register/send-code", methods=["POST"])
 def send_register_code():
     _store_register_form_draft()
     email = (request.form.get("email") or "").strip()
+    wants_json = _wants_auth_json()
+
+    if request.form.get("auth_modal_flow") == "1":
+        form = RegistrationForm()
+        if not form.validate():
+            errors = _registration_form_errors(form)
+            message = errors[0] if errors else "请检查注册信息。"
+            return _json_error(message, errors=errors)
 
     if not email:
+        if wants_json:
+            return _json_error("请先填写邮箱。")
         flash("请先填写邮箱。", "error")
         return redirect(url_for("auth.register"))
     if len(email) > 120:
+        if wants_json:
+            return _json_error("邮箱不能超过 120 个字符。")
         flash("邮箱不能超过 120 个字符。", "error")
         return redirect(url_for("auth.register"))
     if User.query.filter_by(email=email).first():
+        if wants_json:
+            return _json_error("该邮箱已被注册，请使用其他邮箱或直接登录。")
         flash("该邮箱已被注册，请使用其他邮箱或直接登录。", "error")
         return redirect(url_for("auth.register"))
     if _is_email_code_send_rate_limited(email, "register"):
         retry_after = _email_code_send_retry_after_seconds(email, "register")
+        if wants_json:
+            return _json_error(
+                _email_code_rate_limit_message(retry_after),
+                retry_after=retry_after,
+            )
         flash(_email_code_rate_limit_message(retry_after), "error")
         return redirect(url_for("auth.register"))
 
@@ -266,8 +315,21 @@ def send_register_code():
     except Exception:
         db.session.rollback()
         current_app.logger.exception("Failed to send register verification code")
+        if wants_json:
+            return _json_error("验证码发送失败，请稍后再试。", status=500)
         flash("验证码发送失败，请稍后再试。", "error")
     else:
+        if wants_json:
+            if sent or is_console_email_provider():
+                return _json_success(
+                    "验证码已发送，请查收邮箱。",
+                    email=email,
+                    next_step="verify",
+                    spam_message=EMAIL_CODE_SPAM_FOLDER_MESSAGE,
+                )
+            if configuration_error := email_configuration_error():
+                return _json_error(configuration_error, status=500)
+            return _json_error("验证码发送失败，请稍后再试。", status=500)
         _flash_email_code_send_result(sent)
     return redirect(url_for("auth.register"))
 
@@ -320,20 +382,35 @@ def send_account_email_code():
 def send_reset_password_code():
     email = request.form.get("email", "").strip()
     session["forgot_password_email_draft"] = email
+    wants_json = _wants_auth_json()
     if not email:
+        if wants_json:
+            return _json_error("请先填写注册邮箱。")
         flash("请先填写注册邮箱。", "error")
         return redirect(url_for("auth.forgot_password"))
     if len(email) > 120:
+        if wants_json:
+            return _json_error("邮箱不能超过 120 个字符。")
         flash("邮箱不能超过 120 个字符。", "error")
         return redirect(url_for("auth.forgot_password"))
     if _is_session_email_code_rate_limited():
         retry_after = _email_code_send_retry_after_seconds()
+        if wants_json:
+            return _json_error(
+                _email_code_rate_limit_message(retry_after),
+                retry_after=retry_after,
+            )
         flash(_email_code_rate_limit_message(retry_after), "error")
         return redirect(url_for("auth.forgot_password"))
 
     user = User.query.filter_by(email=email, status="active").first()
     if user and is_email_code_rate_limited(email, "reset_password"):
         retry_after = _email_code_send_retry_after_seconds(email, "reset_password")
+        if wants_json:
+            return _json_error(
+                _email_code_rate_limit_message(retry_after),
+                retry_after=retry_after,
+            )
         flash(_email_code_rate_limit_message(retry_after), "error")
         return redirect(url_for("auth.forgot_password"))
 
@@ -346,8 +423,19 @@ def send_reset_password_code():
     except Exception:
         db.session.rollback()
         current_app.logger.exception("Failed to send reset password verification code")
+        if wants_json:
+            return _json_error("验证码发送失败，请稍后再试。", status=500)
         flash("验证码发送失败，请稍后再试。", "error")
     else:
+        if wants_json:
+            if user and not (sent or is_console_email_provider()):
+                if configuration_error := email_configuration_error():
+                    return _json_error(configuration_error, status=500)
+                return _json_error("验证码发送失败，请稍后再试。", status=500)
+            return _json_success(
+                "如果该邮箱已注册，验证码将发送到对应邮箱。",
+                email=email,
+            )
         if user:
             _flash_email_code_send_result(
                 sent,
@@ -374,12 +462,17 @@ def login():
     if request.method == "POST":
         identifier = request.form.get("email", "").strip()
         password = request.form.get("password", "")
+        wants_json = _wants_auth_json()
 
         if not identifier or not password:
+            if wants_json:
+                return _json_error(LOGIN_FAILURE_MESSAGE)
             flash(LOGIN_FAILURE_MESSAGE, "error")
             return render_template("login.html")
 
         if _is_login_rate_limited(identifier):
+            if wants_json:
+                return _json_error(LOGIN_FAILURE_COOLDOWN_MESSAGE, status=429)
             flash(LOGIN_FAILURE_COOLDOWN_MESSAGE, "error")
             return render_template("login.html")
 
@@ -389,6 +482,8 @@ def login():
 
         if not user or user.status != "active" or not _check_user_password(user, password):
             _record_login_failure(identifier)
+            if wants_json:
+                return _json_error(LOGIN_FAILURE_MESSAGE)
             flash(LOGIN_FAILURE_MESSAGE, "error")
             return render_template("login.html")
 
@@ -399,6 +494,11 @@ def login():
         session["nickname"] = user.nickname or user.username
         flash(f"欢迎回来，{session['nickname']}！", "success")
 
+        if wants_json:
+            return _json_success(
+                "登录成功。",
+                redirect=next_page or url_for("activity.index"),
+            )
         if next_page:
             return redirect(next_page)
         return redirect(url_for("activity.index"))
@@ -626,24 +726,39 @@ def forgot_password():
         new_password = request.form.get("new_password", "")
         confirm_password = request.form.get("confirm_password", "")
         user = User.query.filter_by(email=email, status="active").first()
+        wants_json = _wants_auth_json()
 
         if not email:
+            if wants_json:
+                return _json_error("请填写注册邮箱。")
             flash("请填写注册邮箱。", "error")
         elif not user:
+            if wants_json:
+                return _json_error("邮箱、验证码或新密码无效。")
             flash("邮箱、验证码或新密码无效。", "error")
         elif not new_password:
+            if wants_json:
+                return _json_error("请输入新密码。")
             flash("请输入新密码。", "error")
         elif new_password != confirm_password:
+            if wants_json:
+                return _json_error("新密码和确认新密码不一致。")
             flash("新密码和确认新密码不一致。", "error")
         elif len(new_password) < 6:
+            if wants_json:
+                return _json_error("新密码至少需要 6 个字符。")
             flash("新密码至少需要 6 个字符。", "error")
         elif not verify_email_code(email, "reset_password", email_code):
+            if wants_json:
+                return _json_error("邮箱、验证码或新密码无效。")
             flash("邮箱、验证码或新密码无效。", "error")
         else:
             user.password_hash = generate_password_hash(new_password)
             db.session.commit()
             session.pop("forgot_password_email_draft", None)
             flash("密码已重置，请使用新密码登录。", "success")
+            if wants_json:
+                return _json_success("密码已重置，请使用新密码登录。")
             return redirect(url_for("auth.login"))
 
     return render_template(
@@ -664,6 +779,8 @@ def register():
         _store_register_form_draft()
     register_form_draft = _get_register_form_draft()
 
+    wants_json = _wants_auth_json()
+
     if form.validate_on_submit():
         username = form.username.data.strip()
         nickname = request.form.get("nickname", "").strip() or username
@@ -672,6 +789,8 @@ def register():
 
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
+            if wants_json:
+                return _json_error("该用户名已被注册，请选择其他用户名")
             flash("该用户名已被注册，请选择其他用户名", "error")
             return render_template(
                 "register.html",
@@ -681,6 +800,8 @@ def register():
 
         existing_email = User.query.filter_by(email=email).first()
         if existing_email:
+            if wants_json:
+                return _json_error("该邮箱已被注册，请使用其他邮箱或直接登录")
             flash("该邮箱已被注册，请使用其他邮箱或直接登录", "error")
             return render_template(
                 "register.html",
@@ -690,6 +811,8 @@ def register():
 
         email_code = request.form.get("email_code", "").strip()
         if not verify_email_code(email, "register", email_code):
+            if wants_json:
+                return _json_error("邮箱验证码错误或已过期，请重新获取。")
             flash("邮箱验证码错误或已过期，请重新获取。", "error")
             return render_template(
                 "register.html",
@@ -715,16 +838,27 @@ def register():
             db.session.commit()
             _clear_register_form_draft()
             flash("注册成功！现在可以登录了。", "success")
+            if wants_json:
+                return _json_success("注册成功！现在可以登录了。", email=email)
             return redirect(url_for("auth.login"))
         except Exception as e:
             db.session.rollback()
             if "UNIQUE constraint failed" in str(e):
                 if "username" in str(e):
+                    if wants_json:
+                        return _json_error("该用户名已被注册，请选择其他用户名")
                     flash("该用户名已被注册，请选择其他用户名", "error")
                 elif "email" in str(e):
+                    if wants_json:
+                        return _json_error("该邮箱已被注册，请使用其他邮箱")
                     flash("该邮箱已被注册，请使用其他邮箱", "error")
             else:
+                if wants_json:
+                    return _json_error("注册失败，请稍后重试。", status=500)
                 flash("注册失败，请稍后重试。", "error")
+    elif request.method == "POST" and wants_json:
+        errors = _registration_form_errors(form)
+        return _json_error(errors[0] if errors else "请检查注册信息。", errors=errors)
 
     return render_template(
         "register.html",
