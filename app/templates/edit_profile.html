@@ -98,10 +98,6 @@
         <input type="checkbox" name="show_interests" {% if visibility.show_interests %}checked{% endif %}>
         <span>展示兴趣标签</span>
       </label>
-      <label class="tag-checkbox">
-        <input type="checkbox" name="show_trust_score" {% if visibility.trust_score_scope == 'public' %}checked{% endif %}>
-        <span>展示信用分</span>
-      </label>
       <button class="button" type="submit">保存展示权限</button>
     </form>
   </div>

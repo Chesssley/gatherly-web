@@ -329,7 +329,6 @@ def _profile_context(user, visibility, is_owner=True, ip_region=None):
             "activities": is_owner,
             "circles": is_owner or visibility.circle_scope == PUBLIC_SCOPE,
             "interactions": is_owner,
-            "trust_score": _scope_is_visible(visibility.trust_score_scope, is_owner),
         },
         "ip_region_label": format_ip_region(ip_region),
         "interests": _split_interests(user.interests) if (is_owner or bool(visibility.show_interests)) else [],
@@ -1181,7 +1180,6 @@ def edit_profile():
             visibility.circle_scope = PUBLIC_SCOPE if request.form.get("show_circles") else PRIVATE_SCOPE
             visibility.show_interactions = bool(request.form.get("show_interactions"))
             visibility.show_interests = bool(request.form.get("show_interests"))
-            visibility.trust_score_scope = PUBLIC_SCOPE if request.form.get("show_trust_score") else PRIVATE_SCOPE
             visibility.profile_scope = PUBLIC_SCOPE if request.form.get("profile_public") else PRIVATE_SCOPE
             db.session.commit()
             flash("主页展示权限已更新。", "success")
