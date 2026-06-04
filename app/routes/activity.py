@@ -395,16 +395,24 @@ def _build_home_group_feed_sections(activities, selected_date):
         and _is_later_home_group_activity(activity, selected_date)
     ]
     if later_activities:
-        sections.append(
-            {
-                "key": "upcoming",
-                "label": "接下来的活动",
-                "is_selected": False,
-                "activities": later_activities,
-                "empty_title": "",
-                "empty_text": "",
-            }
-        )
+        grouped_later_activities = []
+        for activity in later_activities:
+            activity_date = _summary_start_date(activity)
+            if not activity_date:
+                continue
+            label = _home_group_date_label(activity_date, today)
+            if not grouped_later_activities or grouped_later_activities[-1]["key"] != activity_date.isoformat():
+                grouped_later_activities.append(
+                    {
+                        "key": activity_date.isoformat(),
+                        "label": label,
+                        "is_selected": False,
+                        "activities": [],
+                        "empty_title": "",
+                    }
+                )
+            grouped_later_activities[-1]["activities"].append(activity)
+        sections.extend(grouped_later_activities)
     return sections
 
 
