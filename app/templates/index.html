@@ -510,9 +510,7 @@
                     {% if has_joined_circles %}
                     {% for section in home_group_feed_sections|default([]) %}
                     <section class="home-group-feed-block {% if section.is_selected %}is-selected{% endif %}" aria-label="{{ section.label }}">
-                        {% if not section.is_selected %}
                         <p class="home-feed-date">{{ section.label }}</p>
-                        {% endif %}
                         {% if section.activities %}
                         {% for activity in section.activities %}
                         <article class="home-group-event js-gsap-card" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">

@@ -263,7 +263,11 @@ def _selected_create_activity_tags():
     return selected_tags
 
 def _activity_timezone(activity):
-    timezone_name = activity.timezone if activity and activity.timezone else DEFAULT_ACTIVITY_TIMEZONE
+    if isinstance(activity, dict):
+        timezone_name = activity.get("timezone")
+    else:
+        timezone_name = activity.timezone if activity and activity.timezone else None
+    timezone_name = timezone_name or DEFAULT_ACTIVITY_TIMEZONE
     try:
         return ZoneInfo(timezone_name)
     except ZoneInfoNotFoundError:
@@ -272,6 +276,24 @@ def _activity_timezone(activity):
 
 def _activity_now(activity):
     return datetime.now(_activity_timezone(activity)).replace(tzinfo=None)
+
+
+def _home_group_today():
+    return datetime.now(_activity_timezone(None)).date()
+
+
+def _activity_local_datetime(value, activity=None):
+    if not value:
+        return None
+    timezone = _activity_timezone(activity)
+    if value.tzinfo is not None:
+        return value.astimezone(timezone).replace(tzinfo=None)
+    return value
+
+
+def _activity_local_date(value, activity=None):
+    local_value = _activity_local_datetime(value, activity)
+    return local_value.date() if local_value else None
 
 
 def _activity_phase(activity, now=None):
@@ -311,20 +333,21 @@ def _format_activity_date_label(value):
     return f"{CHINESE_WEEKDAYS[value.weekday()]}, {value.month}月 {value.day}"
 
 
-def _format_home_feed_date_label(value):
+def _format_home_feed_date_label(value, activity=None, today=None):
     if not value:
         return "时间待定"
-    today = datetime.now().date()
-    activity_date = value.date()
+    today = today or _home_group_today()
+    local_value = _activity_local_datetime(value, activity)
+    activity_date = local_value.date()
     if activity_date == today:
         return "今天"
     if activity_date == today + timedelta(days=1):
         return "明天"
-    return f"{SHORT_CHINESE_WEEKDAYS[value.weekday()]}，{value.month}月{value.day}日"
+    return f"{SHORT_CHINESE_WEEKDAYS[local_value.weekday()]}，{local_value.month}月{local_value.day}日"
 
 
 def _parse_home_group_selected_date(value, today=None):
-    today = today or datetime.now().date()
+    today = today or _home_group_today()
     if not value:
         return today
     try:
@@ -335,7 +358,7 @@ def _parse_home_group_selected_date(value, today=None):
 
 
 def _home_group_date_label(value, today=None):
-    today = today or datetime.now().date()
+    today = today or _home_group_today()
     if value == today:
         return "今天"
     if value == today + timedelta(days=1):
@@ -345,7 +368,7 @@ def _home_group_date_label(value, today=None):
 
 def _summary_start_date(activity):
     start_time = activity.get("start_datetime")
-    return start_time.date() if start_time else None
+    return _activity_local_date(start_time, activity)
 
 
 def _matches_home_group_date(activity, selected_date):
@@ -359,7 +382,7 @@ def _is_later_home_group_activity(activity, selected_date):
 
 
 def _build_home_group_feed_sections(activities, selected_date):
-    today = datetime.now().date()
+    today = _home_group_today()
     selected_label = _home_group_date_label(selected_date, today)
     ordered_activities = sorted(
         activities,
@@ -417,7 +440,7 @@ def _build_home_group_feed_sections(activities, selected_date):
 
 
 def _home_calendar_payload(today=None, selected_date=None):
-    today = today or datetime.now().date()
+    today = today or _home_group_today()
     selected_date = selected_date or today
     calendar_date = selected_date if selected_date >= today else today
     month_days = calendar.Calendar(firstweekday=6).monthdatescalendar(
@@ -842,7 +865,7 @@ def _activity_to_summary(
         "location": activity.location,
         "start_datetime": activity.start_time,
         "time": activity.start_time.strftime("%Y-%m-%d %H:%M") if activity.start_time else "时间待定",
-        "home_date_label": _format_home_feed_date_label(activity.start_time),
+        "home_date_label": _format_home_feed_date_label(activity.start_time, activity),
         "end_time": activity.end_time.strftime("%Y-%m-%d %H:%M") if activity.end_time else None,
         "start_time_input": activity.start_time.strftime("%Y-%m-%dT%H:%M") if activity.start_time else "",
         "end_time_input": activity.end_time.strftime("%Y-%m-%dT%H:%M") if activity.end_time else "",
