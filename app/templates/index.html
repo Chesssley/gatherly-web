@@ -510,25 +510,6 @@
                         <article class="home-group-event js-gsap-card" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
                             <div class="home-group-image">
                                 <img src="{{ activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}" alt="{{ activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
-                                <div class="home-card-actions">
-                                    <button class="card-icon-button" type="button" aria-label="复制 {{ activity.title }} 的链接" data-activity-share data-share-url="{{ activity.detail_url }}">
-                                        <span aria-hidden="true">&#8599;</span>
-                                    </button>
-                                    <button class="card-icon-button favorite-button {% if activity.id in favorite_activity_ids %}is-active{% endif %}"
-                                            type="button"
-                                            aria-label="收藏 {{ activity.title }}"
-                                            aria-pressed="{{ 'true' if activity.id in favorite_activity_ids else 'false' }}"
-                                            data-activity-favorite
-                                            data-activity-id="{{ activity.id }}"
-                                            data-activity-title="{{ activity.title }}"
-                                            data-activity-time="{{ activity.time }}"
-                                            data-activity-location="{{ activity.location }}"
-                                            data-activity-detail-url="{{ activity.detail_url }}"
-                                            data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=activity.id) }}"
-                                            data-login-url="{{ url_for('auth.login', next=activity.detail_url) }}">
-                                        <span aria-hidden="true">{% if activity.id in favorite_activity_ids %}&#9829;{% else %}&#9825;{% endif %}</span>
-                                    </button>
-                                </div>
                             </div>
                             <div class="home-group-event-body">
                                 <h3>{{ activity.title }}</h3>
@@ -548,6 +529,25 @@
                                     {% endif %}
                                     <span>{{ activity.current_people|default(0) }} 人已报名</span>
                                 </div>
+                            </div>
+                            <div class="home-card-actions home-group-actions">
+                                <button class="card-icon-button" type="button" aria-label="复制 {{ activity.title }} 的链接" data-activity-share data-share-url="{{ activity.detail_url }}">
+                                    <span aria-hidden="true">&#8599;</span>
+                                </button>
+                                <button class="card-icon-button favorite-button {% if activity.id in favorite_activity_ids %}is-active{% endif %}"
+                                        type="button"
+                                        aria-label="收藏 {{ activity.title }}"
+                                        aria-pressed="{{ 'true' if activity.id in favorite_activity_ids else 'false' }}"
+                                        data-activity-favorite
+                                        data-activity-id="{{ activity.id }}"
+                                        data-activity-title="{{ activity.title }}"
+                                        data-activity-time="{{ activity.time }}"
+                                        data-activity-location="{{ activity.location }}"
+                                        data-activity-detail-url="{{ activity.detail_url }}"
+                                        data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=activity.id) }}"
+                                        data-login-url="{{ url_for('auth.login', next=activity.detail_url) }}">
+                                    <span aria-hidden="true">{% if activity.id in favorite_activity_ids %}&#9829;{% else %}&#9825;{% endif %}</span>
+                                </button>
                             </div>
                         </article>
                     {% else %}
