@@ -383,19 +383,19 @@
                                 </span>
                                 {{ rating_stars(review.rating, review.rating ~ ' 星评价') }}
                             </div>
+                            {% if review.activity_detail_id or review.activity_label %}
                             <div class="circle-rating-review-activity">
-                                {% if review.activity and review.activity.start_time %}
-                                <time datetime="{{ review.activity.start_time.isoformat() }}">{{ review.activity_date_label }}</time>
-                                <span>·</span>
-                                <a href="{{ url_for('activity.activity_detail', activity_id=review.activity.id) }}">{{ review.activity.title }}</a>
-                                {% elif review.activity %}
-                                <span>{{ review.activity_date_label }}</span>
-                                <span>·</span>
-                                <a href="{{ url_for('activity.activity_detail', activity_id=review.activity.id) }}">{{ review.activity.title }}</a>
+                                {% if review.activity_detail_id %}
+                                    {% if review.activity_date_label %}
+                                    <span>{{ review.activity_date_label }}</span>
+                                    <span>·</span>
+                                    {% endif %}
+                                    <a href="{{ url_for('activity.activity_detail', activity_id=review.activity_detail_id) }}">{{ review.activity_title }}</a>
                                 {% else %}
-                                <span>{{ review.activity_label }}</span>
+                                    <span>{{ review.activity_label }}</span>
                                 {% endif %}
                             </div>
+                            {% endif %}
                             <p>{{ review.comment }}</p>
                         </article>
                         {% else %}
