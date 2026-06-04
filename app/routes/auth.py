@@ -586,8 +586,6 @@ def login():
     next_page = request.args.get("next") or request.form.get("next", "")
 
     if request.method == "GET":
-        if next_page:
-            flash("请先登录后继续操作。", "info")
         return _auth_modal_redirect("login", next_page)
 
     if request.method == "POST":
@@ -623,7 +621,6 @@ def login():
         session.clear()
         session["user_id"] = user.id
         session["nickname"] = user.nickname or user.username
-        flash(f"欢迎回来，{session['nickname']}！", "success")
 
         if wants_json:
             return _json_success(
@@ -641,7 +638,6 @@ def login():
 def logout():
     """退出登录，清除 session 并重定向到首页"""
     session.clear()
-    flash("您已退出登录", "info")
     return redirect(url_for("activity.index"))
 
 

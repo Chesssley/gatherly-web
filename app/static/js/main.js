@@ -14,6 +14,93 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const initAuthProgressScreen = () => {
+    const screen = document.querySelector("[data-auth-progress-screen]");
+    const messageTarget = screen?.querySelector("[data-auth-progress-message]");
+    const errorDialog = document.querySelector("[data-auth-progress-error]");
+    const errorMessage = errorDialog?.querySelector("[data-auth-progress-error-message]");
+    const errorClose = errorDialog?.querySelector("[data-auth-progress-error-close]");
+    let lastFocusedElement = null;
+
+    const show = message => {
+      if (!screen) {
+        return;
+      }
+      lastFocusedElement = document.activeElement;
+      if (messageTarget) {
+        messageTarget.textContent = message || "正在处理……";
+      }
+      screen.hidden = false;
+      document.body.classList.add("auth-progress-open");
+    };
+
+    const hide = () => {
+      if (!screen) {
+        return;
+      }
+      screen.hidden = true;
+      document.body.classList.remove("auth-progress-open");
+    };
+
+    const showError = message => {
+      hide();
+      if (!errorDialog || !errorMessage) {
+        window.alert(message || "请求失败，请稍后重试。");
+        return;
+      }
+      errorMessage.textContent = message || "请求失败，请稍后重试。";
+      errorDialog.hidden = false;
+      document.body.classList.add("auth-progress-open");
+      errorClose?.focus();
+    };
+
+    const closeError = () => {
+      if (!errorDialog) {
+        return;
+      }
+      errorDialog.hidden = true;
+      document.body.classList.remove("auth-progress-open");
+      lastFocusedElement?.focus?.();
+    };
+
+    errorClose?.addEventListener("click", closeError);
+    errorDialog?.addEventListener("click", event => {
+      if (event.target === errorDialog) {
+        closeError();
+      }
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && errorDialog && !errorDialog.hidden) {
+        closeError();
+      }
+    });
+
+    document.querySelectorAll("[data-auth-progress-action='logout']").forEach(link => {
+      link.addEventListener("click", async event => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+          return;
+        }
+        event.preventDefault();
+        show("正在退出登录……");
+        try {
+          const response = await fetch(link.href, {
+            method: "GET",
+            credentials: "same-origin",
+            headers: { Accept: "text/html" },
+          });
+          if (!response.ok) {
+            throw new Error("退出登录失败，请稍后重试。");
+          }
+          window.location.href = response.url || "/";
+        } catch (error) {
+          showError(error.message || "退出登录失败，请稍后重试。");
+        }
+      });
+    });
+
+    window.GatherlyAuthProgress = { show, hide, showError };
+  };
+
   const initCurrentYear = () => {
     const year = String(new Date().getFullYear());
     document.querySelectorAll("[data-current-year]").forEach(item => {
@@ -22,6 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   initCurrentYear();
+  initAuthProgressScreen();
 
   const initGsapMotion = () => {
     const gsap = window.gsap;
@@ -503,10 +591,12 @@ document.addEventListener("DOMContentLoaded", () => {
       clearFeedback("login");
       const formData = new FormData(loginForm);
       setFormBusy(loginForm, true);
+      window.GatherlyAuthProgress?.show("正在登录……");
       try {
         const result = await postForm(loginForm, null, formData);
         window.location.href = result.redirect || "/";
       } catch (error) {
+        window.GatherlyAuthProgress?.hide();
         setFeedback("login", error.result?.message || error.message, "error", error.result?.errors || []);
       } finally {
         setFormBusy(loginForm, false);
