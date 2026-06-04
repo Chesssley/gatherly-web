@@ -2677,12 +2677,20 @@ textarea.form-input {
 
 .admin-status {
   display: inline-flex;
+  align-items: center;
   padding: 2px 8px;
   border-radius: 999px;
   background: #e8f0ed;
   color: var(--color-primary-dark);
   font-size: 12px;
   font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.admin-status.status-featured {
+  background: #e8f0ed;
+  color: var(--color-primary-dark);
 }
 
 .admin-status.status-hidden,
@@ -2690,7 +2698,8 @@ textarea.form-input {
 .admin-status.status-closed,
 .admin-status.status-cancelled,
 .admin-status.status-deleted,
-.admin-status.status-inactive {
+.admin-status.status-inactive,
+.admin-status.status-unfeatured {
   background: #f4e4df;
   color: #8b4638;
 }
