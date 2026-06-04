@@ -19,6 +19,14 @@
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"></path>
     {% elif name == "calendar" %}
     <path d="M8 2v4M16 2v4M3 10h18"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect>
+    {% elif name == "star" %}
+    <path d="m12 3 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 21l1.1-6.5-4.7-4.6 6.5-.9L12 3Z"></path>
+    {% elif name == "image" %}
+    <rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9" r="1.5"></circle><path d="m21 15-5-5L5 20"></path>
+    {% elif name == "info" %}
+    <circle cx="12" cy="12" r="9"></circle><path d="M12 10v6M12 7h.01"></path>
+    {% elif name == "map-pin" %}
+    <path d="M12 21s7-4.7 7-11a7 7 0 1 0-14 0c0 6.3 7 11 7 11Z"></path><circle cx="12" cy="10" r="2.4"></circle>
     {% else %}
     <circle cx="12" cy="12" r="9"></circle>
     {% endif %}
@@ -169,23 +177,28 @@
                     <p>{{ circle.description or "这个圈子还没有填写介绍。" }}</p>
                 </div>
 
+                <div class="circle-hero-rating" aria-label="圈子评分">
+                    {{ rating_stars(average_rating, '同好圈综合评分') }}
+                    <strong>{{ '%.1f'|format(average_rating) if average_rating else '暂无' }}</strong>
+                    <span>{% if rating_count %}{{ rating_count }} 条评分{% else %}评分{% endif %}</span>
+                </div>
+
+                <div class="card-meta circle-meta circle-detail-stats">
+                    <p>{{ circle_icon("map-pin") }}<strong>{{ circle.tag or "同好圈" }}</strong><span>兴趣</span></p>
+                    <p>{{ circle_icon("users") }}<strong>{{ circle.member_count }}</strong><span>成员</span></p>
+                    <p>{{ circle_icon("comment") }}<strong>{{ circle.post_count | default(0) }}</strong><span>帖子</span></p>
+                    <p>{{ circle_icon("calendar") }}<strong>{{ related_activity_count | default(0) }}</strong><span>活动</span></p>
+                </div>
+
                 <div class="circle-detail-tags" aria-label="圈子标签">
-                    <span class="tag">{{ circle.tag or "同好圈" }}</span>
                     <span class="tag">{{ circle.active_level }}</span>
                     {% if circle.status == "private" %}<span class="tag circle-private-tag">私密圈子</span>{% endif %}
                     {% if circle.owner %}<span class="tag">圈主 {{ circle.owner.nickname or circle.owner.username }}</span>{% endif %}
                     {% if moderator_memberships %}<span class="tag">{{ moderator_memberships|length }} 位管理员</span>{% endif %}
                 </div>
 
-                <div class="card-meta circle-meta circle-detail-stats">
-                    <p>{{ circle_icon("users") }}<strong>{{ circle.member_count }}</strong><span>成员</span></p>
-                    <p>{{ circle_icon("comment") }}<strong>{{ circle.post_count | default(0) }}</strong><span>帖子</span></p>
-                    <p>{{ circle_icon("calendar") }}<strong>{{ related_activity_count | default(0) }}</strong><span>活动</span></p>
-                    <p><strong>{{ '%.1f'|format(average_rating) if average_rating else '暂无' }}</strong><span>评分{% if rating_count %} · {{ rating_count }} 条{% endif %}</span></p>
-                </div>
-
                 <div class="circle-share-row" aria-label="分享圈子">
-                    <span>Share</span>
+                    <span>分享</span>
                     <button class="circle-mini-icon circle-share-button" type="button" data-share-url="{{ url_for('circle.circle_detail', circle_id=circle.id) }}" aria-label="分享圈子">{{ circle_icon("share") }}</button>
                     <a class="circle-mini-icon" href="#circle-discussions-title" aria-label="查看讨论">{{ circle_icon("comment") }}</a>
                     <a class="circle-mini-icon" href="#circle-members-title" aria-label="查看成员">{{ circle_icon("users") }}</a>
@@ -211,6 +224,10 @@
                     {% else %}
                     <a class="button" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">登录后加入</a>
                     <a class="button button-secondary" href="#register" data-auth-modal="register">注册</a>
+                    {% endif %}
+                    <button class="button button-secondary" type="button" data-member-modal-open>查看成员</button>
+                    {% if can_manage_circle %}
+                    <a class="button button-secondary" href="#circle-management-panel">管理圈子</a>
                     {% endif %}
                 </div>
             </div>
@@ -245,12 +262,12 @@
 {% else %}
 
         <nav class="circle-group-tabs" aria-label="圈子页面导航">
-            <button class="is-active" type="button" data-scroll-target="circle-about-title"><span>✦</span>关于</button>
-            <button type="button" data-scroll-target="circle-related-activities-title"><span>▣</span>活动</button>
-            <button type="button" data-scroll-target="circle-ratings-title"><span>★</span>评分</button>
-            <button type="button" data-member-modal-open><span>♟</span>成员</button>
-            <button type="button" data-scroll-target="circle-photos-title"><span>▤</span>照片</button>
-            <button type="button" data-scroll-target="circle-discussions-title"><span>☰</span>讨论</button>
+            <button class="is-active" type="button" data-scroll-target="circle-about-title"><span class="circle-tab-icon">{{ circle_icon("info") }}</span><span class="circle-tab-label">关于</span></button>
+            <button type="button" data-scroll-target="circle-related-activities-title"><span class="circle-tab-icon">{{ circle_icon("calendar") }}</span><span class="circle-tab-label">活动</span></button>
+            <button type="button" data-scroll-target="circle-members-title" data-member-modal-open><span class="circle-tab-icon">{{ circle_icon("users") }}</span><span class="circle-tab-label">成员</span></button>
+            <button type="button" data-scroll-target="circle-photos-title"><span class="circle-tab-icon">{{ circle_icon("image") }}</span><span class="circle-tab-label">照片</span></button>
+            <button type="button" data-scroll-target="circle-discussions-title"><span class="circle-tab-icon">{{ circle_icon("comment") }}</span><span class="circle-tab-label">讨论</span></button>
+            <button type="button" data-scroll-target="circle-ratings-title"><span class="circle-tab-icon">{{ circle_icon("star") }}</span><span class="circle-tab-label">评分</span></button>
         </nav>
 
         <div class="circle-group-shell">
@@ -655,7 +672,7 @@
                 </section>
 
                 {% if can_manage_circle %}
-                <details class="circle-management-panel">
+                <details class="circle-management-panel" id="circle-management-panel">
                     <summary>管理圈子</summary>
                     {% if is_circle_owner or current_user.role == 'admin' %}
                     <section class="management-card circle-privacy-panel">
