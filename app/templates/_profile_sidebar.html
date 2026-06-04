@@ -46,8 +46,8 @@
       </form>
       {% endif %}
     {% else %}
-    <a class="button profile-action-btn profile-action-primary" href="{{ url_for('auth.login', next=request.url) }}">私信</a>
-    <a class="button button-secondary profile-action-btn profile-action-secondary" href="{{ url_for('auth.login', next=request.url) }}">关注</a>
+    <a class="button profile-action-btn profile-action-primary" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">私信</a>
+    <a class="button button-secondary profile-action-btn profile-action-secondary" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">关注</a>
     {% endif %}
   </div>
   {% endif %}

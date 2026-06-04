@@ -2,6 +2,17 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("Gatherly Flask app initialized.");
   const emailCodeCooldownPattern = /请在\s*(\d+)\s*秒后重试/;
   const emailCodeCooldownText = seconds => `验证码发送过于频繁，请在 ${seconds} 秒后重试。`;
+  const parseLoginNext = href => {
+    if (!href) {
+      return "";
+    }
+    try {
+      const url = new URL(href, window.location.origin);
+      return url.searchParams.get("next") || "";
+    } catch (error) {
+      return "";
+    }
+  };
 
   const initCurrentYear = () => {
     const year = String(new Date().getFullYear());
@@ -292,7 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initSignupOnboarding();
 
   const initAuthModal = () => {
-    const modal = document.querySelector("[data-auth-modal]");
+    const modal = document.querySelector(".auth-modal[data-auth-modal]");
     if (!modal) {
       return;
     }
@@ -344,13 +355,14 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const openModal = (name = "login", next = "") => {
+      const targetName = name === "register" || name === "forgot" ? name : "login";
       lastFocusedElement = document.activeElement;
       loginNextInputs.forEach(input => {
         input.value = next || "";
       });
       modal.hidden = false;
       document.body.classList.add("auth-modal-open");
-      activateView(name);
+      activateView(targetName);
       panel?.focus();
     };
 
@@ -372,15 +384,29 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
-    document.querySelectorAll("[data-auth-open]").forEach(trigger => {
+    const authTriggers = document.querySelectorAll(
+      "[data-auth-open], [data-open-auth-modal], [data-auth-modal='login'], [data-auth-modal='register']"
+    );
+    authTriggers.forEach(trigger => {
       trigger.addEventListener("click", event => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
           return;
         }
         event.preventDefault();
-        openModal(trigger.dataset.authOpen || "login", parseNextFromHref(trigger.getAttribute("href")));
+        const view =
+          trigger.dataset.authOpen ||
+          trigger.dataset.openAuthModal ||
+          trigger.dataset.authModal ||
+          "login";
+        const next = trigger.dataset.authNext || parseNextFromHref(trigger.getAttribute("href"));
+        openModal(view, next);
       });
     });
+
+    window.GatherlyAuth = {
+      open: openModal,
+      close: closeModal,
+    };
 
     modal.querySelectorAll("[data-auth-modal-close]").forEach(button => {
       button.addEventListener("click", closeModal);
@@ -587,6 +613,12 @@ document.addEventListener("DOMContentLoaded", () => {
         setFormBusy(forgotForm, false);
       }
     });
+
+    const authParam = new URLSearchParams(window.location.search).get("auth");
+    if (authParam === "login" || authParam === "register") {
+      const nextParam = new URLSearchParams(window.location.search).get("next") || "";
+      window.setTimeout(() => openModal(authParam, nextParam), 0);
+    }
   };
 
   initAuthModal();
@@ -1448,9 +1480,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await response.json();
         if (response.status === 401 && result.login_url) {
           showShareToast("请先登录后再收藏活动");
-          window.setTimeout(() => {
-            window.location.href = result.login_url;
-          }, 500);
+          const nextUrl = parseLoginNext(result.login_url) || window.location.pathname + window.location.search;
+          if (window.GatherlyAuth?.open) {
+            window.GatherlyAuth.open("login", nextUrl);
+          } else {
+            window.setTimeout(() => {
+              window.location.href = result.login_url;
+            }, 500);
+          }
           return;
         }
         if (!response.ok) {

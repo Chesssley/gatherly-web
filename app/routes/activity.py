@@ -38,7 +38,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
             flash("请先登录后再报名活动", "error")
-            return redirect(url_for("auth.login"))
+            return redirect(url_for("auth.login", next=request.url))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -1731,7 +1731,8 @@ def toggle_activity_favorite(activity_id):
             {
                 "error": "login_required",
                 "login_url": url_for(
-                    "auth.login",
+                    "activity.index",
+                    auth="login",
                     next=url_for("activity.activity_detail", activity_id=activity_id),
                 ),
             }
