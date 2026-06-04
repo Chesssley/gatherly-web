@@ -35,6 +35,13 @@ def _notification_url(notification):
         if user and user.role == "admin":
             return url_for("admin.merchant_verifications")
         return url_for("auth.account_settings")
+    if notification.related_type == "feedback_admin" and notification.related_id:
+        user = db.session.get(User, session.get("user_id"))
+        if user and user.role == "admin":
+            return url_for("admin.admin_feedback_detail", feedback_id=notification.related_id)
+        return None
+    if notification.related_type == "feedback" and notification.related_id:
+        return url_for("pages.my_feedback_detail", feedback_id=notification.related_id)
     return None
 
 

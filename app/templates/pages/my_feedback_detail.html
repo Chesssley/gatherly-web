@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}反馈详情 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section page-container">
+  <div class="container">
+    {% set status_labels = {'open': '未处理', 'replied': '已回复', 'closed': '已关闭'} %}
+    <header class="page-heading feedback-detail-title">
+      <p class="eyebrow">Feedback #{{ feedback.id }}</p>
+      <h1>{{ feedback.title }}</h1>
+      <p>
+        <span class="admin-status status-{{ feedback.status }}">{{ status_labels.get(feedback.status, feedback.status) }}</span>
+        <span>{{ feedback.category }}</span>
+        <span>{{ feedback.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+      </p>
+    </header>
+
+    <div class="feedback-detail-stack">
+      <article class="info-card feedback-detail-card">
+        <div class="feedback-content-block">
+          <h2>反馈内容</h2>
+          <p>{{ feedback.content }}</p>
+        </div>
+      </article>
+
+      <article class="info-card feedback-detail-card">
+        <div class="feedback-content-block">
+          <h2>管理员回复</h2>
+          {% if feedback.admin_reply %}
+            <p class="feedback-reply-meta">
+              {% if feedback.replied_at %}{{ feedback.replied_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}
+            </p>
+            <p>{{ feedback.admin_reply }}</p>
+          {% else %}
+            <p>管理员暂未回复，请耐心等待。</p>
+          {% endif %}
+        </div>
+      </article>
+
+      <div class="page-actions">
+        <a class="button button-secondary" href="{{ url_for('pages.my_feedback') }}">返回我的反馈</a>
+        <a class="text-link" href="{{ url_for('pages.feedback') }}">提交新的反馈</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

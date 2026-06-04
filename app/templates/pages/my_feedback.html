@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}我的反馈 - Gatherly{% endblock %}
+
+{% block content %}
+<section class="section page-container">
+  <div class="container">
+    <header class="page-heading">
+      <p class="eyebrow">My Feedback</p>
+      <h1>我的反馈</h1>
+      <p>查看你提交过的问题反馈和管理员回复。</p>
+    </header>
+
+    <div class="feedback-list">
+      {% set status_labels = {'open': '未处理', 'replied': '已回复', 'closed': '已关闭'} %}
+      {% for feedback in feedback_items %}
+        <a class="feedback-list-card" href="{{ url_for('pages.my_feedback_detail', feedback_id=feedback.id) }}">
+          <div>
+            <span class="feedback-category">{{ feedback.category }}</span>
+            <h2>{{ feedback.title }}</h2>
+            <p>{{ feedback.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+          </div>
+          <span class="admin-status status-{{ feedback.status }}">{{ status_labels.get(feedback.status, feedback.status) }}</span>
+        </a>
+      {% else %}
+        <div class="info-card feedback-empty">
+          <div class="info-section">
+            <h2>暂无反馈记录</h2>
+            <p>你提交的问题反馈会显示在这里。</p>
+          </div>
+          <a class="button" href="{{ url_for('pages.feedback') }}">提交反馈</a>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}
