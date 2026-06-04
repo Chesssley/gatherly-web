@@ -23,12 +23,24 @@
   <div class="user-card-actions">
     <a class="button button-small button-secondary" href="{{ url_for('messages.conversation', user_id=card_user.id) }}">私信</a>
     {% if card_user.id in following_ids %}
-    <form method="post" action="{{ url_for('profile.unfollow_user', user_id=card_user.id) }}">
+    <form method="post"
+          action="{{ url_for('profile.unfollow_user', user_id=card_user.id) }}"
+          data-follow-form
+          data-user-id="{{ card_user.id }}"
+          data-following="true"
+          data-follow-url="{{ url_for('profile.follow_user', user_id=card_user.id) }}"
+          data-unfollow-url="{{ url_for('profile.unfollow_user', user_id=card_user.id) }}">
       <input type="hidden" name="next" value="{{ request.full_path }}">
       <button class="button button-small button-ghost" type="submit">已关注</button>
     </form>
     {% else %}
-    <form method="post" action="{{ url_for('profile.follow_user', user_id=card_user.id) }}">
+    <form method="post"
+          action="{{ url_for('profile.follow_user', user_id=card_user.id) }}"
+          data-follow-form
+          data-user-id="{{ card_user.id }}"
+          data-following="false"
+          data-follow-url="{{ url_for('profile.follow_user', user_id=card_user.id) }}"
+          data-unfollow-url="{{ url_for('profile.unfollow_user', user_id=card_user.id) }}">
       <input type="hidden" name="next" value="{{ request.full_path }}">
       <button class="button button-small" type="submit">关注</button>
     </form>

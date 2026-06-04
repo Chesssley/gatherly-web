@@ -1,7 +1,7 @@
 from functools import wraps
 from urllib.parse import urlencode
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, session, url_for
 from sqlalchemy import and_, or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
@@ -332,6 +332,27 @@ def _nearby_locations_match(match_region, candidate):
 
 def _profile_region_value(user):
     return (getattr(user, "city", None) or "").strip()
+
+
+def _wants_json_response():
+    return (
+        request.accept_mimetypes["application/json"]
+        >= request.accept_mimetypes["text/html"]
+        or request.headers.get("X-Requested-With") == "fetch"
+    )
+
+
+def _follow_payload(user_id, is_following, message, ok=True):
+    return jsonify(
+        {
+            "ok": ok,
+            "user_id": user_id,
+            "is_following": is_following,
+            "message": message,
+            "follow_url": url_for("profile.follow_user", user_id=user_id),
+            "unfollow_url": url_for("profile.unfollow_user", user_id=user_id),
+        }
+    )
 
 
 def _user_search_items(query_text):
@@ -845,20 +866,34 @@ def follow_user(user_id):
     current_user_id = session["user_id"]
     fallback_url = request.form.get("next") or request.referrer or url_for("profile.view_profile", user_id=user_id)
     if user_id == current_user_id:
-        flash("不能关注自己。", "error")
+        message = "不能关注自己。"
+        if _wants_json_response():
+            return _follow_payload(user_id, False, message, ok=False), 400
+        flash(message, "error")
         return redirect(fallback_url)
     target = User.query.filter(User.id == user_id, User.status == "active").first()
     if target is None:
-        flash("用户不存在或不可关注。", "error")
+        message = "用户不存在或不可关注。"
+        if _wants_json_response():
+            return _follow_payload(user_id, False, message, ok=False), 404
+        flash(message, "error")
         return redirect(fallback_url)
     existing = UserFollow.query.filter_by(follower_id=current_user_id, followed_id=user_id).first()
+    message = "已关注该用户。"
     if existing is None:
         db.session.add(UserFollow(follower_id=current_user_id, followed_id=user_id))
         try:
             db.session.commit()
-            flash("已关注该用户。", "success")
         except IntegrityError:
             db.session.rollback()
+            message = "关注失败，请稍后重试。"
+            if _wants_json_response():
+                return _follow_payload(user_id, False, message, ok=False), 500
+            flash(message, "error")
+            return redirect(fallback_url)
+    if _wants_json_response():
+        return _follow_payload(user_id, True, message)
+    flash(message, "success")
     return redirect(fallback_url)
 
 
@@ -868,10 +903,13 @@ def unfollow_user(user_id):
     current_user_id = session["user_id"]
     fallback_url = request.form.get("next") or request.referrer or url_for("profile.view_profile", user_id=user_id)
     follow = UserFollow.query.filter_by(follower_id=current_user_id, followed_id=user_id).first()
+    message = "已取消关注。"
     if follow:
         db.session.delete(follow)
         db.session.commit()
-        flash("已取消关注。", "success")
+    if _wants_json_response():
+        return _follow_payload(user_id, False, message)
+    flash(message, "success")
     return redirect(fallback_url)
 
 

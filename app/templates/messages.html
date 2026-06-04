@@ -93,9 +93,18 @@
 
         <div class="message-notice {% if show_follow_suggestion %}info message-follow-suggestion{% else %}warning{% endif %}" data-message-notice {% if not message_notice %}hidden{% endif %}>
           <span data-message-notice-text>{{ message_notice }}</span>
-          <form class="message-follow-form" method="post" action="{{ url_for('profile.follow_user', user_id=active_user.id) }}" data-message-follow-action {% if not show_follow_suggestion %}hidden{% endif %}>
+          <form class="message-follow-form"
+                method="post"
+                action="{{ url_for('profile.follow_user', user_id=active_user.id) }}"
+                data-message-follow-action
+                data-follow-form
+                data-user-id="{{ active_user.id }}"
+                data-following="{{ 'true' if is_following_active_user else 'false' }}"
+                data-follow-url="{{ url_for('profile.follow_user', user_id=active_user.id) }}"
+                data-unfollow-url="{{ url_for('profile.unfollow_user', user_id=active_user.id) }}"
+                {% if not show_follow_suggestion %}hidden{% endif %}>
             <input type="hidden" name="next" value="{{ request.path }}">
-            <button class="button button-small button-secondary" type="submit">关注对方</button>
+            <button class="button button-small button-secondary{% if is_following_active_user %} button-ghost is-following{% endif %}" type="submit">{{ '已关注' if is_following_active_user else '关注对方' }}</button>
           </form>
         </div>
 

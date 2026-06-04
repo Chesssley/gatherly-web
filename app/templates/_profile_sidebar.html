@@ -23,12 +23,24 @@
     {% if session.get('user_id') %}
     <a class="button profile-action-btn profile-action-primary" href="{{ url_for('messages.conversation', user_id=user.id) }}">私信</a>
       {% if is_following %}
-      <form method="post" action="{{ url_for('profile.unfollow_user', user_id=user.id) }}">
+      <form method="post"
+            action="{{ url_for('profile.unfollow_user', user_id=user.id) }}"
+            data-follow-form
+            data-user-id="{{ user.id }}"
+            data-following="true"
+            data-follow-url="{{ url_for('profile.follow_user', user_id=user.id) }}"
+            data-unfollow-url="{{ url_for('profile.unfollow_user', user_id=user.id) }}">
         <input type="hidden" name="next" value="{{ request.full_path }}">
         <button class="button button-secondary profile-action-btn profile-action-secondary profile-action-following" type="submit">已关注</button>
       </form>
       {% else %}
-      <form method="post" action="{{ url_for('profile.follow_user', user_id=user.id) }}">
+      <form method="post"
+            action="{{ url_for('profile.follow_user', user_id=user.id) }}"
+            data-follow-form
+            data-user-id="{{ user.id }}"
+            data-following="false"
+            data-follow-url="{{ url_for('profile.follow_user', user_id=user.id) }}"
+            data-unfollow-url="{{ url_for('profile.unfollow_user', user_id=user.id) }}">
         <input type="hidden" name="next" value="{{ request.full_path }}">
         <button class="button button-secondary profile-action-btn profile-action-secondary" type="submit">关注</button>
       </form>
