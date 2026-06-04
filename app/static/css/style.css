@@ -12883,12 +12883,8 @@ body.circle-modal-open {
   display: none;
 }
 
-.home-mini-events .home-mini-event,
-.home-mini-events .home-mini-event:hover,
-.home-mini-events .home-mini-event:focus-visible {
-  cursor: default;
-  transform: none;
-  box-shadow: none;
+.home-mini-events .home-mini-event {
+  cursor: pointer;
 }
 
 .home-sidebar-empty {
