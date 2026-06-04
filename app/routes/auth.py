@@ -295,6 +295,13 @@ def _json_success(message, **extra):
     return jsonify(payload)
 
 
+def _auth_modal_redirect(view="login", next_url=None):
+    params = {"auth": view}
+    if next_url:
+        params["next"] = next_url
+    return redirect(url_for("activity.index", **params))
+
+
 def _registration_form_errors(form):
     errors = []
     for field_errors in form.errors.values():
@@ -410,17 +417,17 @@ def send_register_code():
         if wants_json:
             return _json_error("请先填写邮箱。")
         flash("请先填写邮箱。", "error")
-        return redirect(url_for("auth.register"))
+        return _auth_modal_redirect("register")
     if len(email) > 120:
         if wants_json:
             return _json_error("邮箱不能超过 120 个字符。")
         flash("邮箱不能超过 120 个字符。", "error")
-        return redirect(url_for("auth.register"))
+        return _auth_modal_redirect("register")
     if User.query.filter_by(email=email).first():
         if wants_json:
             return _json_error("该邮箱已被注册，请使用其他邮箱或直接登录。")
         flash("该邮箱已被注册，请使用其他邮箱或直接登录。", "error")
-        return redirect(url_for("auth.register"))
+        return _auth_modal_redirect("register")
     if _is_email_code_send_rate_limited(email, "register"):
         retry_after = _email_code_send_retry_after_seconds(email, "register")
         if wants_json:
@@ -429,7 +436,7 @@ def send_register_code():
                 retry_after=retry_after,
             )
         flash(_email_code_rate_limit_message(retry_after), "error")
-        return redirect(url_for("auth.register"))
+        return _auth_modal_redirect("register")
 
     try:
         _record_session_email_code_attempt()
@@ -453,7 +460,7 @@ def send_register_code():
                 return _json_error(configuration_error, status=500)
             return _json_error("验证码发送失败，请稍后再试。", status=500)
         _flash_email_code_send_result(sent)
-    return redirect(url_for("auth.register"))
+    return _auth_modal_redirect("register")
 
 
 @auth_bp.route("/account/email-code", methods=["POST"])
@@ -571,15 +578,17 @@ def send_reset_password_code():
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     """
-    登录页路由。
-    GET：显示登录表单
+    登录路由。
+    GET：回到首页并打开登录弹窗
     POST：验证登录表单 → 写入 session → 重定向首页
     支持 next 参数：登录成功后跳转到 next 指定的页面
     """
     next_page = request.args.get("next") or request.form.get("next", "")
 
-    if request.method == "GET" and next_page:
-        flash("请先登录后再报名活动", "info")
+    if request.method == "GET":
+        if next_page:
+            flash("请先登录后继续操作。", "info")
+        return _auth_modal_redirect("login", next_page)
 
     if request.method == "POST":
         identifier = request.form.get("email", "").strip()
@@ -590,13 +599,13 @@ def login():
             if wants_json:
                 return _json_error(LOGIN_FAILURE_MESSAGE)
             flash(LOGIN_FAILURE_MESSAGE, "error")
-            return render_template("login.html")
+            return _auth_modal_redirect("login", next_page)
 
         if _is_login_rate_limited(identifier):
             if wants_json:
                 return _json_error(LOGIN_FAILURE_COOLDOWN_MESSAGE, status=429)
             flash(LOGIN_FAILURE_COOLDOWN_MESSAGE, "error")
-            return render_template("login.html")
+            return _auth_modal_redirect("login", next_page)
 
         user = User.query.filter(
             (User.username == identifier) | (User.email == identifier)
@@ -607,7 +616,7 @@ def login():
             if wants_json:
                 return _json_error(LOGIN_FAILURE_MESSAGE)
             flash(LOGIN_FAILURE_MESSAGE, "error")
-            return render_template("login.html")
+            return _auth_modal_redirect("login", next_page)
 
         # 登录成功，写入 session
         _clear_login_failures(identifier)
@@ -625,7 +634,7 @@ def login():
             return redirect(next_page)
         return redirect(url_for("activity.index"))
 
-    return render_template("login.html")
+    return _auth_modal_redirect("login", next_page)
 
 
 @auth_bp.route("/logout")
@@ -881,7 +890,7 @@ def forgot_password():
             flash("密码已重置，请使用新密码登录。", "success")
             if wants_json:
                 return _json_success("密码已重置，请使用新密码登录。")
-            return redirect(url_for("auth.login"))
+            return _auth_modal_redirect("login")
 
     return render_template(
         "forgot_password.html",
@@ -892,10 +901,13 @@ def forgot_password():
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
     """
-    注册页路由（US-02-01）。
-    GET：显示注册表单
+    注册路由（US-02-01）。
+    GET：回到首页并打开注册弹窗
     POST：验证表单 → 密码加密 → 写入数据库 → 重定向到登录页
     """
+    if request.method == "GET":
+        return _auth_modal_redirect("register")
+
     form = RegistrationForm()
     if request.method == "POST":
         _store_register_form_draft()
@@ -914,33 +926,21 @@ def register():
             if wants_json:
                 return _json_error("该用户名已被注册，请选择其他用户名")
             flash("该用户名已被注册，请选择其他用户名", "error")
-            return render_template(
-                "register.html",
-                form=form,
-                register_form_draft=register_form_draft,
-            )
+            return _auth_modal_redirect("register")
 
         existing_email = User.query.filter_by(email=email).first()
         if existing_email:
             if wants_json:
                 return _json_error("该邮箱已被注册，请使用其他邮箱或直接登录")
             flash("该邮箱已被注册，请使用其他邮箱或直接登录", "error")
-            return render_template(
-                "register.html",
-                form=form,
-                register_form_draft=register_form_draft,
-            )
+            return _auth_modal_redirect("register")
 
         email_code = request.form.get("email_code", "").strip()
         if not verify_email_code(email, "register", email_code):
             if wants_json:
                 return _json_error("邮箱验证码错误或已过期，请重新获取。")
             flash("邮箱验证码错误或已过期，请重新获取。", "error")
-            return render_template(
-                "register.html",
-                form=form,
-                register_form_draft=register_form_draft,
-            )
+            return _auth_modal_redirect("register")
 
         hashed_password = generate_password_hash(form.password.data)
 
@@ -987,11 +987,7 @@ def register():
         errors = _registration_form_errors(form)
         return _json_error(errors[0] if errors else "请检查注册信息。", errors=errors)
 
-    return render_template(
-        "register.html",
-        form=form,
-        register_form_draft=register_form_draft,
-    )
+    return _auth_modal_redirect("register")
 
 
 @auth_bp.route("/register/onboarding", methods=["GET", "POST"])
@@ -1002,7 +998,7 @@ def signup_onboarding():
     user = _pending_onboarding_user()
     if user is None:
         flash("请先完成邮箱验证后继续注册。", "error")
-        return redirect(url_for("auth.register"))
+        return _auth_modal_redirect("register")
 
     if request.method == "POST":
         form_values = {

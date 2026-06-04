@@ -18,7 +18,7 @@
           <p>反馈会绑定到你的账号，方便管理员在处理后直接通过通知中心回复。</p>
         </div>
         <div class="page-actions">
-          <a class="button" href="{{ url_for('auth.login', next=url_for('pages.feedback')) }}">登录后提交</a>
+          <a class="button" href="#login" data-auth-modal="login" data-auth-next="{{ url_for('pages.feedback') }}">登录后提交</a>
           <a class="button button-secondary" href="{{ url_for('activity.index') }}">返回首页</a>
         </div>
       </div>

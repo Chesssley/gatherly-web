@@ -90,8 +90,8 @@
             </div>
           </div>
         {% else %}
-          <a class="nav-auth-link" href="{{ url_for('auth.login') }}" data-auth-open="login">登录</a>
-          <a class="nav-register" href="{{ url_for('auth.register') }}" data-auth-open="register">注册</a>
+          <a class="nav-auth-link" href="#login" data-auth-modal="login">登录</a>
+          <a class="nav-register" href="#register" data-auth-modal="register">注册</a>
         {% endif %}
       </div>
 
@@ -160,8 +160,8 @@
       {% endif %}
       <a href="{{ url_for('circle.circles') }}">同好圈</a>
       {% if not session.get('user_id') %}
-        <a href="{{ url_for('auth.login') }}" data-auth-open="login">登录</a>
-        <a href="{{ url_for('auth.register') }}" data-auth-open="register">注册</a>
+        <a href="#login" data-auth-modal="login">登录</a>
+        <a href="#register" data-auth-modal="register">注册</a>
       {% endif %}
     </div>
   </header>
@@ -193,8 +193,8 @@
           <ul>
             <li><a href="{{ url_for('activity.index') }}">浏览活动</a></li>
             <li><a href="{{ url_for('circle.circles') }}">同好圈</a></li>
-            <li><a href="{{ url_for('activity.create_activity') if session.get('user_id') else url_for('auth.login', next=url_for('activity.create_activity')) }}">发布活动</a></li>
-            <li><a href="{{ url_for('profile.my_profile') if session.get('user_id') else url_for('auth.login', next=url_for('profile.my_profile')) }}">个人主页</a></li>
+            <li><a href="{{ url_for('activity.create_activity') if session.get('user_id') else '#login' }}"{% if not session.get('user_id') %} data-auth-modal="login" data-auth-next="{{ url_for('activity.create_activity') }}"{% endif %}>发布活动</a></li>
+            <li><a href="{{ url_for('profile.my_profile') if session.get('user_id') else '#login' }}"{% if not session.get('user_id') %} data-auth-modal="login" data-auth-next="{{ url_for('profile.my_profile') }}"{% endif %}>个人主页</a></li>
           </ul>
         </section>
 

@@ -70,7 +70,7 @@
             {% if session.get("user_id") %}
             <a class="meetup-banner-action" href="{{ url_for('circle.create_circle') }}">立即开始</a>
             {% else %}
-            <a class="meetup-banner-action" href="{{ url_for('auth.login', next=request.url) }}">立即开始</a>
+            <a class="meetup-banner-action" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">立即开始</a>
             {% endif %}
             <button class="meetup-banner-close" type="button" aria-label="关闭提示" data-banner-dismiss>&times;</button>
         </section>

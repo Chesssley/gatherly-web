@@ -23,7 +23,7 @@
                     data-activity-location="{{ activity.location }}"
                     data-activity-detail-url="{{ detail_url }}"
                     data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=favorite_activity_id) }}"
-                    data-login-url="{{ url_for('auth.login', next=detail_url) }}">
+                    data-login-url="{{ url_for('activity.index', auth='login', next=detail_url) }}">
                 <span aria-hidden="true">{% if favorite_activity_id in favorite_activity_ids %}&#9829;{% else %}&#9825;{% endif %}</span>
             </button>
             <button class="card-icon-button" type="button" aria-label="复制 {{ activity.title }} 的链接" data-activity-share data-share-url="{{ detail_url }}">
@@ -81,7 +81,7 @@
         {% if browse_all_mode|default(false) %}
         <section class="meetup-create-banner" aria-label="创建同好圈">
             <strong>创建你自己的同好圈，并开始组织活动吧！</strong>
-            <a class="meetup-banner-action" href="{{ url_for('circle.create_circle') if session.get('user_id') else url_for('auth.login', next=url_for('circle.create_circle')) }}">立即开始</a>
+            <a class="meetup-banner-action" href="{{ url_for('circle.create_circle') if session.get('user_id') else '#login' }}"{% if not session.get('user_id') %} data-auth-modal="login" data-auth-next="{{ url_for('circle.create_circle') }}"{% endif %}>立即开始</a>
             <button class="meetup-banner-close" type="button" aria-label="关闭提示" data-banner-dismiss>&times;</button>
         </section>
 
@@ -256,7 +256,7 @@
             <p class="eyebrow">Gatherly 聚场</p>
             <h1 id="guest-home-title">让兴趣变成线下相遇</h1>
             <p>在聚场找到城市里的小众活动、同好圈和真实的人。摄影散步、咖啡体验、桌游夜、读书会，都可以从一次报名开始。</p>
-            <a class="button guest-primary-action" href="{{ url_for('auth.register') }}" data-auth-open="register">加入聚场</a>
+            <a class="button guest-primary-action" href="#register" data-auth-modal="register">加入聚场</a>
         </div>
 
         <div class="guest-hero-collage is-right" aria-hidden="true">
@@ -313,8 +313,8 @@
             <section class="home-sidebar-panel home-mini-events"
                      aria-labelledby="home-mini-events-title"
                      data-home-mini-events
-                     data-upcoming-url="{{ url_for('activity.my_events', tab='joined', status='upcoming') if session.get('user_id') else url_for('auth.login') }}"
-                     data-saved-url="{{ url_for('activity.my_events', tab='saved') if session.get('user_id') else url_for('auth.login') }}">
+                     data-upcoming-url="{{ url_for('activity.my_events', tab='joined', status='upcoming') if session.get('user_id') else url_for('activity.index', auth='login') }}"
+                     data-saved-url="{{ url_for('activity.my_events', tab='saved') if session.get('user_id') else url_for('activity.index', auth='login') }}">
                 <div class="home-sidebar-tabs" id="home-mini-events-title" role="tablist" aria-label="我的活动预览">
                     <button class="is-active"
                             type="button"
@@ -424,7 +424,7 @@
                                             data-activity-location="{{ activity.location }}"
                                             data-activity-detail-url="{{ activity.detail_url }}"
                                             data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=activity.id) }}"
-                                            data-login-url="{{ url_for('auth.login', next=activity.detail_url) }}">
+                                            data-login-url="{{ url_for('activity.index', auth='login', next=activity.detail_url) }}">
                                         <span aria-hidden="true">{% if activity.id in favorite_activity_ids %}&#9829;{% else %}&#9825;{% endif %}</span>
                                     </button>
                                 </div>
@@ -545,7 +545,7 @@
                                         data-activity-location="{{ activity.location }}"
                                         data-activity-detail-url="{{ activity.detail_url }}"
                                         data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=activity.id) }}"
-                                        data-login-url="{{ url_for('auth.login', next=activity.detail_url) }}">
+                                        data-login-url="{{ url_for('activity.index', auth='login', next=activity.detail_url) }}">
                                     <span aria-hidden="true">{% if activity.id in favorite_activity_ids %}&#9829;{% else %}&#9825;{% endif %}</span>
                                 </button>
                             </div>
@@ -620,7 +620,7 @@
                                 data-activity-location="{{ activity.location or '' }}"
                                 data-activity-detail-url="{{ activity.detail_url }}"
                                 data-favorite-url="{{ url_for('activity.toggle_activity_favorite', activity_id=activity.id) }}"
-                                data-login-url="{{ url_for('auth.login', next=activity.detail_url) }}">
+                                data-login-url="{{ url_for('activity.index', auth='login', next=activity.detail_url) }}">
                             <span aria-hidden="true">{% if activity.id in favorite_activity_ids %}&#9829;{% else %}&#9825;{% endif %}</span>
                         </button>
                     </div>

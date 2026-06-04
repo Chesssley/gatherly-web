@@ -203,8 +203,8 @@
                         {% endif %}
                         {% endif %}
                     {% else %}
-                    <a class="button" href="{{ url_for('auth.login', next=request.url) }}">登录后加入</a>
-                    <a class="button button-secondary" href="{{ url_for('auth.register') }}">注册</a>
+                    <a class="button" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">登录后加入</a>
+                    <a class="button button-secondary" href="#register" data-auth-modal="register">注册</a>
                     {% endif %}
                 </div>
             </div>
@@ -230,7 +230,7 @@
                 </form>
                 {% endif %}
             {% else %}
-            <a class="button" href="{{ url_for('auth.login', next=request.url) }}">登录后申请加入</a>
+            <a class="button" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">登录后申请加入</a>
             {% endif %}
         </section>
     </div>
@@ -340,7 +340,7 @@
                         {% elif current_user %}
                         <span class="circle-add-photo-button is-disabled" aria-disabled="true">加入同好圈后可以上传照片</span>
                         {% else %}
-                        <a class="circle-add-photo-button" href="{{ url_for('auth.login', next=request.url) }}">登录后上传照片</a>
+                        <a class="circle-add-photo-button" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">登录后上传照片</a>
                         {% endif %}
                     </div>
                     <div class="circle-photo-grid">
@@ -382,7 +382,7 @@
                         <span>发起讨论...</span>
                     </a>
                     {% else %}
-                    <a class="circle-discussion-composer" href="{{ url_for('auth.login', next=request.url) }}">
+                    <a class="circle-discussion-composer" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">
                         <span class="avatar-small avatar-placeholder">G</span>
                         <span>登录后发起讨论...</span>
                     </a>
@@ -493,8 +493,8 @@
                                 {% else %}
                                 <div class="login-prompt">
                                     <p>登录或注册后可以评论、点赞、收藏和分享。</p>
-                                    <a class="button button-small" href="{{ url_for('auth.login', next=request.url) }}">登录</a>
-                                    <a class="button button-small button-secondary" href="{{ url_for('auth.register') }}">注册</a>
+                                    <a class="button button-small" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">登录</a>
+                                    <a class="button button-small button-secondary" href="#register" data-auth-modal="register">注册</a>
                                 </div>
                                 {% endif %}
                             </div>

@@ -1,79 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}注册 - Gatherly{% endblock %}
+{% block title %}注册 - 聚场 / Gatherly{% endblock %}
 
 {% block content %}
-<section class="section narrow-page">
-    <p class="eyebrow">Register</p>
-    <h1>创建你的 Gatherly 账号</h1>
-    <p class="lead">注册后即可发布活动、报名参与、加入同好圈。</p>
-
-    <div class="form-card" style="margin-top: 24px;">
-        <form method="POST">
-            {{ form.hidden_tag() }}
-            {% set draft = register_form_draft or {} %}
-
-            <!-- 账号 ID / 登录账号 -->
-            <div style="margin-bottom: 16px;">
-                <label for="{{ form.username.id }}" class="form-label">账号 ID / 登录账号</label>
-                {{ form.username(class="form-input", placeholder="用于登录的唯一用户名", value=draft.get('username', request.form.get('username', ''))) }}
-                {% for error in form.username.errors %}
-                    <p class="form-error">{{ error }}</p>
-                {% endfor %}
-            </div>
-
-            <!-- 昵称 -->
-            <div style="margin-bottom: 16px;">
-                <label for="nickname" class="form-label">昵称</label>
-                <input type="text" id="nickname" name="nickname" class="form-input" value="{{ draft.get('nickname', request.form.get('nickname', '')) }}" placeholder="用于页面展示，可与登录账号不同">
-            </div>
-
-            <!-- 邮箱 -->
-            <div style="margin-bottom: 16px;">
-                {{ form.email.label(class="form-label") }}
-                {{ form.email(class="form-input", placeholder="用于接收通知和找回密码", value=draft.get('email', request.form.get('email', ''))) }}
-                {% for error in form.email.errors %}
-                    <p class="form-error">{{ error }}</p>
-                {% endfor %}
-            </div>
-
-            <!-- 城市 -->
-            <div style="margin-bottom: 16px;">
-                <label for="city" class="form-label">城市</label>
-                <input type="text" id="city" name="city" class="form-input" maxlength="80" value="{{ draft.get('city', request.form.get('city', '')) }}" placeholder="可选，例如：上海">
-                <p class="form-hint">城市可稍后在个人主页修改，不会自动开启“附近的人”。</p>
-            </div>
-
-            <div style="margin-bottom: 16px;">
-                <label for="email_code" class="form-label">邮箱验证码</label>
-                <input type="text" id="email_code" name="email_code" class="form-input" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="6 位数字验证码">
-                <button class="button button-secondary" type="submit" formaction="{{ url_for('auth.send_register_code') }}" formmethod="post" formnovalidate data-email-code-button style="width: 100%; margin-top: 8px;">发送验证码</button>
-            </div>
-
-            <!-- 密码 -->
-            <div style="margin-bottom: 16px;">
-                {{ form.password.label(class="form-label") }}
-                {{ form.password(class="form-input", placeholder="至少6个字符") }}
-                {% for error in form.password.errors %}
-                    <p class="form-error">{{ error }}</p>
-                {% endfor %}
-            </div>
-
-            <!-- 确认密码 -->
-            <div style="margin-bottom: 24px;">
-                {{ form.confirm_password.label(class="form-label") }}
-                {{ form.confirm_password(class="form-input", placeholder="再次输入密码以确认") }}
-                {% for error in form.confirm_password.errors %}
-                    <p class="form-error">{{ error }}</p>
-                {% endfor %}
-            </div>
-
-            {{ form.submit(class="button", style="width: 100%;") }}
-        </form>
-
-        <p style="margin-top: 16px; color: var(--color-muted); font-size: 14px; text-align: center;">
-            已有账号？<a href="{{ url_for('auth.login') }}" class="text-link">立即登录</a>
-        </p>
+<section class="section page-container auth-compat-redirect">
+  <div class="container">
+    <div class="empty-state">
+      <p>正在打开注册弹窗...</p>
+      <a class="button" href="#register" data-auth-modal="register">打开注册弹窗</a>
     </div>
+  </div>
 </section>
 {% endblock %}
