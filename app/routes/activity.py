@@ -302,9 +302,13 @@ def _activity_phase(activity, now=None):
         return "ended"
     if activity.status == "cancelled":
         return "cancelled"
-    if activity.status == "closed" or (activity.end_time and now >= activity.end_time):
+    if activity.status == "closed" or (activity.end_time and now > activity.end_time):
         return "ended"
-    if activity.start_time and now >= activity.start_time:
+    if (
+        activity.start_time
+        and now >= activity.start_time
+        and (not activity.end_time or now <= activity.end_time)
+    ):
         return "ongoing"
     return "upcoming"
 
@@ -2147,6 +2151,14 @@ def register_activity(activity_id):
 
     user_id = session["user_id"]
 
+    activity_phase = _activity_phase(db_activity)
+    if activity_phase == "ended":
+        flash("活动已结束，无法报名", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+    if activity_phase == "ongoing":
+        flash("活动正在进行中，无法报名", "error")
+        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
+
     if db_activity.status != "open":
         flash("该活动当前不可报名。", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
@@ -2155,11 +2167,6 @@ def register_activity(activity_id):
     existing = Registration.query.filter_by(user_id=user_id, activity_id=activity_id).first()
     if existing and existing.status != "cancelled":
         flash("您已报名该活动，无需重复报名", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    # 检查活动是否已过期
-    if db_activity.start_time and db_activity.start_time < _activity_now(db_activity):
-        flash("该活动已过期，无法报名", "error")
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     # 检查是否已满员
