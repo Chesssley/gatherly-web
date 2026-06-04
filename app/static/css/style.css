@@ -10938,6 +10938,30 @@ textarea.form-input {
   justify-self: start;
 }
 
+/* Activity admin management */
+.activity-admin-management-card {
+  display: grid;
+  gap: 10px;
+}
+
+.activity-admin-management-note {
+  margin: 0;
+}
+
+.activity-admin-time-form .form-input,
+.meetup-detail-management-form input[type="datetime-local"] {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 10px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 14px;
+}
+
 .meetup-detail-circle-card:hover,
 .meetup-detail-circle-card:focus-visible {
   border-color: var(--color-primary);
