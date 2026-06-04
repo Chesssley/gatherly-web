@@ -1662,6 +1662,92 @@ document.addEventListener("DOMContentLoaded", () => {
     return data;
   };
 
+  const initFollowForms = () => {
+    const forms = Array.from(document.querySelectorAll("[data-follow-form]"));
+    if (!forms.length) {
+      return;
+    }
+
+    const updateFollowForm = (form, isFollowing, payload = {}) => {
+      const followUrl = payload.follow_url || form.dataset.followUrl;
+      const unfollowUrl = payload.unfollow_url || form.dataset.unfollowUrl;
+      const button = form.querySelector('button[type="submit"]');
+      form.dataset.following = String(isFollowing);
+      if (followUrl) {
+        form.dataset.followUrl = followUrl;
+      }
+      if (unfollowUrl) {
+        form.dataset.unfollowUrl = unfollowUrl;
+      }
+      form.action = isFollowing ? (unfollowUrl || form.action) : (followUrl || form.action);
+
+      if (button) {
+        button.disabled = false;
+        button.textContent = isFollowing ? "已关注" : (form.dataset.followLabel || "关注");
+        button.setAttribute("aria-label", isFollowing ? "取消关注" : "关注用户");
+        button.classList.toggle("button-ghost", isFollowing);
+        button.classList.toggle("profile-action-following", isFollowing && button.classList.contains("profile-action-btn"));
+        button.classList.toggle("is-following", isFollowing);
+      }
+    };
+
+    const syncFollowState = (userId, isFollowing, payload = {}) => {
+      forms
+        .filter(form => String(form.dataset.userId) === String(userId))
+        .forEach(form => {
+          updateFollowForm(form, isFollowing, payload);
+        });
+    };
+
+    forms.forEach(form => {
+      const button = form.querySelector('button[type="submit"]');
+      if (button && !form.dataset.followLabel && form.dataset.following !== "true") {
+        form.dataset.followLabel = button.textContent.trim() || "关注";
+      }
+      updateFollowForm(form, form.dataset.following === "true");
+
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        const submitButton = form.querySelector('button[type="submit"]');
+        const wasFollowing = form.dataset.following === "true";
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = wasFollowing ? "处理中..." : "关注中...";
+        }
+
+        const headers = {
+          Accept: "application/json",
+          "X-Requested-With": "fetch",
+        };
+        const token = getCsrfToken();
+        if (token) {
+          headers["X-CSRFToken"] = token;
+          headers["X-CSRF-Token"] = token;
+        }
+
+        try {
+          const response = await fetch(form.action, {
+            method: "POST",
+            credentials: "same-origin",
+            headers,
+            body: new FormData(form),
+          });
+          const data = await response.json();
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || data.message || "操作失败，请稍后重试。");
+          }
+          syncFollowState(data.user_id || form.dataset.userId, Boolean(data.is_following), data);
+          showShareToast(data.message || (data.is_following ? "已关注" : "已取消关注"));
+        } catch (error) {
+          updateFollowForm(form, wasFollowing);
+          showShareToast(error.message || "操作失败，请稍后重试。");
+        }
+      });
+    });
+  };
+
+  initFollowForms();
+
   const createSmartPoller = options => {
     let timer = null;
     let inFlight = false;

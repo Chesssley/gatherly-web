@@ -1,0 +1,77 @@
+[
+  {
+    "file": "reference-images/fig01_profile_follow_status_pagination.png",
+    "source_image": "image1.png",
+    "description": "个人主页粉丝/已关注列表：关注按钮状态、搜索区域和分页参考"
+  },
+  {
+    "file": "reference-images/fig02_notification_center_read_status.png",
+    "source_image": "image2.png",
+    "description": "通知中心/消息系统：UI 排版、查看详情后已读状态参考"
+  },
+  {
+    "file": "reference-images/fig03_current_logged_home_problem.png",
+    "source_image": "image3.png",
+    "description": "当前已登录首页问题截图：需要重构的问题现状参考"
+  },
+  {
+    "file": "reference-images/fig04_meetup_guest_home_reference.png",
+    "source_image": "image4.png",
+    "description": "Meetup 未登录首页参考：顶部搜索、中心文案和四周插图氛围"
+  },
+  {
+    "file": "reference-images/fig05_meetup_login_modal_reference.png",
+    "source_image": "image5.png",
+    "description": "登录弹窗参考：遮罩、居中弹窗、输入框、第三方按钮位置"
+  },
+  {
+    "file": "reference-images/fig06_meetup_signup_modal_reference.png",
+    "source_image": "image6.png",
+    "description": "注册入口弹窗参考：注册方式选择和切换登录入口"
+  },
+  {
+    "file": "reference-images/fig07_meetup_finish_signup_modal_reference.png",
+    "source_image": "image7.png",
+    "description": "注册信息弹窗参考：姓名、邮箱、密码、位置、年龄确认"
+  },
+  {
+    "file": "reference-images/fig08_meetup_finish_signup_full_reference.png",
+    "source_image": "image8.png",
+    "description": "注册完成信息页参考：左侧表单 + 右侧插图视觉"
+  },
+  {
+    "file": "reference-images/fig09_signup_purpose_step_reference.png",
+    "source_image": "image9.png",
+    "description": "注册步骤 1：选择使用目的 / 用户类型"
+  },
+  {
+    "file": "reference-images/fig10_signup_birthdate_step_reference.png",
+    "source_image": "image10.png",
+    "description": "注册步骤 2：生日/年龄信息"
+  },
+  {
+    "file": "reference-images/fig11_signup_gender_step_reference.png",
+    "source_image": "image11.png",
+    "description": "注册步骤 3：性别/偏好信息"
+  },
+  {
+    "file": "reference-images/fig12_signup_interests_step_reference.png",
+    "source_image": "image12.png",
+    "description": "注册步骤 4：兴趣标签选择"
+  },
+  {
+    "file": "reference-images/fig13_signup_groups_step_reference.png",
+    "source_image": "image13.png",
+    "description": "注册步骤 5：推荐圈子/完成前推荐"
+  },
+  {
+    "file": "reference-images/fig14_meetup_logged_home_reference.png",
+    "source_image": "image14.png",
+    "description": "已登录首页最终参考：左侧用户卡片、活动横向流、圈子区域和顶部按钮"
+  },
+  {
+    "file": "reference-images/contact_sheet.jpg",
+    "source_image": "contact_sheet",
+    "description": "所有参考图缩略总览，便于 Codex/组员快速对照"
+  }
+]

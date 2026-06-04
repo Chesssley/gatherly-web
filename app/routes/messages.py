@@ -11,6 +11,7 @@ from app.models import (
     DirectMessage,
     DirectMessageConversationState,
     User,
+    UserFollow,
     cleanup_expired_direct_messages,
     db,
     ensure_direct_message_schema,
@@ -488,6 +489,10 @@ def conversation(user_id):
         conversations=_conversation_items(current_user_id, active_user=other_user),
         active_user=other_user,
         active_display_name=get_user_display_name(other_user),
+        is_following_active_user=UserFollow.query.filter_by(
+            follower_id=current_user_id,
+            followed_id=user_id,
+        ).first() is not None,
         messages=messages,
         can_send_message=permission_state["can_send"],
         send_block_reason=permission_state["send_block_reason"],
