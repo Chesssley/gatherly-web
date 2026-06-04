@@ -13540,6 +13540,13 @@ body.circle-modal-open {
   font-size: 13px;
 }
 
+.circle-rating-linked-activity {
+  margin: 0;
+  color: #65716a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* Circle review list */
 .circle-rating-review-list {
   display: grid;
@@ -13601,6 +13608,27 @@ body.circle-modal-open {
 .circle-rating-review-meta .rating-stars {
   margin-left: auto;
   flex: 0 0 auto;
+}
+
+.circle-rating-review-activity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.circle-rating-review-activity a {
+  color: #65716a;
+  text-decoration: none;
+}
+
+.circle-rating-review-activity a:hover,
+.circle-rating-review-activity a:focus-visible {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
 }
 
 .circle-rating-review p {

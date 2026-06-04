@@ -294,7 +294,7 @@
                 <section class="circle-home-section circle-rating-section" id="circle-ratings" aria-labelledby="circle-ratings-title">
                     <div class="circle-feed-heading">
                         <div>
-                            <p class="eyebrow">Ratings</p>
+                            <p class="eyebrow">评分</p>
                             <h2 id="circle-ratings-title">圈子评分 <span>{{ rating_count }}</span></h2>
                         </div>
                         <a class="section-link" href="#circle-rating-reviews">查看全部</a>
@@ -321,7 +321,7 @@
                     </div>
 
                     {% if not rating_count %}
-                    <p class="circle-rating-empty">暂无评分，成功参与圈子活动后可以评价这个同好圈。</p>
+                    <p class="circle-rating-empty">暂无评分，参与该同好圈活动且活动开始后，可以评价这个同好圈。</p>
                     {% endif %}
 
                     <div class="circle-rating-form-panel">
@@ -330,8 +330,25 @@
                             <form class="circle-rating-form" method="POST" action="{{ url_for('circle.submit_circle_rating', circle_id=circle.id) }}">
                                 <div class="circle-rating-form-heading">
                                     <strong>{{ '你已评价，可修改评价' if current_user_rating else '评价这个同好圈' }}</strong>
-                                    <span>仅成功参与该同好圈关联活动的用户可评分。</span>
+                                    <span>参与该同好圈活动且活动开始后，才可评分与评论。</span>
                                 </div>
+                                {% set selected_rating_activity_id = current_user_rating.activity_id if current_user_rating and current_user_rating.activity_id else eligible_rating_activities[0].id %}
+                                {% if eligible_rating_activities|length > 1 %}
+                                <label class="form-label" for="circle-rating-activity">本次评价关联活动</label>
+                                <select class="form-input" id="circle-rating-activity" name="activity_id" required>
+                                    {% for activity in eligible_rating_activities %}
+                                    <option value="{{ activity.id }}" {% if activity.id == selected_rating_activity_id %}selected{% endif %}>
+                                        {{ activity.start_time.year }}年{{ activity.start_time.month }}月{{ activity.start_time.day }}日 · {{ activity.title }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% else %}
+                                {% set only_rating_activity = eligible_rating_activities[0] %}
+                                <input type="hidden" name="activity_id" value="{{ only_rating_activity.id }}">
+                                <p class="circle-rating-linked-activity">
+                                    本次评价关联活动：{{ only_rating_activity.start_time.year }}年{{ only_rating_activity.start_time.month }}月{{ only_rating_activity.start_time.day }}日 · {{ only_rating_activity.title }}
+                                </p>
+                                {% endif %}
                                 <label class="form-label" for="circle-rating-value">星级选择</label>
                                 <select class="form-input" id="circle-rating-value" name="rating" required>
                                     {% for score in [5, 4, 3, 2, 1] %}
@@ -343,7 +360,7 @@
                                 <button class="button button-small" type="submit">{{ '更新评价' if current_user_rating else '提交评价' }}</button>
                             </form>
                             {% elif circle_rating_notice %}
-                            <p class="rating-notice">成功参与该同好圈关联活动后可进行评分。</p>
+                            <p class="rating-notice">参与该同好圈活动且活动开始后，才可评分与评论。</p>
                             {% endif %}
                         {% else %}
                         <p class="rating-notice">{{ circle_rating_notice }}</p>
@@ -353,7 +370,7 @@
 
                     <div class="circle-rating-review-list" id="circle-rating-reviews" data-circle-rating-reviews>
                         <div class="circle-rating-review-heading">
-                            <h3>最近评价</h3>
+                            <h3>最近评论</h3>
                             <span>{{ rating_count }} 条</span>
                         </div>
                         {% for review in recent_reviews %}
@@ -365,6 +382,15 @@
                                     <time datetime="{{ review.updated_at.isoformat() }}">{{ review.updated_at.strftime("%Y-%m-%d") }}</time>
                                 </span>
                                 {{ rating_stars(review.rating, review.rating ~ ' 星评价') }}
+                            </div>
+                            <div class="circle-rating-review-activity">
+                                {% if review.activity %}
+                                <time datetime="{{ review.activity.start_time.isoformat() }}">{{ review.activity_date_label }}</time>
+                                <span>·</span>
+                                <a href="{{ url_for('activity.activity_detail', activity_id=review.activity.id) }}">{{ review.activity.title }}</a>
+                                {% else %}
+                                <span>{{ review.activity_label }}</span>
+                                {% endif %}
                             </div>
                             <p>{{ review.comment }}</p>
                         </article>

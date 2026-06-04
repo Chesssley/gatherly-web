@@ -3,7 +3,7 @@ import os
 from types import SimpleNamespace
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
-from sqlalchemy import and_, func, or_, text
+from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.models import (
@@ -395,9 +395,23 @@ def _ensure_circle_columns():
         db.session.commit()
 
 
+def _ensure_circle_rating_columns():
+    # Legacy SQLite fallback only; production PostgreSQL schema is managed by migrations.
+    if skip_non_sqlite_schema_helper("_ensure_circle_rating_columns"):
+        return
+
+    rows = db.session.execute(text("PRAGMA table_info(circle_rating)")).fetchall()
+    existing_columns = {row[1] for row in rows}
+    if rows and "activity_id" not in existing_columns:
+        db.session.execute(text("ALTER TABLE circle_rating ADD COLUMN activity_id INTEGER"))
+        db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_circle_rating_activity_id ON circle_rating (activity_id)"))
+        db.session.commit()
+
+
 @circle_bp.before_app_request
 def ensure_circle_schema():
     _ensure_circle_columns()
+    _ensure_circle_rating_columns()
     _ensure_circle_image_tables()
 
 
@@ -664,34 +678,35 @@ def _apply_circle_rating_stats(circle, stats=None):
     return circle
 
 
-def _has_completed_circle_activity(user_id, circle_id):
+def _eligible_circle_rating_activities(user_id, circle_id):
     if not user_id or not circle_id:
-        return False
-    now = datetime.utcnow()
-    ended_activity_filter = or_(
-        Activity.status.in_(["closed", "ended", "completed"]),
-        and_(Activity.end_time.isnot(None), Activity.end_time <= now),
-        and_(
-            Activity.end_time.is_(None),
-            Activity.start_time.isnot(None),
-            Activity.start_time <= now,
-        ),
-    )
-    # Current schema has no check-in field, so eligibility falls back to:
-    # registered for a circle-linked activity + activity ended + registration not cancelled.
+        return []
+    now = datetime.now()
     return (
-        db.session.query(Registration.id)
-        .join(Activity, Activity.id == Registration.activity_id)
+        Activity.query.join(Registration, Registration.activity_id == Activity.id)
         .filter(
             Registration.user_id == user_id,
             Registration.status != "cancelled",
             Activity.circle_id == circle_id,
             Activity.status != "cancelled",
-            ended_activity_filter,
+            Activity.start_time.isnot(None),
+            Activity.start_time <= now,
         )
-        .first()
-        is not None
+        .order_by(Activity.start_time.desc(), Activity.id.desc())
+        .all()
     )
+
+
+def _format_circle_rating_activity_date(activity):
+    if not activity or not activity.start_time:
+        return "活动时间待补充"
+    return f"{activity.start_time.year}年{activity.start_time.month}月{activity.start_time.day}日"
+
+
+def _circle_rating_activity_label(activity):
+    if not activity:
+        return "关联活动待补充"
+    return f"{_format_circle_rating_activity_date(activity)} · {activity.title}"
 
 
 def _circle_rating_context(circle, current_user):
@@ -711,15 +726,21 @@ def _circle_rating_context(circle, current_user):
         .all()
     )
     current_rating = None
+    eligible_activities = []
     can_rate = False
-    notice = "登录后，成功参加过该同好圈关联活动的用户可以评分。"
+    notice = "参与该同好圈活动且活动开始后，才可评分与评论。"
     if current_user:
         current_rating = CircleRating.query.filter_by(
             circle_id=circle.id,
             user_id=current_user.id,
         ).first()
-        can_rate = _has_completed_circle_activity(current_user.id, circle.id)
-        notice = "" if can_rate else "只有成功参加过该同好圈关联活动后，才可以评分。"
+        eligible_activities = _eligible_circle_rating_activities(current_user.id, circle.id)
+        can_rate = bool(eligible_activities)
+        notice = "" if can_rate else "参与该同好圈活动且活动开始后，才可评分与评论。"
+
+    for review in recent_reviews:
+        review.activity_label = _circle_rating_activity_label(review.activity)
+        review.activity_date_label = _format_circle_rating_activity_date(review.activity)
 
     return {
         "average_rating": stats["average_rating"],
@@ -729,6 +750,7 @@ def _circle_rating_context(circle, current_user):
         "current_user_rating": current_rating,
         "can_rate_circle": can_rate,
         "circle_rating_notice": notice,
+        "eligible_rating_activities": eligible_activities,
     }
 
 
@@ -1339,8 +1361,17 @@ def submit_circle_rating(circle_id):
         flash("同好圈不存在或暂不可见。", "error")
         return redirect(url_for("circle.circles"))
 
-    if not _has_completed_circle_activity(user.id, circle.id):
-        flash("只有成功参加过该同好圈关联活动后，才可以评分。", "error")
+    eligible_activities = _eligible_circle_rating_activities(user.id, circle.id)
+    if not eligible_activities:
+        flash("参与该同好圈活动且活动开始后，才可评分与评论。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
+
+    eligible_activity_ids = {activity.id for activity in eligible_activities}
+    selected_activity_id = request.form.get("activity_id", type=int)
+    if selected_activity_id is None:
+        selected_activity_id = eligible_activities[0].id
+    if selected_activity_id not in eligible_activity_ids:
+        flash("请选择已开始且你已参与的圈子关联活动。", "error")
         return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
 
     try:
@@ -1368,6 +1399,7 @@ def submit_circle_rating(circle_id):
 
     circle_rating.rating = rating_value
     circle_rating.comment = comment or None
+    circle_rating.activity_id = selected_activity_id
     circle_rating.updated_at = datetime.utcnow()
 
     try:
