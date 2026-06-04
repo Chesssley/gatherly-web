@@ -9538,8 +9538,8 @@ textarea.form-input {
 
 .guest-home-hero {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(320px, 560px) minmax(180px, 1fr);
-  gap: clamp(24px, 4vw, 58px);
+  grid-template-columns: minmax(150px, 1fr) minmax(520px, 740px) minmax(150px, 1fr);
+  gap: clamp(18px, 3vw, 48px);
   align-items: center;
   min-height: 438px;
 }
@@ -9556,12 +9556,14 @@ textarea.form-input {
 }
 
 .guest-hero-copy h1 {
-  max-width: 560px;
+  max-width: min(100%, 740px);
   margin: 0;
   color: #202124;
-  font-size: clamp(42px, 5vw, 70px);
+  font-size: clamp(46px, 4.4vw, 64px);
   font-weight: 900;
-  line-height: 1.05;
+  line-height: 1.04;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .guest-hero-copy p:not(.eyebrow) {
@@ -9811,7 +9813,7 @@ textarea.form-input {
   }
 
   .guest-hero-copy h1 {
-    font-size: 42px;
+    font-size: clamp(24px, 9vw, 42px);
   }
 
   .guest-hero-copy p:not(.eyebrow) {
