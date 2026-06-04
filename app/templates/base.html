@@ -264,16 +264,7 @@
   {% include "_auth_modal.html" %}
 
   {% set email_code_success_alert = session.pop('email_code_success_alert', None) %}
-  {% if email_code_success_alert %}
-    <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        window.setTimeout(() => {
-          window.showGatherlyToast?.("若在邮箱没有看到验证码，请检查邮箱垃圾箱", "info");
-        }, 0);
-      }, { once: true });
-    </script>
-  {% endif %}
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script src="{{ url_for('static', filename='js/main.js', v='ui-08-auth-progress') }}"></script>
+  <script src="{{ url_for('static', filename='js/main.js', v='enh-04-email-code-helper') }}"></script>
 </body>
 </html>

@@ -82,6 +82,7 @@
         </label>
 
         <button class="button auth-submit" type="submit" data-email-code-button>注册并发送验证码</button>
+        <p class="email-verification-helper" data-email-code-helper>若未收到验证码，请检查垃圾邮件或稍后重试。</p>
       </form>
 
       <div class="auth-modal-links">
@@ -111,6 +112,7 @@
           <span>邮箱验证码</span>
           <input class="form-input auth-code-input" name="email_code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
         </label>
+        <p class="email-verification-helper" data-email-code-helper>若未收到验证码，请检查垃圾邮件或稍后重试。</p>
 
         <button class="button auth-submit" type="submit">完成注册</button>
       </form>
@@ -132,6 +134,7 @@
           <input class="form-input" name="email" type="email" autocomplete="email" maxlength="120" required>
         </label>
         <button class="button button-secondary auth-secondary-action" type="button" data-auth-forgot-send-code data-email-code-button>发送验证码</button>
+        <p class="email-verification-helper" data-email-code-helper>若未收到验证码，请检查垃圾邮件或稍后重试。</p>
 
         <label class="auth-field">
           <span>邮箱验证码</span>

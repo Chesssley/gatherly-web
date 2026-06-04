@@ -1,7 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
   console.log("Gatherly Flask app initialized.");
   const emailCodeCooldownPattern = /请在\s*(\d+)\s*秒后重试/;
-  const emailCodeCooldownText = seconds => `验证码发送过于频繁，请在 ${seconds} 秒后重试。`;
+  const emailCodeHelperDefaultText = "若未收到验证码，请检查垃圾邮件或稍后重试。";
+  const emailCodeCooldownText = seconds => `验证码已发送，请在 ${seconds} 秒后重试。若未收到，请检查垃圾邮件。`;
   const parseLoginNext = href => {
     if (!href) {
       return "";
@@ -299,6 +300,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initGlobalToastFeedback();
 
+  const findEmailCodeHelper = button => {
+    if (!button) {
+      return null;
+    }
+    const directHelper = button.nextElementSibling;
+    if (directHelper?.matches?.("[data-email-code-helper]")) {
+      return directHelper;
+    }
+    const groupHelper = button.closest(".form-group, .auth-modal-form, .form-card, .admin-account-section")
+      ?.querySelector("[data-email-code-helper]");
+    if (groupHelper) {
+      return groupHelper;
+    }
+    return button.form?.querySelector("[data-email-code-helper]") || null;
+  };
+
+  const setEmailCodeHelper = (button, message, state = "default") => {
+    const helper = findEmailCodeHelper(button);
+    if (!helper) {
+      return;
+    }
+    helper.textContent = message || emailCodeHelperDefaultText;
+    helper.dataset.emailCodeHelperState = state;
+  };
+
+  const resetEmailCodeHelper = button => {
+    setEmailCodeHelper(button, emailCodeHelperDefaultText, "default");
+  };
+
   const initEmailCodeCooldown = () => {
     const buttons = Array.from(document.querySelectorAll("[data-email-code-button]"));
     const cooldownMessages = Array.from(document.querySelectorAll(".flash-msg, .flash-message"))
@@ -320,23 +350,26 @@ document.addEventListener("DOMContentLoaded", () => {
         button.dataset.emailCodeOriginalText = button.textContent.trim() || "发送验证码";
       }
     });
+    cooldownMessages.forEach(message => {
+      const region = message.closest("[data-toast-region], .flash-messages");
+      message.remove();
+      if (region && !region.querySelector("[data-toast], .flash-msg, .flash-message")) {
+        region.hidden = true;
+      }
+    });
 
     const renderCooldown = () => {
-      cooldownMessages.forEach(message => {
-        const content = message.querySelector("p") || message;
-        content.textContent = remaining > 0
-          ? emailCodeCooldownText(remaining)
-          : "现在可以重新发送验证码。";
-      });
       buttons.forEach(button => {
         if (remaining > 0) {
           button.disabled = true;
           button.setAttribute("aria-disabled", "true");
           button.textContent = `请在 ${remaining} 秒后重试`;
+          setEmailCodeHelper(button, emailCodeCooldownText(remaining), "cooldown");
         } else {
           button.disabled = false;
           button.removeAttribute("aria-disabled");
           button.textContent = button.dataset.emailCodeOriginalText || "发送验证码";
+          resetEmailCodeHelper(button);
         }
       });
     };
@@ -347,18 +380,6 @@ document.addEventListener("DOMContentLoaded", () => {
       renderCooldown();
       if (remaining <= 0) {
         window.clearInterval(timer);
-        window.setTimeout(() => {
-          cooldownMessages.forEach(message => {
-            message.classList.add("is-fading");
-            message.addEventListener("transitionend", () => {
-              const region = message.closest("[data-toast-region], .flash-messages");
-              message.remove();
-              if (region && !region.querySelector("[data-toast], .flash-msg, .flash-message")) {
-                region.hidden = true;
-              }
-            }, { once: true });
-          });
-        }, 1800);
       }
     }, 1000);
   };
@@ -675,7 +696,7 @@ document.addEventListener("DOMContentLoaded", () => {
       form.setAttribute("aria-busy", String(busy));
     };
 
-    const startAuthCooldown = (button, seconds, feedbackName, message) => {
+    const startAuthCooldown = (button, seconds) => {
       let remaining = Math.max(1, Number(seconds) || 1);
       if (!button.dataset.emailCodeOriginalText) {
         button.dataset.emailCodeOriginalText = button.textContent.trim() || "发送验证码";
@@ -685,12 +706,12 @@ document.addEventListener("DOMContentLoaded", () => {
           button.dataset.authCooling = "true";
           button.disabled = true;
           button.textContent = `请在 ${remaining} 秒后重试`;
-          setFeedback(feedbackName, message || emailCodeCooldownText(remaining), "error");
+          setEmailCodeHelper(button, emailCodeCooldownText(remaining), "cooldown");
         } else {
           delete button.dataset.authCooling;
           button.disabled = false;
           button.textContent = button.dataset.emailCodeOriginalText || "发送验证码";
-          setFeedback(feedbackName, "现在可以重新发送验证码。", "success");
+          resetEmailCodeHelper(button);
         }
       };
       render();
@@ -746,12 +767,13 @@ document.addEventListener("DOMContentLoaded", () => {
         setFeedback("register-code", result.message || "验证码已发送，请查收邮箱。", "success");
       } catch (error) {
         const result = error.result || {};
-        setFeedback("register", result.message || error.message, "error", result.errors || []);
         if (result.retry_after) {
           const button = registerDetailsForm.querySelector("[data-email-code-button]");
           if (button) {
-            startAuthCooldown(button, result.retry_after, "register", result.message);
+            startAuthCooldown(button, result.retry_after);
           }
+        } else {
+          setFeedback("register", result.message || error.message, "error", result.errors || []);
         }
       } finally {
         setFormBusy(registerDetailsForm, false);
@@ -800,11 +822,11 @@ document.addEventListener("DOMContentLoaded", () => {
         setFeedback("forgot", result.message || "验证码已发送，请查收邮箱。", "success");
       } catch (error) {
         const result = error.result || {};
-        setFeedback("forgot", result.message || error.message, "error", result.errors || []);
         if (result.retry_after) {
-          startAuthCooldown(button, result.retry_after, "forgot", result.message);
+          startAuthCooldown(button, result.retry_after);
           return;
         }
+        setFeedback("forgot", result.message || error.message, "error", result.errors || []);
       } finally {
         if (!button.textContent.includes("秒后重试")) {
           button.disabled = false;
