@@ -23,17 +23,25 @@
     <div class="notification-list">
       {% for item in notifications %}
         {% set notice = item.notification %}
-        <article class="notification-card {% if not notice.read_at %}is-unread{% endif %}">
-          <div class="notification-icon" aria-hidden="true">&#128276;</div>
+        <article class="notification-card {% if not notice.read_at %}is-unread{% else %}is-read{% endif %}">
+          <div class="notification-icon" aria-hidden="true">
+            <span>&#128276;</span>
+          </div>
           <div class="notification-body">
-            <div class="notification-meta">
-              <span>{{ notice.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
-              {% if not notice.read_at %}<strong>未读</strong>{% endif %}
+            <div class="notification-row">
+              <div class="notification-copy">
+                <div class="notification-meta">
+                  <span>{{ notice.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+                <h2>{{ notice.title }}</h2>
+                {% if notice.content %}<p>{{ notice.content }}</p>{% endif %}
+              </div>
+              <span class="notification-status {% if not notice.read_at %}is-unread{% else %}is-read{% endif %}">
+                {{ '未读' if not notice.read_at else '已读' }}
+              </span>
             </div>
-            <h2>{{ notice.title }}</h2>
-            {% if notice.content %}<p>{{ notice.content }}</p>{% endif %}
             <div class="notification-actions">
-              {% if item.url %}<a class="text-link" href="{{ item.url }}">查看详情</a>{% endif %}
+              {% if item.url %}<a class="text-link notification-detail-link" href="{{ url_for('notifications.open_notification', notification_id=notice.id) }}">查看详情</a>{% endif %}
               {% if not notice.read_at %}
               <form method="post" action="{{ url_for('notifications.mark_read', notification_id=notice.id) }}">
                 <button class="text-button" type="submit">标为已读</button>
