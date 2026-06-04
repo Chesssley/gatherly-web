@@ -510,7 +510,9 @@
                     {% if has_joined_circles %}
                     {% for section in home_group_feed_sections|default([]) %}
                     <section class="home-group-feed-block {% if section.is_selected %}is-selected{% endif %}" aria-label="{{ section.label }}">
+                        {% if not section.is_selected %}
                         <p class="home-feed-date">{{ section.label }}</p>
+                        {% endif %}
                         {% if section.activities %}
                         {% for activity in section.activities %}
                         <article class="home-group-event js-gsap-card" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
@@ -518,7 +520,6 @@
                                 <img src="{{ activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}" alt="{{ activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
                             </div>
                             <div class="home-group-event-body">
-                                <p class="home-group-card-date">{{ activity.home_date_label }}</p>
                                 <h3>{{ activity.title }}</h3>
                                 <p>{{ activity.sidebar_time or activity.time }}</p>
                                 <p>{{ activity.circle_name or activity.organizer }}{% if activity.circle_name %} · {% if activity.circle_rating_average %}{{ '%.1f'|format(activity.circle_rating_average) }} ★{% else %}暂无评分{% endif %}{% endif %}</p>
