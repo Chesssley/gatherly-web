@@ -120,18 +120,21 @@
         <nav class="meetup-category-shell" aria-label="活动分类导航">
             <button class="category-scroll-arrow is-left" type="button" aria-label="向左滚动分类" onclick="this.parentElement.querySelector('.meetup-category-rail').scrollBy({left:-280,behavior:'smooth'})">&#8592;</button>
             <div class="meetup-category-rail icon-category-nav">
+                {% set is_server_filtered_activity_category = selected_category in special_activity_filter_tags|default([]) %}
                 <a class="icon-category {% if not selected_category %}is-active{% endif %}"
-                   href="#"
+                   href="{% if is_server_filtered_activity_category %}{{ url_for('activity.search', scope='activities', time=selected_time) if selected_time != 'any' else url_for('activity.search', scope='activities') }}{% else %}#{% endif %}"
                    data-category="all"
                    data-filter-tags="">
                     <span class="icon-category-symbol" aria-hidden="true">✨</span>
                     <span class="icon-category-label">全部活动</span>
                 </a>
                 {% for category in interest_categories %}
+                {% set is_special_activity_filter = category.tag in special_activity_filter_tags|default([]) %}
+                {% set category_filter_tags = '' if is_special_activity_filter else ([category.tag] + category.aliases)|join(',') %}
                 <a class="icon-category {% if selected_category == category.tag %}is-active{% endif %}"
-                   href="#"
+                   href="{% if is_special_activity_filter or is_server_filtered_activity_category %}{{ url_for('activity.search', scope='activities', category=category.tag, time=selected_time) if selected_time != 'any' else url_for('activity.search', scope='activities', category=category.tag) }}{% else %}#{% endif %}"
                    data-category="{{ category.tag }}"
-                   data-filter-tags="{{ ([category.tag] + category.aliases)|join(',') }}">
+                   data-filter-tags="{{ category_filter_tags }}">
                     <span class="icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
                     <span class="icon-category-label">{{ category.tag }}</span>
                 </a>
@@ -157,7 +160,7 @@
 
         {% set total_results = activities|length + circles|length + users|length %}
         {% if total_results == 0 %}
-        <div class="search-empty-panel">未找到相关内容</div>
+        <div class="search-empty-panel">{{ activity_empty_message or '未找到相关内容' }}</div>
         {% endif %}
 
         <section class="search-result-section" aria-labelledby="search-activities-title">
@@ -174,10 +177,10 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p class="search-empty-text">未找到相关内容</p>
+            <p class="search-empty-text">{{ activity_empty_message or '未找到相关内容' }}</p>
             {% endif %}
             {% if browse_all_mode|default(false) %}
-            <p class="no-match-tip" hidden>暂无匹配活动，试试其他分类或时间。</p>
+            <p class="no-match-tip" hidden>{{ activity_empty_message or '暂无匹配活动，试试其他分类或时间。' }}</p>
             {% endif %}
         </section>
 
@@ -630,9 +633,11 @@
                     <span class="icon-category-label">全部活动</span>
                 </a>
                 {% for category in interest_categories %}
+                {% set is_special_activity_filter = category.tag in special_activity_filter_tags|default([]) %}
+                {% set category_filter_tags = '' if is_special_activity_filter else category.tag %}
                 <a class="interest-chip icon-category {% if selected_category == category.tag %}is-active{% endif %}"
                    href="{{ url_for('activity.index', category=category.tag, time=selected_time) if selected_time != 'any' else url_for('activity.index', category=category.tag) }}#discover-events"
-                   data-category="{{ category.tag }}" data-filter-tags="{{ category.tag }}">
+                   data-category="{{ category.tag }}" data-filter-tags="{{ category_filter_tags }}">
                     <span class="icon-category-symbol" aria-hidden="true">{{ category.icon }}</span>
                     <span class="icon-category-label">{{ category.tag }}</span>
                 </a>
@@ -650,7 +655,7 @@
                 {% endfor %}
             {% endif %}
         </div>
-        <p class="no-match-tip" hidden>暂无匹配的活动，试试其他分类或时间。</p>
+        <p class="no-match-tip" hidden>{{ activity_empty_message or '暂无匹配的活动，试试其他分类或时间。' }}</p>
     </div>
 </section>
 
