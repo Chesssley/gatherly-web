@@ -135,6 +135,28 @@ img {
   border-color: currentColor;
 }
 
+/* Email verification helper */
+.email-verification-helper {
+  margin: 8px 0 0;
+  color: #77726b;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.email-verification-helper[data-email-code-helper-state="cooldown"] {
+  color: #746441;
+}
+
+.auth-modal-form .email-verification-helper {
+  margin-top: -2px;
+}
+
+.auth-secondary-action + .email-verification-helper,
+[data-email-code-button] + .email-verification-helper {
+  width: 100%;
+}
+
 .button-secondary {
   background: transparent;
   color: var(--color-primary);
