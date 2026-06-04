@@ -101,8 +101,8 @@
             </div>
           </div>
         {% else %}
-          <a class="nav-auth-link" href="{{ url_for('auth.login') }}">登录</a>
-          <a class="nav-register" href="{{ url_for('auth.register') }}">注册</a>
+          <a class="nav-auth-link" href="{{ url_for('auth.login') }}" data-auth-open="login">登录</a>
+          <a class="nav-register" href="{{ url_for('auth.register') }}" data-auth-open="register">注册</a>
         {% endif %}
       </div>
 
@@ -174,8 +174,8 @@
       {% endif %}
       <a href="{{ url_for('circle.circles') }}">同好圈</a>
       {% if not session.get('user_id') %}
-        <a href="{{ url_for('auth.login') }}">登录</a>
-        <a href="{{ url_for('auth.register') }}">注册</a>
+        <a href="{{ url_for('auth.login') }}" data-auth-open="login">登录</a>
+        <a href="{{ url_for('auth.register') }}" data-auth-open="register">注册</a>
       {% endif %}
     </div>
   </header>
@@ -249,6 +249,8 @@
       <p class="footer-copy">&copy; <span data-current-year>2026</span> Gatherly Web Team.</p>
     </div>
   </footer>
+
+  {% include "_auth_modal.html" %}
 
   {% set email_code_success_alert = session.pop('email_code_success_alert', None) %}
   {% if email_code_success_alert %}

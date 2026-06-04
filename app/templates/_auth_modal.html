@@ -1,0 +1,159 @@
+{% if not session.get('user_id') %}
+<div class="auth-modal" data-auth-modal hidden>
+  <div class="auth-modal-backdrop" data-auth-modal-close></div>
+  <section class="auth-modal-panel" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" tabindex="-1">
+    <button class="auth-modal-close" type="button" aria-label="关闭弹窗" data-auth-modal-close>&times;</button>
+
+    <div class="auth-modal-view is-active" data-auth-view="login">
+      <p class="auth-modal-brand">聚场 / Gatherly</p>
+      <h2 id="auth-modal-title">登录聚场</h2>
+      <p class="auth-modal-copy">登录后继续发现活动、报名参与和加入同好圈。</p>
+      <div class="auth-modal-feedback" role="status" aria-live="polite" data-auth-feedback="login"></div>
+
+      <form class="auth-modal-form" method="post" action="{{ url_for('auth.login') }}" data-auth-form="login">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="auth_modal_flow" value="1">
+        <input type="hidden" name="next" value="" data-auth-next>
+
+        <label class="auth-field">
+          <span>账号 ID / 邮箱</span>
+          <input class="form-input" name="email" type="text" autocomplete="username" required>
+        </label>
+
+        <label class="auth-field">
+          <span>密码</span>
+          <span class="auth-password-wrap">
+            <input class="form-input" name="password" type="password" autocomplete="current-password" required>
+            <button class="auth-password-toggle" type="button" aria-label="显示或隐藏密码" data-auth-password-toggle><span aria-hidden="true">&#9673;</span></button>
+          </span>
+        </label>
+
+        <button class="button auth-submit" type="submit">登录</button>
+      </form>
+
+      <div class="auth-modal-links">
+        <button type="button" data-auth-view-target="forgot">忘记密码？</button>
+        <span aria-hidden="true">·</span>
+        <button type="button" data-auth-view-target="register">加入聚场</button>
+      </div>
+    </div>
+
+    <div class="auth-modal-view" data-auth-view="register">
+      <p class="auth-modal-brand">聚场 / Gatherly</p>
+      <h2>加入聚场</h2>
+      <p class="auth-modal-copy">填写基础信息后，我们会发送邮箱验证码。</p>
+      <div class="auth-modal-feedback" role="status" aria-live="polite" data-auth-feedback="register"></div>
+
+      <form class="auth-modal-form" method="post" action="{{ url_for('auth.send_register_code') }}" data-auth-form="register-details">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="auth_modal_flow" value="1">
+
+        <label class="auth-field">
+          <span>账号 ID</span>
+          <input class="form-input" name="username" type="text" autocomplete="username" minlength="3" maxlength="80" required>
+        </label>
+
+        <label class="auth-field">
+          <span>昵称</span>
+          <input class="form-input" name="nickname" type="text" maxlength="80" autocomplete="name" placeholder="用于页面展示，可与账号 ID 不同">
+        </label>
+
+        <label class="auth-field">
+          <span>邮箱</span>
+          <input class="form-input" name="email" type="email" autocomplete="email" maxlength="120" required>
+        </label>
+
+        <label class="auth-field">
+          <span>城市</span>
+          <input class="form-input" name="city" type="text" maxlength="80" autocomplete="address-level2" placeholder="例如：上海">
+        </label>
+
+        <label class="auth-field">
+          <span>密码</span>
+          <span class="auth-password-wrap">
+            <input class="form-input" name="password" type="password" autocomplete="new-password" minlength="6" required>
+            <button class="auth-password-toggle" type="button" aria-label="显示或隐藏密码" data-auth-password-toggle><span aria-hidden="true">&#9673;</span></button>
+          </span>
+        </label>
+
+        <label class="auth-field">
+          <span>确认密码</span>
+          <input class="form-input" name="confirm_password" type="password" autocomplete="new-password" minlength="6" required>
+        </label>
+
+        <button class="button auth-submit" type="submit" data-email-code-button>注册并发送验证码</button>
+      </form>
+
+      <div class="auth-modal-links">
+        <span>已有账号？</span>
+        <button type="button" data-auth-view-target="login">去登录</button>
+      </div>
+    </div>
+
+    <div class="auth-modal-view" data-auth-view="register-code">
+      <button class="auth-modal-back" type="button" data-auth-view-target="register" aria-label="返回注册信息">←</button>
+      <p class="auth-modal-brand">聚场 / Gatherly</p>
+      <h2>输入邮箱验证码</h2>
+      <p class="auth-modal-copy">验证码已发送至 <strong data-auth-register-email>你的邮箱</strong>。请输入 6 位数字完成注册。</p>
+      <div class="auth-modal-feedback" role="status" aria-live="polite" data-auth-feedback="register-code"></div>
+
+      <form class="auth-modal-form" method="post" action="{{ url_for('auth.register') }}" data-auth-form="register-code">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="auth_modal_flow" value="1">
+        <input type="hidden" name="username" data-auth-register-field="username">
+        <input type="hidden" name="nickname" data-auth-register-field="nickname">
+        <input type="hidden" name="email" data-auth-register-field="email">
+        <input type="hidden" name="city" data-auth-register-field="city">
+        <input type="hidden" name="password" data-auth-register-field="password">
+        <input type="hidden" name="confirm_password" data-auth-register-field="confirm_password">
+
+        <label class="auth-field">
+          <span>邮箱验证码</span>
+          <input class="form-input auth-code-input" name="email_code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+        </label>
+
+        <button class="button auth-submit" type="submit">完成注册</button>
+      </form>
+    </div>
+
+    <div class="auth-modal-view" data-auth-view="forgot">
+      <button class="auth-modal-back" type="button" data-auth-view-target="login" aria-label="返回登录">←</button>
+      <p class="auth-modal-brand">聚场 / Gatherly</p>
+      <h2>找回密码</h2>
+      <p class="auth-modal-copy">通过注册邮箱接收验证码，并设置新的登录密码。</p>
+      <div class="auth-modal-feedback" role="status" aria-live="polite" data-auth-feedback="forgot"></div>
+
+      <form class="auth-modal-form" method="post" action="{{ url_for('auth.forgot_password') }}" data-auth-form="forgot">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="auth_modal_flow" value="1">
+
+        <label class="auth-field">
+          <span>注册邮箱</span>
+          <input class="form-input" name="email" type="email" autocomplete="email" maxlength="120" required>
+        </label>
+        <button class="button button-secondary auth-secondary-action" type="button" data-auth-forgot-send-code data-email-code-button>发送验证码</button>
+
+        <label class="auth-field">
+          <span>邮箱验证码</span>
+          <input class="form-input auth-code-input" name="email_code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+        </label>
+
+        <label class="auth-field">
+          <span>新密码</span>
+          <span class="auth-password-wrap">
+            <input class="form-input" name="new_password" type="password" autocomplete="new-password" minlength="6" required>
+            <button class="auth-password-toggle" type="button" aria-label="显示或隐藏密码" data-auth-password-toggle><span aria-hidden="true">&#9673;</span></button>
+          </span>
+        </label>
+
+        <label class="auth-field">
+          <span>确认新密码</span>
+          <input class="form-input" name="confirm_password" type="password" autocomplete="new-password" minlength="6" required>
+        </label>
+
+        <button class="button auth-submit" type="submit">重置密码</button>
+      </form>
+    </div>
+  </section>
+</div>
+{% endif %}

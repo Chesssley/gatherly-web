@@ -144,6 +144,302 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initEmailCodeCooldown();
 
+  const initAuthModal = () => {
+    const modal = document.querySelector("[data-auth-modal]");
+    if (!modal) {
+      return;
+    }
+
+    const panel = modal.querySelector(".auth-modal-panel");
+    const views = Array.from(modal.querySelectorAll("[data-auth-view]"));
+    const feedbackItems = new Map(
+      Array.from(modal.querySelectorAll("[data-auth-feedback]")).map(item => [item.dataset.authFeedback, item])
+    );
+    const loginNextInputs = Array.from(modal.querySelectorAll("[data-auth-next]"));
+    let lastFocusedElement = null;
+
+    const setFeedback = (name, message, type = "error", errors = []) => {
+      const target = feedbackItems.get(name);
+      if (!target) {
+        return;
+      }
+      const lines = errors.length ? errors : [message];
+      target.textContent = "";
+      lines.filter(Boolean).forEach(line => {
+        const item = document.createElement("p");
+        item.textContent = line;
+        target.appendChild(item);
+      });
+      target.className = `auth-modal-feedback is-${type}`;
+      target.hidden = !lines.length;
+    };
+
+    const clearFeedback = name => {
+      const target = feedbackItems.get(name);
+      if (!target) {
+        return;
+      }
+      target.innerHTML = "";
+      target.hidden = true;
+      target.className = "auth-modal-feedback";
+    };
+
+    const activateView = name => {
+      views.forEach(view => {
+        const isActive = view.dataset.authView === name;
+        view.classList.toggle("is-active", isActive);
+        view.hidden = !isActive;
+      });
+      clearFeedback(name);
+      const activeView = views.find(view => view.dataset.authView === name);
+      const firstField = activeView?.querySelector("input:not([type='hidden']), button, a");
+      window.setTimeout(() => firstField?.focus(), 30);
+    };
+
+    const openModal = (name = "login", next = "") => {
+      lastFocusedElement = document.activeElement;
+      loginNextInputs.forEach(input => {
+        input.value = next || "";
+      });
+      modal.hidden = false;
+      document.body.classList.add("auth-modal-open");
+      activateView(name);
+      panel?.focus();
+    };
+
+    const closeModal = () => {
+      modal.hidden = true;
+      document.body.classList.remove("auth-modal-open");
+      lastFocusedElement?.focus?.();
+    };
+
+    const parseNextFromHref = href => {
+      if (!href) {
+        return "";
+      }
+      try {
+        const url = new URL(href, window.location.origin);
+        return url.searchParams.get("next") || "";
+      } catch (error) {
+        return "";
+      }
+    };
+
+    document.querySelectorAll("[data-auth-open]").forEach(trigger => {
+      trigger.addEventListener("click", event => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+          return;
+        }
+        event.preventDefault();
+        openModal(trigger.dataset.authOpen || "login", parseNextFromHref(trigger.getAttribute("href")));
+      });
+    });
+
+    modal.querySelectorAll("[data-auth-modal-close]").forEach(button => {
+      button.addEventListener("click", closeModal);
+    });
+
+    modal.querySelectorAll("[data-auth-view-target]").forEach(button => {
+      button.addEventListener("click", () => activateView(button.dataset.authViewTarget));
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !modal.hidden) {
+        closeModal();
+      }
+    });
+
+    modal.querySelectorAll("[data-auth-password-toggle]").forEach(button => {
+      button.addEventListener("click", () => {
+        const input = button.closest(".auth-password-wrap")?.querySelector("input");
+        if (!input) {
+          return;
+        }
+        const isPassword = input.type === "password";
+        input.type = isPassword ? "text" : "password";
+        button.setAttribute("aria-pressed", String(isPassword));
+      });
+    });
+
+    const postForm = async (form, actionOverride, formDataOverride) => {
+      const response = await fetch(actionOverride || form.action, {
+        method: "POST",
+        body: formDataOverride || new FormData(form),
+        headers: { Accept: "application/json" },
+      });
+      const result = await response.json().catch(() => ({
+        ok: false,
+        message: "请求失败，请稍后重试。",
+      }));
+      if (!response.ok || !result.ok) {
+        const error = new Error(result.message || "请求失败，请稍后重试。");
+        error.result = result;
+        throw error;
+      }
+      return result;
+    };
+
+    const setFormBusy = (form, busy) => {
+      form.querySelectorAll("button, input, select, textarea").forEach(control => {
+        if (control.type === "hidden") {
+          return;
+        }
+        if (!busy && control.dataset.authCooling === "true") {
+          return;
+        }
+        control.disabled = busy;
+      });
+      form.setAttribute("aria-busy", String(busy));
+    };
+
+    const startAuthCooldown = (button, seconds, feedbackName, message) => {
+      let remaining = Math.max(1, Number(seconds) || 1);
+      if (!button.dataset.emailCodeOriginalText) {
+        button.dataset.emailCodeOriginalText = button.textContent.trim() || "发送验证码";
+      }
+      const render = () => {
+        if (remaining > 0) {
+          button.dataset.authCooling = "true";
+          button.disabled = true;
+          button.textContent = `请在 ${remaining} 秒后重试`;
+          setFeedback(feedbackName, message || emailCodeCooldownText(remaining), "error");
+        } else {
+          delete button.dataset.authCooling;
+          button.disabled = false;
+          button.textContent = button.dataset.emailCodeOriginalText || "发送验证码";
+          setFeedback(feedbackName, "现在可以重新发送验证码。", "success");
+        }
+      };
+      render();
+      const timer = window.setInterval(() => {
+        remaining -= 1;
+        render();
+        if (remaining <= 0) {
+          window.clearInterval(timer);
+        }
+      }, 1000);
+    };
+
+    const registerDetailsForm = modal.querySelector("[data-auth-form='register-details']");
+    const registerCodeForm = modal.querySelector("[data-auth-form='register-code']");
+    const forgotForm = modal.querySelector("[data-auth-form='forgot']");
+    const loginForm = modal.querySelector("[data-auth-form='login']");
+
+    loginForm?.addEventListener("submit", async event => {
+      event.preventDefault();
+      clearFeedback("login");
+      const formData = new FormData(loginForm);
+      setFormBusy(loginForm, true);
+      try {
+        const result = await postForm(loginForm, null, formData);
+        window.location.href = result.redirect || "/";
+      } catch (error) {
+        setFeedback("login", error.result?.message || error.message, "error", error.result?.errors || []);
+      } finally {
+        setFormBusy(loginForm, false);
+      }
+    });
+
+    registerDetailsForm?.addEventListener("submit", async event => {
+      event.preventDefault();
+      clearFeedback("register");
+      const formData = new FormData(registerDetailsForm);
+      setFormBusy(registerDetailsForm, true);
+      try {
+        const result = await postForm(registerDetailsForm, null, formData);
+        const details = formData;
+        registerCodeForm?.querySelectorAll("[data-auth-register-field]").forEach(input => {
+          input.value = details.get(input.name) || "";
+        });
+        const emailTarget = modal.querySelector("[data-auth-register-email]");
+        if (emailTarget) {
+          emailTarget.textContent = result.email || details.get("email") || "你的邮箱";
+        }
+        activateView("register-code");
+        setFeedback("register-code", result.message || "验证码已发送，请查收邮箱。", "success");
+      } catch (error) {
+        const result = error.result || {};
+        setFeedback("register", result.message || error.message, "error", result.errors || []);
+        if (result.retry_after) {
+          const button = registerDetailsForm.querySelector("[data-email-code-button]");
+          if (button) {
+            startAuthCooldown(button, result.retry_after, "register", result.message);
+          }
+        }
+      } finally {
+        setFormBusy(registerDetailsForm, false);
+      }
+    });
+
+    registerCodeForm?.addEventListener("submit", async event => {
+      event.preventDefault();
+      clearFeedback("register-code");
+      const formData = new FormData(registerCodeForm);
+      setFormBusy(registerCodeForm, true);
+      try {
+        const result = await postForm(registerCodeForm, null, formData);
+        const email = registerCodeForm.querySelector("input[name='email']")?.value || "";
+        loginForm?.querySelector("input[name='email']")?.setAttribute("value", email);
+        const loginEmail = loginForm?.querySelector("input[name='email']");
+        if (loginEmail) {
+          loginEmail.value = email;
+        }
+        activateView("login");
+        setFeedback("login", result.message || "注册成功，现在可以登录了。", "success");
+      } catch (error) {
+        setFeedback("register-code", error.result?.message || error.message, "error", error.result?.errors || []);
+      } finally {
+        setFormBusy(registerCodeForm, false);
+      }
+    });
+
+    modal.querySelector("[data-auth-forgot-send-code]")?.addEventListener("click", async () => {
+      if (!forgotForm) {
+        return;
+      }
+      const emailInput = forgotForm.querySelector("input[name='email']");
+      if (!emailInput?.reportValidity()) {
+        return;
+      }
+      clearFeedback("forgot");
+      const button = forgotForm.querySelector("[data-auth-forgot-send-code]");
+      button.disabled = true;
+      try {
+        const result = await postForm(forgotForm, "/forgot-password/send-code");
+        setFeedback("forgot", result.message || "验证码已发送，请查收邮箱。", "success");
+      } catch (error) {
+        const result = error.result || {};
+        setFeedback("forgot", result.message || error.message, "error", result.errors || []);
+        if (result.retry_after) {
+          startAuthCooldown(button, result.retry_after, "forgot", result.message);
+          return;
+        }
+      } finally {
+        if (!button.textContent.includes("秒后重试")) {
+          button.disabled = false;
+        }
+      }
+    });
+
+    forgotForm?.addEventListener("submit", async event => {
+      event.preventDefault();
+      clearFeedback("forgot");
+      const formData = new FormData(forgotForm);
+      setFormBusy(forgotForm, true);
+      try {
+        const result = await postForm(forgotForm, null, formData);
+        activateView("login");
+        setFeedback("login", result.message || "密码已重置，请使用新密码登录。", "success");
+      } catch (error) {
+        setFeedback("forgot", error.result?.message || error.message, "error", error.result?.errors || []);
+      } finally {
+        setFormBusy(forgotForm, false);
+      }
+    });
+  };
+
+  initAuthModal();
+
   const initGlobalSearchSuggestions = () => {
     const forms = Array.from(document.querySelectorAll("[data-search-suggestions]"));
     if (!forms.length) {
