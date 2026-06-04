@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import os
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from sqlalchemy import func, or_, text
@@ -52,6 +53,9 @@ HOT_CIRCLE_RECENT_POST_WEIGHT = 5
 HOT_CIRCLE_RECENT_DAYS = 30
 OFFICIAL_CIRCLE_SUFFIX = "同好圈"
 CIRCLE_RATING_RECENT_LIMIT = 12
+DEFAULT_ACTIVITY_TIMEZONE = "Asia/Shanghai"
+CIRCLE_RATING_ACTIVITY_NOT_STARTED_MESSAGE = "该活动尚未开始，活动开始后才可以评分。"
+CIRCLE_RATING_NO_ACTIVITY_MESSAGE = "报名并参与该同好圈活动后，可进行评分。"
 
 _CIRCLE_DESCRIPTIONS = {
     "摄影影像": "聚合胶片摄影、相机维护、街头摄影、摄影展和桌面摄影等影像爱好者。",
@@ -678,23 +682,68 @@ def _apply_circle_rating_stats(circle, stats=None):
     return circle
 
 
+def _circle_activity_timezone(activity):
+    timezone_name = activity.timezone if activity and activity.timezone else None
+    timezone_name = timezone_name or DEFAULT_ACTIVITY_TIMEZONE
+    try:
+        return ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        return ZoneInfo(DEFAULT_ACTIVITY_TIMEZONE)
+
+
+def _circle_activity_now(activity):
+    return datetime.now(_circle_activity_timezone(activity)).replace(tzinfo=None)
+
+
+def _decorate_circle_rating_activity(activity):
+    can_rate = bool(activity.start_time and activity.start_time <= _circle_activity_now(activity))
+    activity.can_rate = can_rate
+    activity.rating_status_label = "可评价" if can_rate else "未开始"
+    activity.rating_status_class = "is-rateable" if can_rate else "is-pending"
+    activity.rating_time_label = (
+        activity.start_time.strftime("%Y-%m-%d %H:%M")
+        if activity.start_time
+        else "活动时间待补充"
+    )
+    return activity
+
+
 def _eligible_circle_rating_activities(user_id, circle_id):
     if not user_id or not circle_id:
         return []
-    now = datetime.now()
-    return (
+    activities = (
         Activity.query.join(Registration, Registration.activity_id == Activity.id)
         .filter(
             Registration.user_id == user_id,
             Registration.status != "cancelled",
             Activity.circle_id == circle_id,
             Activity.status != "cancelled",
-            Activity.start_time.isnot(None),
-            Activity.start_time <= now,
         )
         .order_by(Activity.start_time.desc(), Activity.id.desc())
         .all()
     )
+    for activity in activities:
+        _decorate_circle_rating_activity(activity)
+    activities.sort(
+        key=lambda activity: (
+            not activity.can_rate,
+            -(activity.start_time.timestamp() if activity.start_time else 0),
+            -activity.id,
+        )
+    )
+    return activities
+
+
+def _selected_circle_rating_activity_id(current_rating, eligible_activities):
+    if current_rating and current_rating.activity_id:
+        if any(activity.id == current_rating.activity_id for activity in eligible_activities):
+            return current_rating.activity_id
+    rateable_activity = next((activity for activity in eligible_activities if activity.can_rate), None)
+    if rateable_activity:
+        return rateable_activity.id
+    if eligible_activities:
+        return eligible_activities[0].id
+    return None
 
 
 def _format_circle_rating_activity_date(activity):
@@ -743,7 +792,8 @@ def _circle_rating_context(circle, current_user):
     current_rating = None
     eligible_activities = []
     can_rate = False
-    notice = "参与该同好圈活动且活动开始后，才可评分与评论。"
+    selected_activity_id = None
+    notice = CIRCLE_RATING_NO_ACTIVITY_MESSAGE
     if current_user:
         current_rating = CircleRating.query.filter_by(
             circle_id=circle.id,
@@ -751,7 +801,11 @@ def _circle_rating_context(circle, current_user):
         ).first()
         eligible_activities = _eligible_circle_rating_activities(current_user.id, circle.id)
         can_rate = bool(eligible_activities)
-        notice = "" if can_rate else "参与该同好圈活动且活动开始后，才可评分与评论。"
+        selected_activity_id = _selected_circle_rating_activity_id(
+            current_rating,
+            eligible_activities,
+        )
+        notice = "" if can_rate else CIRCLE_RATING_NO_ACTIVITY_MESSAGE
 
     for review in recent_reviews:
         _decorate_circle_rating_review(review)
@@ -765,6 +819,7 @@ def _circle_rating_context(circle, current_user):
         "can_rate_circle": can_rate,
         "circle_rating_notice": notice,
         "eligible_rating_activities": eligible_activities,
+        "selected_rating_activity_id": selected_activity_id,
     }
 
 
@@ -1375,17 +1430,38 @@ def submit_circle_rating(circle_id):
         flash("同好圈不存在或暂不可见。", "error")
         return redirect(url_for("circle.circles"))
 
-    eligible_activities = _eligible_circle_rating_activities(user.id, circle.id)
-    if not eligible_activities:
-        flash("参与该同好圈活动且活动开始后，才可评分与评论。", "error")
+    registered_activities = _eligible_circle_rating_activities(user.id, circle.id)
+    if not registered_activities:
+        flash(CIRCLE_RATING_NO_ACTIVITY_MESSAGE, "error")
         return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
 
-    eligible_activity_ids = {activity.id for activity in eligible_activities}
     selected_activity_id = request.form.get("activity_id", type=int)
     if selected_activity_id is None:
-        selected_activity_id = eligible_activities[0].id
-    if selected_activity_id not in eligible_activity_ids:
-        flash("请选择已开始且你已参与的圈子关联活动。", "error")
+        selected_activity_id = _selected_circle_rating_activity_id(None, registered_activities)
+    if selected_activity_id is None:
+        flash("请选择本次评价关联活动。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
+
+    selected_activity = db.session.get(Activity, selected_activity_id)
+    if (
+        selected_activity is None
+        or selected_activity.circle_id != circle.id
+        or selected_activity.status == "cancelled"
+    ):
+        flash("请选择你已报名的圈子关联活动。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
+
+    registration = Registration.query.filter(
+        Registration.user_id == user.id,
+        Registration.activity_id == selected_activity.id,
+        Registration.status != "cancelled",
+    ).first()
+    if registration is None:
+        flash("请选择你已报名的圈子关联活动。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
+
+    if not selected_activity.start_time or selected_activity.start_time > _circle_activity_now(selected_activity):
+        flash(CIRCLE_RATING_ACTIVITY_NOT_STARTED_MESSAGE, "error")
         return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
 
     try:

@@ -327,28 +327,30 @@
                     <div class="circle-rating-form-panel">
                         {% if current_user %}
                             {% if can_rate_circle %}
-                            <form class="circle-rating-form" method="POST" action="{{ url_for('circle.submit_circle_rating', circle_id=circle.id) }}">
+                            <form class="circle-rating-form" method="POST" action="{{ url_for('circle.submit_circle_rating', circle_id=circle.id) }}" data-circle-rating-form>
                                 <div class="circle-rating-form-heading">
                                     <strong>{{ '你已评价，可修改评价' if current_user_rating else '评价这个同好圈' }}</strong>
                                     <span>参与该同好圈活动且活动开始后，才可评分与评论。</span>
                                 </div>
-                                {% set selected_rating_activity_id = current_user_rating.activity_id if current_user_rating and current_user_rating.activity_id else eligible_rating_activities[0].id %}
-                                {% if eligible_rating_activities|length > 1 %}
                                 <label class="form-label" for="circle-rating-activity">本次评价关联活动</label>
-                                <select class="form-input" id="circle-rating-activity" name="activity_id" required>
+                                <select class="form-input" id="circle-rating-activity" name="activity_id" required data-circle-rating-activity-select>
                                     {% for activity in eligible_rating_activities %}
-                                    <option value="{{ activity.id }}" {% if activity.id == selected_rating_activity_id %}selected{% endif %}>
-                                        {{ activity.start_time.year }}年{{ activity.start_time.month }}月{{ activity.start_time.day }}日 · {{ activity.title }}
+                                    <option value="{{ activity.id }}" data-can-rate="{{ 'true' if activity.can_rate else 'false' }}" {% if activity.id == selected_rating_activity_id %}selected{% endif %}>
+                                        {{ activity.rating_time_label }} · {{ activity.title }} · {{ activity.rating_status_label }}
                                     </option>
                                     {% endfor %}
                                 </select>
-                                {% else %}
-                                {% set only_rating_activity = eligible_rating_activities[0] %}
-                                <input type="hidden" name="activity_id" value="{{ only_rating_activity.id }}">
-                                <p class="circle-rating-linked-activity">
-                                    本次评价关联活动：{{ only_rating_activity.start_time.year }}年{{ only_rating_activity.start_time.month }}月{{ only_rating_activity.start_time.day }}日 · {{ only_rating_activity.title }}
-                                </p>
-                                {% endif %}
+                                <div class="circle-rating-activity-list" aria-label="已报名的圈子关联活动">
+                                    {% for activity in eligible_rating_activities %}
+                                    <div class="circle-rating-activity-item {% if activity.id == selected_rating_activity_id %}is-selected{% endif %}" data-circle-rating-activity-row="{{ activity.id }}">
+                                        <span>
+                                            <strong>{{ activity.title }}</strong>
+                                            <small>{{ activity.rating_time_label }}</small>
+                                        </span>
+                                        <em class="circle-rating-status {{ activity.rating_status_class }}">{{ activity.rating_status_label }}</em>
+                                    </div>
+                                    {% endfor %}
+                                </div>
                                 <label class="form-label" for="circle-rating-value">星级选择</label>
                                 <select class="form-input" id="circle-rating-value" name="rating" required>
                                     {% for score in [5, 4, 3, 2, 1] %}
@@ -360,7 +362,7 @@
                                 <button class="button button-small" type="submit">{{ '更新评价' if current_user_rating else '提交评价' }}</button>
                             </form>
                             {% elif circle_rating_notice %}
-                            <p class="rating-notice">参与该同好圈活动且活动开始后，才可评分与评论。</p>
+                            <p class="rating-notice">{{ circle_rating_notice }}</p>
                             {% endif %}
                         {% else %}
                         <p class="rating-notice">{{ circle_rating_notice }}</p>
