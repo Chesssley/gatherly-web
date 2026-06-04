@@ -621,6 +621,7 @@ def login():
         session.clear()
         session["user_id"] = user.id
         session["nickname"] = user.nickname or user.username
+        flash(f"欢迎回来，{session['nickname']}！", "success")
 
         if wants_json:
             return _json_success(

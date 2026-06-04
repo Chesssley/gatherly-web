@@ -45,7 +45,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const showError = message => {
       hide();
       if (!errorDialog || !errorMessage) {
-        window.alert(message || "请求失败，请稍后重试。");
+        window.showGatherlyToast?.(message || "请求失败，请稍后重试。", "error");
+        console.warn(message || "请求失败，请稍后重试。");
         return;
       }
       errorMessage.textContent = message || "请求失败，请稍后重试。";
@@ -160,29 +161,143 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initGsapMotion();
 
-  const flashMessages = document.querySelectorAll(".flash-msg, .flash-message");
-  flashMessages.forEach(message => {
-    if (emailCodeCooldownPattern.test(message.textContent || "")) {
-      return;
-    }
+  const initGlobalToastFeedback = () => {
+    const normalizeToastType = type => {
+      const normalized = (type || "info").toLowerCase();
+      if (normalized === "danger") {
+        return "error";
+      }
+      if (["success", "info", "warning", "error"].includes(normalized)) {
+        return normalized;
+      }
+      return "info";
+    };
 
-    window.setTimeout(() => {
-      const removeMessage = () => {
-        if (!message.isConnected) {
+    const toastDuration = type => {
+      const normalized = normalizeToastType(type);
+      return normalized === "warning" || normalized === "error" ? 4800 : 3000;
+    };
+
+    const ensureToastRegion = () => {
+      let region = document.querySelector("[data-toast-region]");
+      if (!region) {
+        region = document.createElement("div");
+        region.className = "global-toast-region flash-messages";
+        region.setAttribute("role", "status");
+        region.setAttribute("aria-live", "polite");
+        region.setAttribute("aria-atomic", "false");
+        region.dataset.toastRegion = "";
+        region.hidden = true;
+        document.body.appendChild(region);
+      }
+      return region;
+    };
+
+    const updateRegionVisibility = region => {
+      if (!region) {
+        return;
+      }
+      region.hidden = !region.querySelector("[data-toast]");
+    };
+
+    const dismissToast = toast => {
+      if (!toast || !toast.isConnected || toast.dataset.toastDismissing === "true") {
+        return;
+      }
+      toast.dataset.toastDismissing = "true";
+      toast.classList.add("is-fading");
+      const removeToast = () => {
+        if (!toast.isConnected) {
           return;
         }
-        const container = message.closest(".flash-messages");
-        message.remove();
-        if (container && !container.querySelector(".flash-msg, .flash-message")) {
-          container.remove();
-        }
+        const region = toast.closest("[data-toast-region], .flash-messages");
+        toast.remove();
+        updateRegionVisibility(region);
       };
+      toast.addEventListener("transitionend", removeToast, { once: true });
+      window.setTimeout(removeToast, 520);
+    };
 
-      message.classList.add("is-fading");
-      message.addEventListener("transitionend", removeMessage, { once: true });
-      window.setTimeout(removeMessage, 600);
-    }, 3000);
-  });
+    const scheduleToast = toast => {
+      if (!toast || toast.dataset.toastReady === "true") {
+        return;
+      }
+      toast.dataset.toastReady = "true";
+      toast.querySelector("[data-toast-close]")?.addEventListener("click", () => dismissToast(toast));
+      if (emailCodeCooldownPattern.test(toast.textContent || "")) {
+        return;
+      }
+      const delay = Number(toast.dataset.toastDuration) || toastDuration(toast.dataset.toastType);
+      toast.hideTimer = window.setTimeout(() => dismissToast(toast), delay);
+    };
+
+    const createToast = (message, type = "info") => {
+      const region = ensureToastRegion();
+      const normalized = normalizeToastType(type);
+      const toast = document.createElement("div");
+      toast.className = `global-toast flash-msg ${normalized}`;
+      toast.dataset.toast = "";
+      toast.dataset.toastType = normalized;
+
+      const indicator = document.createElement("span");
+      indicator.className = "global-toast-indicator";
+      indicator.setAttribute("aria-hidden", "true");
+
+      const content = document.createElement("p");
+      content.textContent = message || "操作已完成。";
+
+      const close = document.createElement("button");
+      close.className = "global-toast-close";
+      close.type = "button";
+      close.setAttribute("aria-label", "关闭提示");
+      close.dataset.toastClose = "";
+      close.textContent = "×";
+
+      toast.append(indicator, content, close);
+      region.appendChild(toast);
+      region.hidden = false;
+      scheduleToast(toast);
+      return toast;
+    };
+
+    const region = ensureToastRegion();
+    region.querySelectorAll("[data-toast], .flash-msg, .flash-message").forEach(toast => {
+      if (!toast.dataset.toast) {
+        toast.dataset.toast = "";
+      }
+      const type = normalizeToastType(toast.dataset.toastType || Array.from(toast.classList).find(name => ["success", "info", "warning", "error", "danger"].includes(name)));
+      toast.dataset.toastType = type;
+      toast.classList.add("global-toast", type);
+      if (!toast.querySelector(".global-toast-indicator")) {
+        const indicator = document.createElement("span");
+        indicator.className = "global-toast-indicator";
+        indicator.setAttribute("aria-hidden", "true");
+        toast.prepend(indicator);
+      }
+      if (!toast.querySelector("p")) {
+        const text = toast.textContent.trim();
+        toast.textContent = "";
+        const content = document.createElement("p");
+        content.textContent = text;
+        toast.appendChild(content);
+      }
+      if (!toast.querySelector("[data-toast-close]")) {
+        const close = document.createElement("button");
+        close.className = "global-toast-close";
+        close.type = "button";
+        close.setAttribute("aria-label", "关闭提示");
+        close.dataset.toastClose = "";
+        close.textContent = "×";
+        toast.appendChild(close);
+      }
+      scheduleToast(toast);
+    });
+    updateRegionVisibility(region);
+
+    window.showGatherlyToast = createToast;
+  };
+
+  initGlobalToastFeedback();
 
   const initEmailCodeCooldown = () => {
     const buttons = Array.from(document.querySelectorAll("[data-email-code-button]"));
@@ -208,7 +323,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const renderCooldown = () => {
       cooldownMessages.forEach(message => {
-        message.textContent = remaining > 0
+        const content = message.querySelector("p") || message;
+        content.textContent = remaining > 0
           ? emailCodeCooldownText(remaining)
           : "现在可以重新发送验证码。";
       });
@@ -234,7 +350,13 @@ document.addEventListener("DOMContentLoaded", () => {
         window.setTimeout(() => {
           cooldownMessages.forEach(message => {
             message.classList.add("is-fading");
-            message.addEventListener("transitionend", () => message.remove(), { once: true });
+            message.addEventListener("transitionend", () => {
+              const region = message.closest("[data-toast-region], .flash-messages");
+              message.remove();
+              if (region && !region.querySelector("[data-toast], .flash-msg, .flash-message")) {
+                region.hidden = true;
+              }
+            }, { once: true });
           });
         }, 1800);
       }
@@ -597,7 +719,9 @@ document.addEventListener("DOMContentLoaded", () => {
         window.location.href = result.redirect || "/";
       } catch (error) {
         window.GatherlyAuthProgress?.hide();
-        setFeedback("login", error.result?.message || error.message, "error", error.result?.errors || []);
+        const errorMessage = error.result?.message || error.message;
+        setFeedback("login", errorMessage, "error", error.result?.errors || []);
+        window.showGatherlyToast?.(errorMessage, "error");
       } finally {
         setFormBusy(loginForm, false);
       }
@@ -1457,21 +1581,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   const showShareToast = (message) => {
-    let toast = document.querySelector(".share-toast");
-    if (!toast) {
-      toast = document.createElement("div");
-      toast.className = "share-toast";
-      toast.setAttribute("role", "status");
-      toast.setAttribute("aria-live", "polite");
-      document.body.appendChild(toast);
-    }
-
-    toast.textContent = message;
-    toast.classList.add("is-visible");
-    window.clearTimeout(toast.hideTimer);
-    toast.hideTimer = window.setTimeout(() => {
-      toast.classList.remove("is-visible");
-    }, 2200);
+    window.showGatherlyToast?.(message, "info");
   };
 
   const copyTextFallback = (text) => {
@@ -1738,10 +1848,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const oversizedFile = files.find(file => maxBytes && file.size > maxBytes);
 
       if (maxCount && files.length > maxCount) {
-        window.alert(`最多只能选择 ${maxCount} 张图片。`);
+        window.showGatherlyToast?.(`最多只能选择 ${maxCount} 张图片。`, "error");
         input.value = "";
       } else if (oversizedFile) {
-        window.alert(`单张图片不能超过 ${Math.floor(maxBytes / 1024)}KB。`);
+        window.showGatherlyToast?.(`单张图片不能超过 ${Math.floor(maxBytes / 1024)}KB。`, "error");
         input.value = "";
       }
 
@@ -2854,7 +2964,7 @@ document.addEventListener("DOMContentLoaded", () => {
           window.location.assign(data.redirect_url || list.dataset.messageListUrl || "/messages/");
         }
       } catch (error) {
-        window.alert(error.message || "操作失败，请稍后重试。");
+        window.showGatherlyToast?.(error.message || "操作失败，请稍后重试。", "error");
         if (row.isConnected) {
           action.disabled = false;
         }
