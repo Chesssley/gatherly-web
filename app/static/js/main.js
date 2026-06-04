@@ -1078,7 +1078,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const previewDescription = wizard.querySelector("[data-preview-description]");
     const previewLocation = wizard.querySelector("[data-preview-location]");
     const previewTime = wizard.querySelector("[data-preview-time]");
+    const previewCapacity = wizard.querySelector("[data-preview-capacity]");
     const previewFee = wizard.querySelector("[data-preview-fee]");
+    const capacityDisplay = wizard.querySelector("[data-capacity-display]");
+    const feeDisplay = wizard.querySelector("[data-fee-display]");
     let currentStep = 0;
 
     if (!form || !steps.length) {
@@ -1141,6 +1144,22 @@ document.addEventListener("DOMContentLoaded", () => {
       return false;
     };
 
+    const formatCapacity = value => {
+      const normalizedValue = (value || "").trim();
+      if (!normalizedValue) {
+        return "人数上限";
+      }
+      return Number(normalizedValue) === 0 ? "无上限" : `${normalizedValue} 人`;
+    };
+
+    const formatPrice = value => {
+      const normalizedValue = (value || "").trim();
+      if (!normalizedValue || Number(normalizedValue) === 0) {
+        return "免费";
+      }
+      return `¥${normalizedValue}`;
+    };
+
     const syncPreview = () => {
       const name = form.elements.name?.value.trim() || form.elements.title?.value.trim();
       const checkedTags = Array.from(form.querySelectorAll('input[name="tags"]:checked'))
@@ -1156,6 +1175,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const shortDescription = form.elements.short_description?.value.trim() || form.elements.description?.value.trim();
       const location = form.elements.location?.value.trim();
       const startTime = form.elements.start_time?.value.trim();
+      const capacity = form.elements.max_participants?.value.trim();
       const fee = form.elements.fee?.value.trim();
 
       if (previewName) {
@@ -1176,8 +1196,17 @@ document.addEventListener("DOMContentLoaded", () => {
       if (previewTime) {
         previewTime.textContent = startTime || "开始时间";
       }
+      if (previewCapacity) {
+        previewCapacity.textContent = capacity ? formatCapacity(capacity) : previewCapacity.dataset.previewDefault || "人数上限";
+      }
       if (previewFee) {
-        previewFee.textContent = !fee || Number(fee) === 0 ? "免费" : `¥${fee}`;
+        previewFee.textContent = formatPrice(fee);
+      }
+      if (capacityDisplay) {
+        capacityDisplay.textContent = capacity ? `当前显示：${formatCapacity(capacity)}` : "填写 0 表示无上限。";
+      }
+      if (feeDisplay) {
+        feeDisplay.textContent = `当前显示：${formatPrice(fee)}`;
       }
     };
 

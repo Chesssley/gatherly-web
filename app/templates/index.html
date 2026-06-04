@@ -6,9 +6,9 @@
 {% macro activity_card(activity, detail_url, favorite_activity_id, demo=false) %}
 <article class="activity-card discover-card" tabindex="0" role="link" data-card-url="{{ detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}" data-activity-type="{{ 'online' if activity.location and ('线上' in activity.location or 'Online' in activity.location or 'online' in activity.location) else 'offline' }}">
     <div class="card-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
-        <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
+        <img src="{{ activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}"
              alt="{{ activity.title }}"
-             onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+             onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
         {% if not activity.image_url %}<span class="activity-image-placeholder" aria-hidden="true">&#10024;</span>{% endif %}
         {% if activity.gmt_offset %}<span class="card-timezone-badge">{{ activity.gmt_offset }}</span>{% endif %}
         <div class="card-image-actions">
@@ -278,7 +278,7 @@
                      data-home-mini-panel="upcoming">
                     {% if sidebar_going_activity %}
                     <a class="home-mini-event" href="{{ sidebar_going_activity.detail_url }}" aria-label="{{ sidebar_going_activity.title }}">
-                        <img src="{{ sidebar_going_activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ sidebar_going_activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                        <img src="{{ sidebar_going_activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}" alt="{{ sidebar_going_activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
                         <span>
                             <strong>{{ sidebar_going_activity.title }}</strong>
                             <small>{{ sidebar_going_activity.sidebar_time or sidebar_going_activity.time }}</small>
@@ -297,7 +297,7 @@
                      hidden>
                     {% if sidebar_saved_activity %}
                     <a class="home-mini-event" href="{{ sidebar_saved_activity.detail_url }}" aria-label="{{ sidebar_saved_activity.title }}">
-                        <img src="{{ sidebar_saved_activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ sidebar_saved_activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                        <img src="{{ sidebar_saved_activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}" alt="{{ sidebar_saved_activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
                         <span>
                             <strong>{{ sidebar_saved_activity.title }}</strong>
                             <small>{{ sidebar_saved_activity.sidebar_time or sidebar_saved_activity.time }}</small>
@@ -322,7 +322,7 @@
                 {% for circle in home_circles|default([]) %}
                     {% if loop.index <= 2 %}
                     <a class="home-mini-group" href="{{ circle.url }}">
-                        <img src="{{ circle.cover_url }}" alt="{{ circle.name }}" onerror="this.src='{{ url_for('static', filename='images/circle_covers/default.webp') }}'">
+                        <img src="{{ circle.cover_url }}" alt="{{ circle.name }}" onerror="this.src='{{ url_for('static', filename='images/placeholders/circle-placeholder.svg') }}'">
                         <span>
                             <strong>{{ circle.name }}</strong>
                             <small>{{ circle.tag or '同好圈' }}</small>
@@ -353,7 +353,7 @@
                     {% for activity in featured_activities %}
                         <article class="home-event-card" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
                             <div class="home-event-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
-                                <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                                <img src="{{ activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}" alt="{{ activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
                                 <div class="home-card-actions">
                                     <button class="card-icon-button" type="button" aria-label="复制 {{ activity.title }} 的链接" data-activity-share data-share-url="{{ activity.detail_url }}">
                                         <span aria-hidden="true">&#8599;</span>
@@ -457,7 +457,7 @@
                         {% endif %}
                         <article class="home-group-event" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}" data-tags="{{ activity.tags|join(',') if activity.tags else activity.category }}" data-time="{{ activity.time_filter|default('any') }}">
                             <div class="home-group-image">
-                                <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}" alt="{{ activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                                <img src="{{ activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}" alt="{{ activity.title }}" onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
                                 <div class="home-card-actions">
                                     <button class="card-icon-button" type="button" aria-label="复制 {{ activity.title }} 的链接" data-activity-share data-share-url="{{ activity.detail_url }}">
                                         <span aria-hidden="true">&#8599;</span>
@@ -542,9 +542,9 @@
                 {% for activity in featured_activities %}
                 <article class="recommended-card" tabindex="0" role="link" data-card-url="{{ activity.detail_url }}">
                     <div class="recommended-card-image {% if not activity.image_url %}is-placeholder-image{% endif %}">
-                        <img src="{{ activity.image_url or url_for('static', filename='images/placeholder-activity.jpg') }}"
+                        <img src="{{ activity.image_url or url_for('static', filename='images/placeholders/activity-placeholder.svg') }}"
                              alt="{{ activity.title }}"
-                             onerror="this.src='{{ url_for('static', filename='images/placeholder-activity.jpg') }}'">
+                             onerror="this.src='{{ url_for('static', filename='images/placeholders/activity-placeholder.svg') }}'">
                         {% if not activity.image_url %}<span class="activity-image-placeholder" aria-hidden="true">&#10024;</span>{% endif %}
                         {% if activity.id in registered_activity_ids|default([]) %}
                         <span class="going-badge"><span aria-hidden="true"></span>已报名</span>

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" role="img" aria-label="Activity placeholder">
+  <defs>
+    <linearGradient id="activity-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7fbf8"/>
+      <stop offset="1" stop-color="#e9f3ef"/>
+    </linearGradient>
+    <linearGradient id="activity-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f1f6f4"/>
+    </linearGradient>
+    <filter id="activity-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#1f594d" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="960" height="540" fill="url(#activity-bg)"/>
+  <circle cx="805" cy="112" r="96" fill="#d9ebe5"/>
+  <circle cx="126" cy="430" r="118" fill="#eef3dc"/>
+  <path d="M120 188C210 92 330 73 449 133c95 48 157 48 252 5 70-32 128-18 171 37v214H120V188Z" fill="#f8faf5"/>
+  <g filter="url(#activity-shadow)">
+    <rect x="258" y="96" width="444" height="328" rx="26" fill="url(#activity-card)" stroke="#d8e3df"/>
+  </g>
+  <rect x="302" y="144" width="168" height="132" rx="18" fill="#2f7d6d"/>
+  <rect x="326" y="128" width="28" height="48" rx="14" fill="#e66f5c"/>
+  <rect x="418" y="128" width="28" height="48" rx="14" fill="#e66f5c"/>
+  <rect x="328" y="188" width="34" height="28" rx="8" fill="#ffffff" opacity="0.92"/>
+  <rect x="374" y="188" width="34" height="28" rx="8" fill="#ffffff" opacity="0.58"/>
+  <rect x="420" y="188" width="34" height="28" rx="8" fill="#ffffff" opacity="0.92"/>
+  <rect x="328" y="228" width="34" height="28" rx="8" fill="#ffffff" opacity="0.58"/>
+  <rect x="374" y="228" width="34" height="28" rx="8" fill="#ffffff" opacity="0.92"/>
+  <rect x="420" y="228" width="34" height="28" rx="8" fill="#ffffff" opacity="0.58"/>
+  <path d="M590 174c-47 0-86 38-86 86 0 68 86 139 86 139s86-71 86-139c0-48-39-86-86-86Z" fill="#f0b65f"/>
+  <circle cx="590" cy="260" r="34" fill="#ffffff"/>
+  <path d="M544 376c42-24 91-24 134 0" fill="none" stroke="#2f7d6d" stroke-width="16" stroke-linecap="round"/>
+  <g fill="#24584d">
+    <circle cx="358" cy="344" r="22"/>
+    <circle cx="438" cy="344" r="22"/>
+    <circle cx="398" cy="322" r="24"/>
+  </g>
+  <path d="M318 392c12-38 147-38 160 0" fill="#dceae5"/>
+  <rect x="292" y="448" width="376" height="16" rx="8" fill="#c8dbd5"/>
+</svg>

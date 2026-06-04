@@ -211,9 +211,9 @@
                     {% if activity.circle_id and circle_name %}
                     <a class="meetup-detail-circle-card" href="{{ url_for('circle.circle_detail', circle_id=activity.circle_id) }}">
                         <img class="meetup-detail-circle-thumb"
-                             src="{{ activity.circle_cover_url or url_for('static', filename='images/circle_covers/default.webp') }}"
+                             src="{{ activity.circle_cover_url or url_for('static', filename='images/placeholders/circle-placeholder.svg') }}"
                              alt="{{ circle_name }} 缩略图"
-                             onerror="this.src='{{ url_for('static', filename='images/circle_covers/default.webp') }}'">
+                             onerror="this.src='{{ url_for('static', filename='images/placeholders/circle-placeholder.svg') }}'">
                         <div>
                             <span>所属同好圈</span>
                             <strong>{{ circle_name }}</strong>

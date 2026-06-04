@@ -55,6 +55,7 @@ RECENT_CIRCLE_ACTIVITY_LIMIT = 20
 NEW_CIRCLE_ACTIVITY_TAG = "新同好圈"
 MY_CIRCLE_ACTIVITY_TAG = "来自我的同好圈"
 SPECIAL_ACTIVITY_FILTER_TAGS = {NEW_CIRCLE_ACTIVITY_TAG, MY_CIRCLE_ACTIVITY_TAG}
+ACTIVITY_CREATE_EXCLUDED_TAGS = SPECIAL_ACTIVITY_FILTER_TAGS
 CANCEL_REASON_LABELS = {
     "time_conflict": "时间冲突",
     "venue_issue": "场地问题",
@@ -107,6 +108,14 @@ OFFICIAL_INTEREST_CATEGORIES = [
     {"icon": "🏛️", "tag": "社会运动与政治", "aliases": []},
 ]
 OFFICIAL_INTEREST_TAGS = [category["tag"] for category in OFFICIAL_INTEREST_CATEGORIES]
+ACTIVITY_CREATE_INTEREST_CATEGORIES = [
+    category
+    for category in OFFICIAL_INTEREST_CATEGORIES
+    if category["tag"] not in ACTIVITY_CREATE_EXCLUDED_TAGS
+]
+ACTIVITY_CREATE_INTEREST_TAGS = [
+    category["tag"] for category in ACTIVITY_CREATE_INTEREST_CATEGORIES
+]
 INTEREST_CATEGORY_ALIASES = {
     category["tag"]: [category["tag"], *category.get("aliases", [])]
     for category in OFFICIAL_INTEREST_CATEGORIES
@@ -145,11 +154,20 @@ def _circle_cover_url(circle):
     if (
         cover_image
         and str(cover_image).startswith(
-            ("http://", "https://", "/static/", "static/", "app/static/", "images/circles/", "images/circle_covers/")
+            (
+                "http://",
+                "https://",
+                "/static/",
+                "static/",
+                "app/static/",
+                "images/circles/",
+                "images/circle_covers/",
+                "images/placeholders/",
+            )
         )
     ):
         return storage_url(cover_image)
-    return storage_url("images/circle_covers/default.webp")
+    return storage_url("images/placeholders/circle-placeholder.svg")
 
 
 def _validated_circle_id(raw_circle_id):
@@ -234,6 +252,18 @@ def _selected_activity_tags():
     for tag in request.form.getlist("tags"):
         tag = _canonical_interest_tag(tag)
         if tag in OFFICIAL_INTEREST_TAGS and tag not in selected_tags:
+            selected_tags.append(tag)
+    return selected_tags
+
+
+def _selected_create_activity_tags():
+    primary_tag = _canonical_interest_tag(request.form.get("primary_tag", "").strip())
+    selected_tags = []
+    if primary_tag in ACTIVITY_CREATE_INTEREST_TAGS:
+        selected_tags.append(primary_tag)
+    for tag in request.form.getlist("tags"):
+        tag = _canonical_interest_tag(tag)
+        if tag in ACTIVITY_CREATE_INTEREST_TAGS and tag not in selected_tags:
             selected_tags.append(tag)
     return selected_tags
 
@@ -1292,9 +1322,16 @@ def _index_impl():
                 circle.cover_image
                 if circle.cover_image
                 and circle.cover_image.startswith(
-                    ("http://", "https://", "/static/uploads/circles/", "images/circles/", "images/circle_covers/")
+                    (
+                        "http://",
+                        "https://",
+                        "/static/uploads/circles/",
+                        "images/circles/",
+                        "images/circle_covers/",
+                        "images/placeholders/",
+                    )
                 )
-                else "images/circle_covers/default.webp"
+                else "images/placeholders/circle-placeholder.svg"
             ),
             "member_count": circle.member_count,
             "activity_count": circle_activity_counts.get(circle.id, 0),
@@ -1511,7 +1548,11 @@ def activity_detail(activity_id):
     activity = _activity_to_summary(db_activity, registration_rows_count)
     if db_activity is None:
         abort(404)
-    max_participants = db_activity.max_participants
+    max_participants = (
+        db_activity.max_participants
+        if db_activity.max_participants and db_activity.max_participants > 0
+        else None
+    )
     preparation = db_activity.preparation
     attendees = _get_activity_attendees(db_activity)
     current_user = User.query.get(session["user_id"]) if "user_id" in session else None
@@ -1742,8 +1783,8 @@ def create_activity():
     if request.method == "GET":
         return render_template(
             "activity_create.html",
-            interest_categories=OFFICIAL_INTEREST_CATEGORIES,
-            interest_tags=OFFICIAL_INTEREST_TAGS,
+            interest_categories=ACTIVITY_CREATE_INTEREST_CATEGORIES,
+            interest_tags=ACTIVITY_CREATE_INTEREST_TAGS,
             circles=_available_activity_circles(),
             can_publish_verified_activity=can_publish_verified_activity,
             activity_image_limit=ACTIVITY_IMAGE_LIMIT,
@@ -1760,7 +1801,7 @@ def create_activity():
         character.isalnum() or character in "_-/+" for character in timezone
     ):
         timezone = DEFAULT_ACTIVITY_TIMEZONE
-    tags = _selected_activity_tags()
+    tags = _selected_create_activity_tags()
     circle_id = _validated_circle_id(request.form.get("circle_id"))
     errors = []
     wants_official = current_user.role == "admin" or request.form.get("is_official") == "1"
@@ -1786,11 +1827,11 @@ def create_activity():
 
     try:
         max_participants = int(request.form.get("max_participants", ""))
-        if max_participants < 1:
+        if max_participants < 0:
             raise ValueError
     except ValueError:
         max_participants = None
-        errors.append("人数上限必须是大于 0 的整数。")
+        errors.append("人数上限必须是大于等于 0 的整数。")
 
     try:
         fee = float(request.form.get("fee", ""))
@@ -1831,8 +1872,8 @@ def create_activity():
             flash(error, "error")
         return render_template(
             "activity_create.html",
-            interest_categories=OFFICIAL_INTEREST_CATEGORIES,
-            interest_tags=OFFICIAL_INTEREST_TAGS,
+            interest_categories=ACTIVITY_CREATE_INTEREST_CATEGORIES,
+            interest_tags=ACTIVITY_CREATE_INTEREST_TAGS,
             circles=_available_activity_circles(),
             can_publish_verified_activity=can_publish_verified_activity,
             activity_image_limit=ACTIVITY_IMAGE_LIMIT,
@@ -1882,8 +1923,8 @@ def create_activity():
         flash("活动发布失败，请稍后重试。", "error")
         return render_template(
             "activity_create.html",
-            interest_categories=OFFICIAL_INTEREST_CATEGORIES,
-            interest_tags=OFFICIAL_INTEREST_TAGS,
+            interest_categories=ACTIVITY_CREATE_INTEREST_CATEGORIES,
+            interest_tags=ACTIVITY_CREATE_INTEREST_TAGS,
             circles=_available_activity_circles(),
             can_publish_verified_activity=can_publish_verified_activity,
             activity_image_limit=ACTIVITY_IMAGE_LIMIT,
@@ -1942,7 +1983,7 @@ def register_activity(activity_id):
         return redirect(url_for("activity.activity_detail", activity_id=activity_id))
 
     # 检查是否已满员
-    if db_activity.max_participants is not None:
+    if db_activity.max_participants and db_activity.max_participants > 0:
         current_count = (
             (db_activity.initial_participants or 0)
             + _active_registrations_query().filter_by(activity_id=activity_id).count()
