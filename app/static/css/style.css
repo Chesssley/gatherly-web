@@ -10938,14 +10938,15 @@ textarea.form-input {
   justify-self: start;
 }
 
-/* Activity admin management */
-.activity-admin-management-card {
+/* Activity management panel */
+.activity-management-section {
   display: grid;
   gap: 10px;
 }
 
-.activity-admin-management-note {
-  margin: 0;
+.activity-management-section + .activity-management-section {
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
 }
 
 .activity-admin-time-form .form-input,

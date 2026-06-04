@@ -384,8 +384,12 @@
                                 {{ rating_stars(review.rating, review.rating ~ ' 星评价') }}
                             </div>
                             <div class="circle-rating-review-activity">
-                                {% if review.activity %}
+                                {% if review.activity and review.activity.start_time %}
                                 <time datetime="{{ review.activity.start_time.isoformat() }}">{{ review.activity_date_label }}</time>
+                                <span>·</span>
+                                <a href="{{ url_for('activity.activity_detail', activity_id=review.activity.id) }}">{{ review.activity.title }}</a>
+                                {% elif review.activity %}
+                                <span>{{ review.activity_date_label }}</span>
                                 <span>·</span>
                                 <a href="{{ url_for('activity.activity_detail', activity_id=review.activity.id) }}">{{ review.activity.title }}</a>
                                 {% else %}

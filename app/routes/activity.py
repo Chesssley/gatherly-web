@@ -1754,6 +1754,9 @@ def _parse_admin_activity_datetime(raw_value, label, errors):
     if not value:
         errors.append(f"{label}不能为空。")
         return None
+    if "T" not in value and " " not in value:
+        errors.append(f"{label}格式不正确。")
+        return None
     try:
         parsed_value = datetime.fromisoformat(value)
     except ValueError:

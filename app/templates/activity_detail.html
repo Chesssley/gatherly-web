@@ -361,37 +361,13 @@
                 <div class="registration-action meetup-detail-sidebar-registration">
                     {{ registration_button() }}
                 </div>
-                {% if can_admin_update_activity_time %}
-                <section class="meetup-detail-management-card activity-admin-management-card" aria-labelledby="activity-admin-management-title">
-                    <h2 id="activity-admin-management-title">活动管理</h2>
-                    <p class="activity-admin-management-note">仅系统管理员可见，可用于修正活动时间。</p>
-                    <form class="meetup-detail-management-form activity-admin-time-form"
-                          method="post"
-                          action="{{ url_for('activity.admin_update_activity_time', activity_id=activity.id) }}">
-                        <label for="admin-activity-start-time">活动开始时间</label>
-                        <input class="form-input"
-                               type="datetime-local"
-                               id="admin-activity-start-time"
-                               name="start_time"
-                               value="{{ activity.start_time_input }}"
-                               required>
-
-                        <label for="admin-activity-end-time">活动结束时间</label>
-                        <input class="form-input"
-                               type="datetime-local"
-                               id="admin-activity-end-time"
-                               name="end_time"
-                               value="{{ activity.end_time_input }}"
-                               required>
-
-                        <button class="button button-small" type="submit">保存活动时间</button>
-                    </form>
-                </section>
-                {% endif %}
-                {% if can_manage_activity %}
+                {% if can_manage_activity or can_admin_update_activity_time %}
                 <details class="meetup-detail-management-card">
-                    <summary class="meetup-detail-management-summary">发起人管理</summary>
+                    <summary class="meetup-detail-management-summary">活动管理</summary>
                     <div class="meetup-detail-management-body">
+                        {% if can_manage_activity %}
+                        <section class="activity-management-section" aria-labelledby="activity-organizer-management-title">
+                            <h2 id="activity-organizer-management-title">发起人管理</h2>
                         <form class="meetup-detail-management-form"
                               method="post"
                               action="{{ url_for('activity.update_activity_settings', activity_id=activity.id) }}">
@@ -459,6 +435,35 @@
                                 <button class="button button-danger" type="submit">结束活动</button>
                             </form>
                             {% endif %}
+                        {% endif %}
+                        </section>
+                        {% endif %}
+                        {% if can_admin_update_activity_time %}
+                        <section class="activity-management-section" aria-labelledby="activity-time-management-title">
+                            <h2 id="activity-time-management-title">活动时间管理</h2>
+                            <p>仅系统管理员可见，可用于修正活动时间。</p>
+                            <form class="meetup-detail-management-form activity-admin-time-form"
+                                  method="post"
+                                  action="{{ url_for('activity.admin_update_activity_time', activity_id=activity.id) }}">
+                                <label for="admin-activity-start-time">活动开始时间</label>
+                                <input class="form-input"
+                                       type="datetime-local"
+                                       id="admin-activity-start-time"
+                                       name="start_time"
+                                       value="{{ activity.start_time_input }}"
+                                       required>
+
+                                <label for="admin-activity-end-time">活动结束时间</label>
+                                <input class="form-input"
+                                       type="datetime-local"
+                                       id="admin-activity-end-time"
+                                       name="end_time"
+                                       value="{{ activity.end_time_input }}"
+                                       required>
+
+                                <button class="button button-small" type="submit">保存活动时间</button>
+                            </form>
+                        </section>
                         {% endif %}
                     </div>
                 </details>
