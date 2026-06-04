@@ -1867,6 +1867,31 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-circle-rating-collapse]").forEach(container => {
+    const toggle = container.querySelector("[data-circle-rating-form-toggle]");
+    const body = container.querySelector("[data-circle-rating-form-body]");
+    const label = container.querySelector("[data-circle-rating-form-toggle-label]");
+    if (!toggle || !body) {
+      return;
+    }
+
+    const setExpanded = expanded => {
+      body.hidden = !expanded;
+      toggle.setAttribute("aria-expanded", String(expanded));
+      if (label) {
+        label.textContent = expanded
+          ? toggle.dataset.openLabel || "收起评分表单"
+          : toggle.dataset.closedLabel || "给这个圈子评分";
+      }
+    };
+
+    toggle.addEventListener("click", () => {
+      setExpanded(toggle.getAttribute("aria-expanded") !== "true");
+    });
+
+    setExpanded(false);
+  });
+
   document.querySelectorAll("[data-circle-rating-form]").forEach(form => {
     const activitySelect = form.querySelector("[data-circle-rating-activity-select]");
     const notStartedMessage = "该活动尚未开始，活动开始后才可以评分。";
