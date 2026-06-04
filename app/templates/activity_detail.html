@@ -209,7 +209,7 @@
                     </div>
 
                     {% if activity.circle_id and circle_name %}
-                    <a class="meetup-detail-circle-card" href="{{ url_for('circle.circle_detail', circle_id=activity.circle_id) }}">
+                    <a class="meetup-detail-circle-card" href="{{ url_for('circle.circle_detail', circle_id=activity.circle_id, _anchor='circle-ratings') }}">
                         <img class="meetup-detail-circle-thumb"
                              src="{{ activity.circle_cover_url or url_for('static', filename='images/placeholders/circle-placeholder.svg') }}"
                              alt="{{ circle_name }} 缩略图"
@@ -217,6 +217,9 @@
                         <div>
                             <span>所属同好圈</span>
                             <strong>{{ circle_name }}</strong>
+                            <small class="activity-detail-circle-rating">
+                                综合评分 · {% if activity.circle_rating_average %}{{ '%.1f'|format(activity.circle_rating_average) }} ★{% else %}暂无评分{% endif %}{% if activity.circle_rating_count %} · {{ activity.circle_rating_count }} 条评价{% endif %}
+                            </small>
                         </div>
                     </a>
                     {% endif %}

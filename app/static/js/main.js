@@ -1842,6 +1842,23 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-circle-rating-reviews]").forEach(reviewList => {
+    const toggle = reviewList.querySelector("[data-circle-rating-toggle]");
+    const hiddenReviews = Array.from(reviewList.querySelectorAll("[data-circle-rating-review][hidden]"));
+    if (!toggle || !hiddenReviews.length) {
+      return;
+    }
+
+    toggle.addEventListener("click", () => {
+      const isExpanded = toggle.getAttribute("aria-expanded") === "true";
+      hiddenReviews.forEach(review => {
+        review.hidden = isExpanded;
+      });
+      toggle.setAttribute("aria-expanded", String(!isExpanded));
+      toggle.textContent = isExpanded ? "展开更多评价" : "收起评价";
+    });
+  });
+
   document.querySelectorAll("[data-reply-toggle]").forEach(button => {
     button.addEventListener("click", () => {
       const form = document.getElementById(button.dataset.replyToggle);

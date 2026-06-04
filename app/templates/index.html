@@ -46,6 +46,9 @@
             <p class="meta-time"><span aria-hidden="true">&#128197;</span> {{ activity.time }}{% if activity.gmt_offset %} <span class="card-timezone">{{ activity.gmt_offset }}</span>{% endif %}</p>
             <p class="meta-location"><span aria-hidden="true">&#128205;</span> {% if activity.city %}{{ activity.city }} · {% endif %}{{ activity.location }}</p>
             <p class="card-host"><span aria-hidden="true">&#9673;</span> 主办方：{{ activity.organizer|default("Gatherly官方") }}</p>
+            {% if activity.circle_name %}
+            <p class="activity-card-rating-line">{{ activity.circle_name }} · {% if activity.circle_rating_average %}{{ '%.1f'|format(activity.circle_rating_average) }} ★{% else %}暂无评分{% endif %}{% if activity.circle_rating_count %}（{{ activity.circle_rating_count }} 条）{% endif %}</p>
+            {% endif %}
         </div>
         <div class="card-social">
             <div class="card-attendee-summary">
@@ -432,7 +435,7 @@
                             <div class="home-event-body">
                                 <h3>{{ activity.title }}</h3>
                                 <p>{{ activity.sidebar_time or activity.time }}</p>
-                                <p>{{ activity.organizer }}{% if activity.rating_average %} · {{ '%.1f'|format(activity.rating_average) }} ★{% endif %}</p>
+                                <p>{{ activity.circle_name or activity.organizer }}{% if activity.circle_name %} · {% if activity.circle_rating_average %}{{ '%.1f'|format(activity.circle_rating_average) }} ★{% else %}暂无评分{% endif %}{% endif %}</p>
                                 <div class="home-event-attendees">
                                     {% if activity.attendee_previews %}
                                     <span class="card-attendee-avatars" aria-label="已报名用户">
@@ -514,7 +517,7 @@
                             <div class="home-group-event-body">
                                 <h3>{{ activity.title }}</h3>
                                 <p>{{ activity.sidebar_time or activity.time }}</p>
-                                <p>{{ activity.circle_name or activity.organizer }}{% if activity.rating_average %} · {{ '%.1f'|format(activity.rating_average) }} ★{% endif %}</p>
+                                <p>{{ activity.circle_name or activity.organizer }}{% if activity.circle_name %} · {% if activity.circle_rating_average %}{{ '%.1f'|format(activity.circle_rating_average) }} ★{% else %}暂无评分{% endif %}{% endif %}</p>
                                 <div class="home-event-attendees">
                                     {% if activity.attendee_previews %}
                                     <span class="card-attendee-avatars" aria-label="已报名用户">
@@ -644,8 +647,8 @@
                                 {% endif %}
                                 <span>{{ activity.current_people|default(0) }} 人参与</span>
                             </div>
-                            {% if activity.rating_average %}
-                            <span class="recommended-card-rating">{{ '%.1f'|format(activity.rating_average) }} <span aria-hidden="true">★</span></span>
+                            {% if activity.circle_name %}
+                            <span class="recommended-card-rating">{{ '%.1f'|format(activity.circle_rating_average) if activity.circle_rating_average else '暂无评分' }}{% if activity.circle_rating_average %} <span aria-hidden="true">★</span>{% endif %}</span>
                             {% endif %}
                         </div>
                     </div>
