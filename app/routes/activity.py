@@ -16,14 +16,13 @@ from app.models import (
     ActivityReview,
     Circle,
     CircleMember,
+    CircleRating,
     Comment,
     CommentImage,
     Interaction,
     ProfileVisibility,
     Registration,
-    TrustScoreLog,
     User,
-    UserReview,
     get_user_display_name,
     is_verified_merchant,
 )
@@ -73,15 +72,6 @@ COMMENT_IMAGE_LIMIT = upload_limit("comment_images")
 COMMENT_UPLOAD_SUBDIR = "comments"
 DEFAULT_ACTIVITY_TIMEZONE = "Asia/Shanghai"
 CHINESE_WEEKDAYS = ("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")
-
-USER_REVIEW_FIELDS = (
-    "punctuality_score",
-    "friendliness_score",
-    "communication_score",
-    "reliability_score",
-    "respect_score",
-    "safety_score",
-)
 
 OFFICIAL_INTEREST_CATEGORIES = [
     {"icon": "👥", "tag": "新同好圈", "aliases": []},
@@ -267,17 +257,6 @@ def _selected_create_activity_tags():
             selected_tags.append(tag)
     return selected_tags
 
-def _parse_rating_score(field_name):
-    raw_value = request.form.get(field_name)
-    if raw_value is None or raw_value == "":
-        raise ValueError("missing")
-
-    score = int(raw_value)
-    if score < 1 or score > 5:
-        raise ValueError("out_of_range")
-    return score
-
-
 def _activity_timezone(activity):
     timezone_name = activity.timezone if activity and activity.timezone else DEFAULT_ACTIVITY_TIMEZONE
     try:
@@ -443,50 +422,6 @@ def _is_activity_participant(user_id, activity_id):
     )
 
 
-def _user_review_payload(review):
-    if not review:
-        return None
-    return {
-        "punctuality_score": review.punctuality_score,
-        "friendliness_score": review.friendliness_score,
-        "communication_score": review.communication_score,
-        "reliability_score": review.reliability_score,
-        "respect_score": review.respect_score,
-        "safety_score": review.safety_score,
-        "comment": review.comment or "",
-    }
-
-
-def _recalculate_user_trust_score(user, changed_by_id, related_review_id):
-    score_avg = (
-        db.session.query(func.avg(UserReview.average_score))
-        .filter(
-            UserReview.reviewee_id == user.id,
-            UserReview.status == "published",
-        )
-        .scalar()
-    )
-    if score_avg is None:
-        return
-
-    score_before = int(user.trust_score or 0)
-    score_after = max(0, min(100, int(round(float(score_avg) * 20))))
-    user.trust_score = score_after
-    db.session.add(
-        TrustScoreLog(
-            user_id=user.id,
-            changed_by_id=changed_by_id,
-            change_type="user_review",
-            delta=score_after - score_before,
-            score_before=score_before,
-            score_after=score_after,
-            reason="Trust score recalculated from received user reviews.",
-            related_type="user_review",
-            related_id=related_review_id,
-        )
-    )
-
-
 def _split_tags(tags):
     return [tag.strip() for tag in (tags or "").split(",") if tag.strip()]
 
@@ -549,6 +484,33 @@ def _get_activity_attendee_previews(activity_ids):
             }
         )
     return previews_by_activity
+
+
+def _get_circle_rating_stats(circle_ids):
+    circle_ids = {circle_id for circle_id in circle_ids if circle_id}
+    if not circle_ids:
+        return {}
+
+    stats = {
+        circle_id: {"rating_average": None, "rating_count": 0}
+        for circle_id in circle_ids
+    }
+    rows = (
+        db.session.query(
+            CircleRating.circle_id,
+            func.avg(CircleRating.rating),
+            func.count(CircleRating.id),
+        )
+        .filter(CircleRating.circle_id.in_(circle_ids))
+        .group_by(CircleRating.circle_id)
+        .all()
+    )
+    for circle_id, rating_average, rating_count in rows:
+        stats[circle_id] = {
+            "rating_average": round(float(rating_average), 1) if rating_average is not None else None,
+            "rating_count": rating_count,
+        }
+    return stats
 
 
 def _get_activity_attendees(activity):
@@ -743,6 +705,7 @@ def _activity_to_summary(
     favorite_count=0,
     attendee_previews=None,
     rating_stats=None,
+    circle_rating_stats=None,
 ):
     raw_tags = _split_tags(activity.tags)
     category = _canonical_interest_tag(raw_tags[0]) if raw_tags else DEFAULT_ACTIVITY_TAG
@@ -756,6 +719,8 @@ def _activity_to_summary(
     attendee_previews = attendee_previews or []
     rating_stats = rating_stats or {}
     rating_average = rating_stats.get("rating_average")
+    circle_rating_stats = circle_rating_stats or {}
+    circle_rating = circle_rating_stats.get(activity.circle_id, {}) if activity.circle_id else {}
     organizer_is_verified = is_verified_merchant(activity.organizer)
     is_gatherly_official = bool(
         activity.is_official or (activity.organizer and activity.organizer.role == "admin")
@@ -793,6 +758,8 @@ def _activity_to_summary(
         "favorite_count": favorite_count,
         "rating_average": round(float(rating_average), 1) if rating_average is not None else None,
         "rating_count": rating_stats.get("rating_count", 0),
+        "circle_rating_average": circle_rating.get("rating_average"),
+        "circle_rating_count": circle_rating.get("rating_count", 0),
         "heat_score": heat_score,
         "is_featured": activity.is_featured,
         "is_official": is_gatherly_official,
@@ -1010,12 +977,14 @@ def search():
         .all()
     )
     attendee_previews = _get_activity_attendee_previews([activity.id for activity in db_activities])
+    circle_ratings = _get_circle_rating_stats(activity.circle_id for activity in db_activities)
     activities = [
         _activity_to_summary(
             activity,
             reg_counts.get(activity.id, 0),
             favorite_counts.get(activity.id, 0),
             attendee_previews.get(activity.id, []),
+            circle_rating_stats=circle_ratings,
         )
         for activity in db_activities
     ]
@@ -1181,6 +1150,11 @@ def _index_impl():
             .all()
         )
     }
+    activity_circle_ratings = _get_circle_rating_stats(
+        activity.circle_id
+        for activity in [*featured_db_activities, *db_activities]
+        if activity.circle_id
+    )
     featured_reg_counts = reg_counts
     featured_favorite_counts = favorite_counts
     featured_attendee_previews = _get_activity_attendee_previews(
@@ -1193,6 +1167,7 @@ def _index_impl():
             featured_favorite_counts.get(activity.id, 0),
             featured_attendee_previews.get(activity.id, []),
             activity_ratings.get(activity.id),
+            activity_circle_ratings,
         )
         for activity in featured_db_activities
     ]
@@ -1212,6 +1187,7 @@ def _index_impl():
             favorite_counts.get(activity.id, 0),
             attendee_previews.get(activity.id, []),
             activity_ratings.get(activity.id),
+            activity_circle_ratings,
         )
         for activity in db_activities
     ]
@@ -1392,6 +1368,7 @@ def _index_impl():
                 favorite_counts.get(sidebar_going_db_activity.id, 0),
                 featured_attendee_previews.get(sidebar_going_db_activity.id, []),
                 activity_ratings.get(sidebar_going_db_activity.id),
+                activity_circle_ratings,
             )
         if sidebar_saved_db_activity:
             sidebar_saved_activity = _activity_to_summary(
@@ -1400,6 +1377,7 @@ def _index_impl():
                 favorite_counts.get(sidebar_saved_db_activity.id, 0),
                 featured_attendee_previews.get(sidebar_saved_db_activity.id, []),
                 activity_ratings.get(sidebar_saved_db_activity.id),
+                activity_circle_ratings,
             )
     user_display_name = get_user_display_name(current_user).strip() if current_user else "访客"
     home_user_card = {
@@ -1525,8 +1503,13 @@ def my_events():
             .all()
         )
 
+    circle_ratings = _get_circle_rating_stats(activity.circle_id for activity in db_activities)
     activities = [
-        _activity_to_summary(activity, reg_counts.get(activity.id, 0))
+        _activity_to_summary(
+            activity,
+            reg_counts.get(activity.id, 0),
+            circle_rating_stats=circle_ratings,
+        )
         for activity in db_activities
     ]
     return render_template(
@@ -1545,7 +1528,12 @@ def activity_detail(activity_id):
     db_activity = Activity.query.get_or_404(activity_id)
     registration_rows_count = _active_registrations_query().filter_by(activity_id=activity_id).count()
     registration_count = (db_activity.initial_participants or 0) + registration_rows_count
-    activity = _activity_to_summary(db_activity, registration_rows_count)
+    circle_ratings = _get_circle_rating_stats([db_activity.circle_id])
+    activity = _activity_to_summary(
+        db_activity,
+        registration_rows_count,
+        circle_rating_stats=circle_ratings,
+    )
     if db_activity is None:
         abort(404)
     max_participants = (
@@ -1599,52 +1587,6 @@ def activity_detail(activity_id):
         and _activity_now(db_activity) < db_activity.start_time
     )
 
-    can_user_review = False
-    user_review_notice = "活动结束后，实际参与者可以进行互评。"
-    user_review_candidates = []
-
-    if "user_id" in session:
-        user_id = session["user_id"]
-        if not user_attended:
-            user_review_notice = "活动结束后，实际参与者可以进行互评。"
-        elif not _activity_has_ended(db_activity):
-            user_review_notice = "活动结束后，实际参与者可以进行互评。"
-        else:
-            existing_reviews = {
-                review.reviewee_id: review
-                for review in UserReview.query.filter_by(
-                    activity_id=activity_id,
-                    reviewer_id=user_id,
-                ).all()
-            }
-            participant_rows = (
-                db.session.query(User)
-                .join(Registration, Registration.user_id == User.id)
-                .filter(
-                    Registration.activity_id == activity_id,
-                    Registration.status.in_(RATING_ELIGIBLE_STATUSES),
-                    User.id != user_id,
-                )
-                .order_by(User.username.asc())
-                .all()
-            )
-            user_review_candidates = [
-                {
-                    "user": participant,
-                    "display_name": get_user_display_name(participant),
-                    "role_label": "举办者" if participant.id == db_activity.organizer_id else "参与者",
-                    "is_organizer": participant.id == db_activity.organizer_id,
-                    "has_reviewed": participant.id in existing_reviews,
-                    "review": _user_review_payload(existing_reviews.get(participant.id)),
-                }
-                for participant in participant_rows
-            ]
-            can_user_review = bool(user_review_candidates)
-            if not user_review_candidates:
-                user_review_notice = "暂无可互评参与者。"
-            else:
-                user_review_notice = ""
-
     return render_template(
         "activity_detail.html",
         activity=activity,
@@ -1653,9 +1595,6 @@ def activity_detail(activity_id):
         preparation=preparation,
         user_registered=user_registered,
         is_favorited=is_favorited,
-        can_user_review=can_user_review,
-        user_review_candidates=user_review_candidates,
-        user_review_notice=user_review_notice,
         can_manage_activity=can_manage_activity,
         is_cancel_action=is_cancel_action,
         can_cancel_registration=can_cancel_registration,
@@ -1710,8 +1649,8 @@ def close_activity(activity_id):
         redirect_anchor = None
     else:
         db_activity.status = "closed"
-        success_message = "活动已结束，可以前往参与者互评和评论区域。"
-        redirect_anchor = "participant-feedback"
+        success_message = "活动已结束，可以前往评论区域。"
+        redirect_anchor = "activity-comments"
 
     db.session.commit()
     flash(success_message, "success")
@@ -1953,8 +1892,6 @@ def update_activity_settings(activity_id):
     db.session.commit()
     flash("活动关联信息已更新。", "success")
     return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-
 @activity_bp.route("/activity/<int:activity_id>/register", methods=["POST"])
 def register_activity(activity_id):
     """活动报名路由"""
@@ -2143,82 +2080,4 @@ def cancel_registration(activity_id):
     registration.cancelled_at = now
     db.session.commit()
     flash("报名已取消。", "success")
-    return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-
-@activity_bp.route("/activity/<int:activity_id>/user-reviews", methods=["POST"])
-def submit_user_review(activity_id):
-    if "user_id" not in session:
-        flash("请先登录后再评价参与者。", "error")
-        return redirect(url_for("auth.login", next=url_for("activity.activity_detail", activity_id=activity_id)))
-
-    Activity.query.get_or_404(activity_id)
-
-    db_activity = Activity.query.get(activity_id)
-    if not _activity_has_ended(db_activity):
-        flash("活动结束后，实际参与者可以进行互评。", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    reviewer_id = session["user_id"]
-    try:
-        reviewee_id = int(request.form.get("reviewee_id", ""))
-    except (TypeError, ValueError):
-        flash("请选择有效的参与者。", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    if reviewer_id == reviewee_id:
-        flash("不能评价自己。", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    if not _is_activity_participant(reviewer_id, activity_id):
-        flash("只有实际参与者可以提交互评。", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    reviewee = User.query.get(reviewee_id)
-    if not reviewee or not _is_activity_participant(reviewee_id, activity_id):
-        flash("被评价用户必须是该活动的实际参与者。", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    user_review = UserReview.query.filter_by(
-        activity_id=activity_id,
-        reviewer_id=reviewer_id,
-        reviewee_id=reviewee_id,
-    ).first()
-    is_update = user_review is not None
-
-    try:
-        scores = {field: _parse_rating_score(field) for field in USER_REVIEW_FIELDS}
-    except (TypeError, ValueError):
-        flash("每项互评分数必须为 1 到 5 的整数。", "error")
-        return redirect(url_for("activity.activity_detail", activity_id=activity_id))
-
-    average_score = round(sum(scores.values()) / len(scores), 1)
-    comment = request.form.get("comment", "").strip()
-
-    if user_review is None:
-        user_review = UserReview(
-            activity_id=activity_id,
-            reviewer_id=reviewer_id,
-            reviewee_id=reviewee_id,
-        )
-    for field, score in scores.items():
-        setattr(user_review, field, score)
-    user_review.average_score = average_score
-    user_review.comment = comment or None
-    user_review.status = "published"
-    user_review.updated_at = datetime.utcnow()
-
-    try:
-        db.session.add(user_review)
-        db.session.flush()
-        _recalculate_user_trust_score(reviewee, reviewer_id, user_review.id)
-        db.session.commit()
-        flash("评价已更新。" if is_update else "评价已提交。", "success")
-    except IntegrityError:
-        db.session.rollback()
-        flash("评价保存失败，请刷新后重试。", "error")
-    except Exception:
-        db.session.rollback()
-        flash("参与者互评提交失败，请稍后重试。", "error")
-
     return redirect(url_for("activity.activity_detail", activity_id=activity_id))

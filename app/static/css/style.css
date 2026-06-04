@@ -2613,139 +2613,6 @@ textarea.form-input {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.user-review-section {
-  margin-top: 24px;
-  padding: 24px;
-  border-radius: 12px;
-  background: var(--color-surface);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.user-review-card {
-  padding: 18px 0;
-  border-top: 1px solid var(--color-border);
-}
-
-.user-review-card:first-of-type {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.user-review-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.user-review-form {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.peer-review-list {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.peer-review-item {
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 5px 14px rgba(34, 34, 34, 0.05);
-}
-
-.peer-review-item[open] {
-  border-color: rgba(47, 111, 99, 0.35);
-}
-
-.peer-review-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
-  cursor: pointer;
-  list-style: none;
-}
-
-.peer-review-card::-webkit-details-marker {
-  display: none;
-}
-
-.peer-review-avatar {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.peer-review-placeholder {
-  background: linear-gradient(135deg, #d7ede6, #f2d7bd);
-  color: var(--color-primary-dark);
-  font-weight: 800;
-}
-
-.peer-review-person {
-  display: grid;
-  min-width: 0;
-  gap: 4px;
-}
-
-.peer-review-person strong {
-  overflow: hidden;
-  color: var(--color-text);
-  font-size: 15px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.peer-review-role,
-.peer-review-status {
-  justify-self: start;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: #f0ece6;
-  color: var(--color-muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.peer-review-role.is-organizer {
-  background: #e0f0eb;
-  color: var(--color-primary-dark);
-}
-
-.peer-review-status {
-  justify-self: end;
-  background: #fbefe7;
-  color: #a55736;
-}
-
-.peer-review-status.is-reviewed {
-  background: #e0f0eb;
-  color: var(--color-primary-dark);
-}
-
-.peer-review-form-panel {
-  padding: 0 14px 14px;
-}
-
-.peer-review-form-title {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: var(--color-primary-dark);
-  font-size: 17px;
-}
-
-.user-review-form .rating-dimension:last-of-type,
-.user-review-form .rating-submit {
-  grid-column: 1 / -1;
-}
-
 .rating-header {
   display: flex;
   align-items: center;
@@ -2886,27 +2753,8 @@ textarea.form-input {
   margin: 0;
 }
 
-@media (max-width: 640px) {
-  .peer-review-card {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .peer-review-status {
-    grid-column: 2;
-    justify-self: start;
-  }
-
-  .user-review-form {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 720px) {
   .rating-section {
-    padding: 16px;
-  }
-
-  .user-review-section {
     padding: 16px;
   }
 
@@ -2920,9 +2768,6 @@ textarea.form-input {
     grid-template-columns: 1fr;
   }
 
-  .user-review-form {
-    grid-template-columns: 1fr;
-  }
 }
 
 .admin-grid {
@@ -13521,6 +13366,50 @@ body.circle-modal-open {
   margin-top: 18px;
 }
 
+.circle-rating-section {
+  display: grid;
+  gap: 18px;
+}
+
+.circle-rating-section .circle-feed-heading > strong {
+  color: var(--color-primary-dark);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.circle-rating-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.circle-rating-summary p,
+.circle-rating-review {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(47, 111, 99, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.circle-rating-summary span,
+.circle-rating-review time {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.circle-rating-form {
+  display: grid;
+  gap: 10px;
+  max-width: 520px;
+}
+
+.circle-rating-review-list {
+  display: grid;
+  gap: 10px;
+}
+
 .circle-group-home .circle-related-activity-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 26px;
@@ -13768,7 +13657,7 @@ body.circle-modal-open {
   }
 
   .circle-group-tabs {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     overflow: hidden;
   }
 
@@ -13783,6 +13672,10 @@ body.circle-modal-open {
   .circle-group-home .circle-related-activity-grid,
   .circle-photo-grid {
     grid-template-columns: 1fr;
+  }
+
+  .circle-rating-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

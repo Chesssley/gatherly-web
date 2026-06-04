@@ -176,6 +176,7 @@
                     <p>{{ circle_icon("users") }}<strong>{{ circle.member_count }}</strong><span>成员</span></p>
                     <p>{{ circle_icon("comment") }}<strong>{{ circle.post_count | default(0) }}</strong><span>帖子</span></p>
                     <p>{{ circle_icon("calendar") }}<strong>{{ related_activity_count | default(0) }}</strong><span>活动</span></p>
+                    <p><strong>{{ '%.1f'|format(average_rating) if average_rating else '暂无' }}</strong><span>评分{% if rating_count %} · {{ rating_count }} 条{% endif %}</span></p>
                 </div>
 
                 <div class="circle-share-row" aria-label="分享圈子">
@@ -241,6 +242,7 @@
         <nav class="circle-group-tabs" aria-label="圈子页面导航">
             <button class="is-active" type="button" data-scroll-target="circle-about-title"><span>✦</span>关于</button>
             <button type="button" data-scroll-target="circle-related-activities-title"><span>▣</span>活动</button>
+            <button type="button" data-scroll-target="circle-ratings-title"><span>★</span>评分</button>
             <button type="button" data-member-modal-open><span>♟</span>成员</button>
             <button type="button" data-scroll-target="circle-photos-title"><span>▤</span>照片</button>
             <button type="button" data-scroll-target="circle-discussions-title"><span>☰</span>讨论</button>
@@ -264,6 +266,54 @@
                             <h3>圈内公告</h3>
                             <p>{{ circle.announcement or "暂无公告。" }}</p>
                         </article>
+                    </div>
+                </section>
+
+                <section class="circle-home-section circle-rating-section" id="circle-ratings" aria-labelledby="circle-ratings-title">
+                    <div class="circle-feed-heading">
+                        <div>
+                            <p class="eyebrow">Ratings</p>
+                            <h2 id="circle-ratings-title">同好圈评分 <span>{{ rating_count }}</span></h2>
+                        </div>
+                        <strong>{{ '%.1f'|format(average_rating) if average_rating else '暂无评分' }}</strong>
+                    </div>
+                    <div class="circle-rating-summary">
+                        {% for score in [5, 4, 3, 2, 1] %}
+                        <p><span>{{ score }} 星</span><strong>{{ rating_distribution.get(score, 0) }}</strong></p>
+                        {% endfor %}
+                    </div>
+
+                    {% if current_user %}
+                        {% if can_rate_circle %}
+                        <form class="circle-rating-form" method="POST" action="{{ url_for('circle.submit_circle_rating', circle_id=circle.id) }}">
+                            <label class="form-label" for="circle-rating-value">你的评分</label>
+                            <select class="form-input" id="circle-rating-value" name="rating" required>
+                                {% for score in [5, 4, 3, 2, 1] %}
+                                <option value="{{ score }}" {% if current_user_rating and current_user_rating.rating == score %}selected{% endif %}>{{ score }} 星</option>
+                                {% endfor %}
+                            </select>
+                            <label class="form-label" for="circle-rating-comment">评价内容</label>
+                            <textarea class="form-input" id="circle-rating-comment" name="comment" rows="3" maxlength="1000" placeholder="可选：分享你参加该同好圈活动后的真实体验">{{ current_user_rating.comment if current_user_rating else '' }}</textarea>
+                            <button class="button button-small" type="submit">{{ '更新评分' if current_user_rating else '提交评分' }}</button>
+                        </form>
+                        {% elif circle_rating_notice %}
+                        <p class="rating-notice">{{ circle_rating_notice }}</p>
+                        {% endif %}
+                    {% else %}
+                    <p class="rating-notice">{{ circle_rating_notice }}</p>
+                    <a class="button button-small" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">登录后评分</a>
+                    {% endif %}
+
+                    <div class="circle-rating-review-list">
+                        {% for review in recent_reviews %}
+                        <article class="circle-rating-review">
+                            <strong>{{ review.user.nickname or review.user.username }} · {{ review.rating }} 星</strong>
+                            <p>{{ review.comment }}</p>
+                            <time datetime="{{ review.updated_at.isoformat() }}">{{ review.updated_at.strftime("%Y-%m-%d") }}</time>
+                        </article>
+                        {% else %}
+                        <p class="circle-sidebar-empty">暂无文字评价。</p>
+                        {% endfor %}
                     </div>
                 </section>
 

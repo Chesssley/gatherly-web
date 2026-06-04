@@ -2189,22 +2189,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  document.querySelectorAll("[data-peer-review-list]").forEach(list => {
-    const items = Array.from(list.querySelectorAll("[data-peer-review-item]"));
-    items.forEach(item => {
-      item.addEventListener("toggle", () => {
-        if (!item.open) {
-          return;
-        }
-        items.forEach(otherItem => {
-          if (otherItem !== item) {
-            otherItem.open = false;
-          }
-        });
-      });
-    });
-  });
-
   document.querySelectorAll("[data-my-events-search]").forEach(myEventsSearch => {
     const myEventsSearchToggle = myEventsSearch.querySelector("[data-my-events-search-toggle]");
     const myEventsSearchField = myEventsSearch.querySelector("[data-my-events-search-field]");
