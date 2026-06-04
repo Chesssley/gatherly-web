@@ -1867,6 +1867,43 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-circle-rating-form]").forEach(form => {
+    const activitySelect = form.querySelector("[data-circle-rating-activity-select]");
+    const notStartedMessage = "该活动尚未开始，活动开始后才可以评分。";
+
+    const selectedOption = () => {
+      if (!activitySelect) {
+        return null;
+      }
+      return activitySelect.selectedOptions?.[0] || activitySelect.options[activitySelect.selectedIndex] || null;
+    };
+
+    const updateSelectedActivityRow = () => {
+      const option = selectedOption();
+      form.querySelectorAll("[data-circle-rating-activity-row]").forEach(row => {
+        row.classList.toggle("is-selected", option?.value === row.dataset.circleRatingActivityRow);
+      });
+    };
+
+    activitySelect?.addEventListener("change", () => {
+      const option = selectedOption();
+      updateSelectedActivityRow();
+      if (option?.dataset.canRate === "false") {
+        window.showGatherlyToast?.(notStartedMessage, "error");
+      }
+    });
+
+    form.addEventListener("submit", event => {
+      const option = selectedOption();
+      if (option?.dataset.canRate === "false") {
+        event.preventDefault();
+        window.showGatherlyToast?.(notStartedMessage, "error");
+      }
+    });
+
+    updateSelectedActivityRow();
+  });
+
   document.querySelectorAll("[data-reply-toggle]").forEach(button => {
     button.addEventListener("click", () => {
       const form = document.getElementById(button.dataset.replyToggle);

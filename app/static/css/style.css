@@ -13572,6 +13572,63 @@ body.circle-modal-open {
   line-height: 1.5;
 }
 
+.circle-rating-activity-list {
+  display: grid;
+  gap: 8px;
+}
+
+.circle-rating-activity-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e4ece5;
+  border-radius: 8px;
+  background: #fbfdfb;
+}
+
+.circle-rating-activity-item.is-selected {
+  border-color: rgba(78, 129, 94, 0.42);
+  background: #f3f8f4;
+}
+
+.circle-rating-activity-item span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.circle-rating-activity-item strong {
+  overflow-wrap: anywhere;
+  color: #172118;
+  font-size: 14px;
+}
+
+.circle-rating-activity-item small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.circle-rating-status {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.circle-rating-status.is-rateable {
+  color: #287042;
+  background: #e7f4ea;
+}
+
+.circle-rating-status.is-pending {
+  color: #6f776f;
+  background: #edf0ed;
+}
+
 /* Circle review list */
 .circle-rating-review-list {
   display: grid;
