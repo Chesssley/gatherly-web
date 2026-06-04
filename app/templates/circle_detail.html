@@ -33,6 +33,11 @@
     {% endif %}
 {% endmacro %}
 
+{% macro rating_stars(value, label="评分") %}
+    {% set score = value|float if value else 0 %}
+    <span class="rating-stars" style="--rating-width: {{ (score / 5 * 100) if score else 0 }}%;" aria-label="{{ label }}">★★★★★</span>
+{% endmacro %}
+
 {% macro render_member_card(user, role_label) %}
 <a class="circle-member-card" href="{{ url_for('profile.view_profile', user_id=user.id) }}">
     {{ member_avatar(user) }}
@@ -273,47 +278,85 @@
                     <div class="circle-feed-heading">
                         <div>
                             <p class="eyebrow">Ratings</p>
-                            <h2 id="circle-ratings-title">同好圈评分 <span>{{ rating_count }}</span></h2>
+                            <h2 id="circle-ratings-title">圈子评分 <span>{{ rating_count }}</span></h2>
                         </div>
-                        <strong>{{ '%.1f'|format(average_rating) if average_rating else '暂无评分' }}</strong>
-                    </div>
-                    <div class="circle-rating-summary">
-                        {% for score in [5, 4, 3, 2, 1] %}
-                        <p><span>{{ score }} 星</span><strong>{{ rating_distribution.get(score, 0) }}</strong></p>
-                        {% endfor %}
+                        <a class="section-link" href="#circle-rating-reviews">查看全部</a>
                     </div>
 
-                    {% if current_user %}
-                        {% if can_rate_circle %}
-                        <form class="circle-rating-form" method="POST" action="{{ url_for('circle.submit_circle_rating', circle_id=circle.id) }}">
-                            <label class="form-label" for="circle-rating-value">你的评分</label>
-                            <select class="form-input" id="circle-rating-value" name="rating" required>
-                                {% for score in [5, 4, 3, 2, 1] %}
-                                <option value="{{ score }}" {% if current_user_rating and current_user_rating.rating == score %}selected{% endif %}>{{ score }} 星</option>
-                                {% endfor %}
-                            </select>
-                            <label class="form-label" for="circle-rating-comment">评价内容</label>
-                            <textarea class="form-input" id="circle-rating-comment" name="comment" rows="3" maxlength="1000" placeholder="可选：分享你参加该同好圈活动后的真实体验">{{ current_user_rating.comment if current_user_rating else '' }}</textarea>
-                            <button class="button button-small" type="submit">{{ '更新评分' if current_user_rating else '提交评分' }}</button>
-                        </form>
-                        {% elif circle_rating_notice %}
-                        <p class="rating-notice">{{ circle_rating_notice }}</p>
-                        {% endif %}
-                    {% else %}
-                    <p class="rating-notice">{{ circle_rating_notice }}</p>
-                    <a class="button button-small" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">登录后评分</a>
+                    <div class="circle-rating-overview">
+                        <div class="circle-rating-score-card">
+                            <span>综合评分</span>
+                            <strong>{{ '%.1f'|format(average_rating) if average_rating else '暂无评分' }}</strong>
+                            {{ rating_stars(average_rating, '同好圈综合评分') }}
+                            <small>{{ rating_count }} 条评价</small>
+                        </div>
+                        <div class="circle-rating-distribution" aria-label="评分分布">
+                            {% for score in [5, 4, 3, 2, 1] %}
+                            {% set score_count = rating_distribution.get(score, 0) %}
+                            {% set score_percent = (score_count / rating_count * 100) if rating_count else 0 %}
+                            <div class="circle-rating-bar-row">
+                                <span>{{ score }} 星</span>
+                                <div class="circle-rating-bar"><i style="width: {{ score_percent }}%;"></i></div>
+                                <strong>{{ score_count }}</strong>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    {% if not rating_count %}
+                    <p class="circle-rating-empty">暂无评分，成功参与圈子活动后可以评价这个同好圈。</p>
                     {% endif %}
 
-                    <div class="circle-rating-review-list">
+                    <div class="circle-rating-form-panel">
+                        {% if current_user %}
+                            {% if can_rate_circle %}
+                            <form class="circle-rating-form" method="POST" action="{{ url_for('circle.submit_circle_rating', circle_id=circle.id) }}">
+                                <div class="circle-rating-form-heading">
+                                    <strong>{{ '你已评价，可修改评价' if current_user_rating else '评价这个同好圈' }}</strong>
+                                    <span>仅成功参与该同好圈关联活动的用户可评分。</span>
+                                </div>
+                                <label class="form-label" for="circle-rating-value">星级选择</label>
+                                <select class="form-input" id="circle-rating-value" name="rating" required>
+                                    {% for score in [5, 4, 3, 2, 1] %}
+                                    <option value="{{ score }}" {% if current_user_rating and current_user_rating.rating == score %}selected{% endif %}>{{ score }} 星</option>
+                                    {% endfor %}
+                                </select>
+                                <label class="form-label" for="circle-rating-comment">评价内容</label>
+                                <textarea class="form-input" id="circle-rating-comment" name="comment" rows="3" maxlength="1000" placeholder="可选：分享你参加该同好圈活动后的真实体验">{{ current_user_rating.comment if current_user_rating else '' }}</textarea>
+                                <button class="button button-small" type="submit">{{ '更新评价' if current_user_rating else '提交评价' }}</button>
+                            </form>
+                            {% elif circle_rating_notice %}
+                            <p class="rating-notice">成功参与该同好圈关联活动后可进行评分。</p>
+                            {% endif %}
+                        {% else %}
+                        <p class="rating-notice">{{ circle_rating_notice }}</p>
+                        <a class="button button-small" href="#login" data-auth-modal="login" data-auth-next="{{ request.url }}">登录后评分</a>
+                        {% endif %}
+                    </div>
+
+                    <div class="circle-rating-review-list" id="circle-rating-reviews" data-circle-rating-reviews>
+                        <div class="circle-rating-review-heading">
+                            <h3>最近评价</h3>
+                            <span>{{ rating_count }} 条</span>
+                        </div>
                         {% for review in recent_reviews %}
-                        <article class="circle-rating-review">
-                            <strong>{{ review.user.nickname or review.user.username }} · {{ review.rating }} 星</strong>
+                        <article class="circle-rating-review" data-circle-rating-review {% if loop.index > 3 %}hidden{% endif %}>
+                            <div class="circle-rating-review-meta">
+                                {{ member_avatar(review.user) }}
+                                <span>
+                                    <strong>{{ review.user.nickname or review.user.username }}</strong>
+                                    <time datetime="{{ review.updated_at.isoformat() }}">{{ review.updated_at.strftime("%Y-%m-%d") }}</time>
+                                </span>
+                                {{ rating_stars(review.rating, review.rating ~ ' 星评价') }}
+                            </div>
                             <p>{{ review.comment }}</p>
-                            <time datetime="{{ review.updated_at.isoformat() }}">{{ review.updated_at.strftime("%Y-%m-%d") }}</time>
                         </article>
                         {% else %}
                         <p class="circle-sidebar-empty">暂无文字评价。</p>
                         {% endfor %}
+                        {% if recent_reviews|length > 3 %}
+                        <button class="circle-rating-toggle" type="button" data-circle-rating-toggle aria-expanded="false">展开更多评价</button>
+                        {% endif %}
                     </div>
                 </section>
 
@@ -344,6 +387,7 @@
                             <strong>{{ activity.title }}</strong>
                             <small>{{ activity.time }}</small>
                             <p>{{ activity.location }}</p>
+                            <p class="activity-card-rating-line">本圈评分 · {% if activity.circle_rating_average %}{{ '%.1f'|format(activity.circle_rating_average) }} ★{% else %}暂无评分{% endif %}{% if activity.circle_rating_count %}（{{ activity.circle_rating_count }} 条）{% endif %}</p>
                             <em>
                                 {{ activity.current_people }} 人已报名{% if activity.max_participants %} / 上限 {{ activity.max_participants }} 人{% endif %}
                             </em>
@@ -366,6 +410,7 @@
                             <strong>{{ activity.title }}</strong>
                             <small>{{ activity.time }}</small>
                             <p>{{ activity.location }}</p>
+                            <p class="activity-card-rating-line">本圈评分 · {% if activity.circle_rating_average %}{{ '%.1f'|format(activity.circle_rating_average) }} ★{% else %}暂无评分{% endif %}{% if activity.circle_rating_count %}（{{ activity.circle_rating_count }} 条）{% endif %}</p>
                             <em>
                                 {{ activity.current_people }} 人参加{% if activity.max_participants %} / 上限 {{ activity.max_participants }} 人{% endif %}
                             </em>
