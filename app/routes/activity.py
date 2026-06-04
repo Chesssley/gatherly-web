@@ -74,13 +74,7 @@ DEFAULT_ACTIVITY_TIMEZONE = "Asia/Shanghai"
 CHINESE_WEEKDAYS = ("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")
 SHORT_CHINESE_WEEKDAYS = ("周一", "周二", "周三", "周四", "周五", "周六", "周日")
 DISCOVERY_TIME_FILTERS = {"any", "today", "tomorrow", "week", "weekend", "month"}
-HOME_GROUP_FEED_FILTERS = ("today", "tomorrow", "week", "future")
-HOME_GROUP_FEED_FILTER_LABELS = {
-    "today": "今天",
-    "tomorrow": "明天",
-    "week": "本周",
-    "future": "未来",
-}
+HOME_GROUP_DATE_QUERY_ARG = "group_date"
 HOME_GROUP_ACTIVITY_LIMIT = 40
 
 OFFICIAL_INTEREST_CATEGORIES = [
@@ -325,18 +319,27 @@ def _format_home_feed_date_label(value):
         return "今天"
     if activity_date == today + timedelta(days=1):
         return "明天"
-    return f"{SHORT_CHINESE_WEEKDAYS[value.weekday()]} {value.month}月{value.day}日"
+    return f"{SHORT_CHINESE_WEEKDAYS[value.weekday()]}，{value.month}月{value.day}日"
 
 
-def _normalize_home_group_filter(value):
-    return value if value in HOME_GROUP_FEED_FILTERS else "today"
+def _parse_home_group_selected_date(value, today=None):
+    today = today or datetime.now().date()
+    if not value:
+        return today
+    try:
+        selected_date = datetime.fromisoformat(value).date()
+    except (TypeError, ValueError):
+        return today
+    return selected_date if selected_date >= today else today
 
 
-def _home_group_filter_label(value):
-    return HOME_GROUP_FEED_FILTER_LABELS.get(
-        _normalize_home_group_filter(value),
-        HOME_GROUP_FEED_FILTER_LABELS["today"],
-    )
+def _home_group_date_label(value, today=None):
+    today = today or datetime.now().date()
+    if value == today:
+        return "今天"
+    if value == today + timedelta(days=1):
+        return "明天"
+    return f"{SHORT_CHINESE_WEEKDAYS[value.weekday()]}，{value.month}月{value.day}日"
 
 
 def _summary_start_date(activity):
@@ -344,43 +347,19 @@ def _summary_start_date(activity):
     return start_time.date() if start_time else None
 
 
-def _matches_home_group_filter(activity, selected_filter, today=None):
-    today = today or datetime.now().date()
+def _matches_home_group_date(activity, selected_date):
     start_date = _summary_start_date(activity)
-    if not start_date:
-        return False
-    if selected_filter == "today":
-        return start_date == today
-    if selected_filter == "tomorrow":
-        return start_date == today + timedelta(days=1)
-    if selected_filter == "week":
-        week_end = today + timedelta(days=6 - today.weekday())
-        return today <= start_date <= week_end
-    if selected_filter == "future":
-        return start_date >= today
-    return False
+    return start_date == selected_date
 
 
-def _is_later_home_group_activity(activity, selected_filter, today=None):
-    today = today or datetime.now().date()
+def _is_later_home_group_activity(activity, selected_date):
     start_date = _summary_start_date(activity)
-    if not start_date:
-        return False
-    if selected_filter == "today":
-        return start_date > today
-    if selected_filter == "tomorrow":
-        return start_date > today + timedelta(days=1)
-    if selected_filter == "week":
-        week_end = today + timedelta(days=6 - today.weekday())
-        return start_date > week_end
-    if selected_filter == "future":
-        return False
-    return start_date >= today
+    return bool(start_date and start_date > selected_date)
 
 
-def _build_home_group_feed_sections(activities, selected_filter):
-    selected_filter = _normalize_home_group_filter(selected_filter)
+def _build_home_group_feed_sections(activities, selected_date):
     today = datetime.now().date()
+    selected_label = _home_group_date_label(selected_date, today)
     ordered_activities = sorted(
         activities,
         key=lambda activity: (
@@ -391,23 +370,29 @@ def _build_home_group_feed_sections(activities, selected_filter):
     selected_activities = [
         activity
         for activity in ordered_activities
-        if _matches_home_group_filter(activity, selected_filter, today)
+        if _matches_home_group_date(activity, selected_date)
     ]
+    empty_title = (
+        f"{selected_label}暂无圈内活动"
+        if selected_date in {today, today + timedelta(days=1)}
+        else "该日期暂无圈内活动"
+    )
     sections = [
         {
-            "key": selected_filter,
-            "label": _home_group_filter_label(selected_filter),
+            "key": selected_date.isoformat(),
+            "label": selected_label,
             "is_selected": True,
             "activities": selected_activities,
-            "empty_title": f"{_home_group_filter_label(selected_filter)}暂无圈内活动",
+            "empty_title": empty_title,
             "empty_text": "下方仍会显示你加入的同好圈后续活动。",
         }
     ]
+    selected_activity_ids = {item["id"] for item in selected_activities}
     later_activities = [
         activity
         for activity in ordered_activities
-        if activity["id"] not in {item["id"] for item in selected_activities}
-        and _is_later_home_group_activity(activity, selected_filter, today)
+        if activity["id"] not in selected_activity_ids
+        and _is_later_home_group_activity(activity, selected_date)
     ]
     if later_activities:
         sections.append(
@@ -423,15 +408,20 @@ def _build_home_group_feed_sections(activities, selected_filter):
     return sections
 
 
-def _home_calendar_payload(today=None):
+def _home_calendar_payload(today=None, selected_date=None):
     today = today or datetime.now().date()
-    month_days = calendar.Calendar(firstweekday=6).monthdatescalendar(today.year, today.month)
+    selected_date = selected_date or today
+    calendar_date = selected_date if selected_date >= today else today
+    month_days = calendar.Calendar(firstweekday=6).monthdatescalendar(
+        calendar_date.year,
+        calendar_date.month,
+    )
     tomorrow = today + timedelta(days=1)
     return {
-        "label": f"{calendar.month_name[today.month]} {today.year}",
-        "year": today.year,
-        "month": today.month,
-        "selected_date": today.isoformat(),
+        "label": f"{calendar.month_name[calendar_date.month]} {calendar_date.year}",
+        "year": calendar_date.year,
+        "month": calendar_date.month,
+        "selected_date": selected_date.isoformat(),
         "today": today.day,
         "today_date": today.isoformat(),
         "weekdays": ("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"),
@@ -440,15 +430,16 @@ def _home_calendar_payload(today=None):
                 {
                     "day": day.day,
                     "date": day.isoformat(),
-                    "is_current_month": day.month == today.month,
+                    "is_current_month": day.month == calendar_date.month,
                     "is_today": day == today,
+                    "is_selected": day == selected_date,
                     "is_past": day < today,
                     "display_label": (
                         "今天"
                         if day == today
                         else "明天"
                         if day == tomorrow
-                        else f"From {calendar.month_abbr[day.month]} {day.day}"
+                        else f"{SHORT_CHINESE_WEEKDAYS[day.weekday()]}，{day.month}月{day.day}日"
                     ),
                 }
                 for day in week
@@ -1176,19 +1167,17 @@ def _render_homepage_fallback():
     selected_time = request.args.get("time", "any").strip() or "any"
     if selected_time not in DISCOVERY_TIME_FILTERS:
         selected_time = "any"
-    home_group_selected_time = _normalize_home_group_filter(request.args.get("time", "").strip())
+    home_group_selected_date = _parse_home_group_selected_date(
+        request.args.get(HOME_GROUP_DATE_QUERY_ARG, "").strip()
+    )
     return render_template(
         "index.html",
         activities=[],
         featured_activities=[],
         group_activities=[],
         home_group_feed_sections=[],
-        home_group_selected_time=home_group_selected_time,
-        home_group_filter_label=_home_group_filter_label(home_group_selected_time),
-        home_group_time_filters=[
-            {"value": value, "label": _home_group_filter_label(value)}
-            for value in HOME_GROUP_FEED_FILTERS
-        ],
+        home_group_selected_date=home_group_selected_date.isoformat(),
+        home_group_filter_label=_home_group_date_label(home_group_selected_date),
         home_circles=[],
         home_user_card={
             "display_name": "访客",
@@ -1196,7 +1185,7 @@ def _render_homepage_fallback():
             "avatar": "",
             "initial": "访",
         },
-        home_calendar=_home_calendar_payload(),
+        home_calendar=_home_calendar_payload(selected_date=home_group_selected_date),
         sidebar_going_activity=None,
         sidebar_saved_activity=None,
         categories=OFFICIAL_INTEREST_TAGS,
@@ -1221,7 +1210,9 @@ def _index_impl():
     )
     requested_time = request.args.get("time", "any").strip() or "any"
     selected_time = requested_time
-    home_group_selected_time = _normalize_home_group_filter(requested_time)
+    home_group_selected_date = _parse_home_group_selected_date(
+        request.args.get(HOME_GROUP_DATE_QUERY_ARG, "").strip()
+    )
     selected_category = _canonical_interest_tag(selected_category)
     if selected_category not in OFFICIAL_INTEREST_TAGS:
         selected_category = ""
@@ -1460,7 +1451,7 @@ def _index_impl():
     )
     home_group_feed_sections = _build_home_group_feed_sections(
         group_activities,
-        home_group_selected_time,
+        home_group_selected_date,
     )
     sidebar_going_activity = None
     sidebar_saved_activity = None
@@ -1520,16 +1511,12 @@ def _index_impl():
         featured_activities=featured_activities,
         group_activities=group_activities,
         home_group_feed_sections=home_group_feed_sections,
-        home_group_selected_time=home_group_selected_time,
-        home_group_filter_label=_home_group_filter_label(home_group_selected_time),
-        home_group_time_filters=[
-            {"value": value, "label": _home_group_filter_label(value)}
-            for value in HOME_GROUP_FEED_FILTERS
-        ],
+        home_group_selected_date=home_group_selected_date.isoformat(),
+        home_group_filter_label=_home_group_date_label(home_group_selected_date),
         home_circles=home_circles,
         has_joined_circles=has_joined_circles,
         home_user_card=home_user_card,
-        home_calendar=_home_calendar_payload(),
+        home_calendar=_home_calendar_payload(selected_date=home_group_selected_date),
         sidebar_going_activity=sidebar_going_activity,
         sidebar_saved_activity=sidebar_saved_activity,
         categories=categories,

@@ -1455,7 +1455,6 @@ document.addEventListener("DOMContentLoaded", () => {
       && left.getDate() === right.getDate()
     );
     const monthTitleFormatter = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
-    const monthShortFormatter = new Intl.DateTimeFormat("en-US", { month: "short" });
     let selectedDate = parseDateValue(popover.dataset.homeCalendarSelectedDate)
       || parseDateValue(popover.querySelector("[data-home-date-day].is-selected")?.dataset.homeDateValue)
       || todayDate;
@@ -1482,7 +1481,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (isSameDate(date, tomorrowDate)) {
         return "\u660e\u5929";
       }
-      return `From ${monthShortFormatter.format(date)} ${date.getDate()}`;
+      const weekdayLabels = ["\u5468\u65e5", "\u5468\u4e00", "\u5468\u4e8c", "\u5468\u4e09", "\u5468\u56db", "\u5468\u4e94", "\u5468\u516d"];
+      return `${weekdayLabels[date.getDay()]}，${date.getMonth() + 1}\u6708${date.getDate()}\u65e5`;
     };
 
     const renderCalendar = () => {
@@ -1578,10 +1578,18 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       dayButton.classList.add("is-selected");
       dayButton.setAttribute("aria-pressed", "true");
-      setToggleLabel(dayButton.dataset.homeDateLabel || dayButton.textContent.trim());
+      const selectedLabel = dayButton.dataset.homeDateLabel || dayButton.textContent.trim();
+      setToggleLabel(selectedLabel);
+      filter.closest(".groups-feed-section")?.querySelector("[data-home-group-filter-label]")?.replaceChildren(selectedLabel);
       renderCalendar();
       popover.hidden = true;
       toggle.setAttribute("aria-expanded", "false");
+      if (popover.dataset.homeDateParam && dayButton.dataset.homeDateValue) {
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set(popover.dataset.homeDateParam, dayButton.dataset.homeDateValue);
+        nextUrl.hash = "from-your-groups";
+        window.location.assign(nextUrl.toString());
+      }
     });
 
     renderCalendar();
