@@ -3,13 +3,14 @@ import os
 from types import SimpleNamespace
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
-from sqlalchemy import func, or_, text
+from sqlalchemy import and_, func, or_, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.models import (
     Activity,
     Circle,
     CircleMember,
+    CircleRating,
     Comment,
     CommentImage,
     Interaction,
@@ -50,6 +51,7 @@ HOT_CIRCLE_POST_WEIGHT = 3
 HOT_CIRCLE_RECENT_POST_WEIGHT = 5
 HOT_CIRCLE_RECENT_DAYS = 30
 OFFICIAL_CIRCLE_SUFFIX = "同好圈"
+CIRCLE_RATING_RECENT_LIMIT = 5
 
 _CIRCLE_DESCRIPTIONS = {
     "摄影影像": "聚合胶片摄影、相机维护、街头摄影、摄影展和桌面摄影等影像爱好者。",
@@ -601,6 +603,135 @@ def _circle_recent_post_count(circle):
     ).count()
 
 
+def _circle_rating_stats(circle_ids):
+    circle_ids = {circle_id for circle_id in circle_ids if circle_id}
+    if not circle_ids:
+        return {}
+
+    stats = {
+        circle_id: {
+            "average_rating": None,
+            "rating_count": 0,
+            "rating_distribution": {score: 0 for score in range(1, 6)},
+        }
+        for circle_id in circle_ids
+    }
+    summary_rows = (
+        db.session.query(
+            CircleRating.circle_id,
+            func.avg(CircleRating.rating),
+            func.count(CircleRating.id),
+        )
+        .filter(CircleRating.circle_id.in_(circle_ids))
+        .group_by(CircleRating.circle_id)
+        .all()
+    )
+    for circle_id, average_rating, rating_count in summary_rows:
+        stats[circle_id]["average_rating"] = (
+            round(float(average_rating), 1) if average_rating is not None else None
+        )
+        stats[circle_id]["rating_count"] = rating_count
+
+    distribution_rows = (
+        db.session.query(
+            CircleRating.circle_id,
+            CircleRating.rating,
+            func.count(CircleRating.id),
+        )
+        .filter(CircleRating.circle_id.in_(circle_ids))
+        .group_by(CircleRating.circle_id, CircleRating.rating)
+        .all()
+    )
+    for circle_id, rating, count in distribution_rows:
+        stats[circle_id]["rating_distribution"][rating] = count
+
+    return stats
+
+
+def _apply_circle_rating_stats(circle, stats=None):
+    stats = stats or _circle_rating_stats([circle.id])
+    rating_stats = stats.get(
+        circle.id,
+        {
+            "average_rating": None,
+            "rating_count": 0,
+            "rating_distribution": {score: 0 for score in range(1, 6)},
+        },
+    )
+    circle.average_rating_value = rating_stats["average_rating"]
+    circle.rating_count_value = rating_stats["rating_count"]
+    circle.rating_distribution_value = rating_stats["rating_distribution"]
+    return circle
+
+
+def _has_completed_circle_activity(user_id, circle_id):
+    if not user_id or not circle_id:
+        return False
+    now = datetime.utcnow()
+    ended_activity_filter = or_(
+        Activity.status.in_(["closed", "ended", "completed"]),
+        and_(Activity.end_time.isnot(None), Activity.end_time <= now),
+        and_(
+            Activity.end_time.is_(None),
+            Activity.start_time.isnot(None),
+            Activity.start_time <= now,
+        ),
+    )
+    # Current schema has no check-in field, so eligibility falls back to:
+    # registered for a circle-linked activity + activity ended + registration not cancelled.
+    return (
+        db.session.query(Registration.id)
+        .join(Activity, Activity.id == Registration.activity_id)
+        .filter(
+            Registration.user_id == user_id,
+            Registration.status != "cancelled",
+            Activity.circle_id == circle_id,
+            Activity.status != "cancelled",
+            ended_activity_filter,
+        )
+        .first()
+        is not None
+    )
+
+
+def _circle_rating_context(circle, current_user):
+    stats = _circle_rating_stats([circle.id]).get(
+        circle.id,
+        {
+            "average_rating": None,
+            "rating_count": 0,
+            "rating_distribution": {score: 0 for score in range(1, 6)},
+        },
+    )
+    recent_reviews = (
+        CircleRating.query.filter_by(circle_id=circle.id)
+        .filter(CircleRating.comment.isnot(None))
+        .order_by(CircleRating.updated_at.desc(), CircleRating.id.desc())
+        .limit(CIRCLE_RATING_RECENT_LIMIT)
+        .all()
+    )
+    current_rating = None
+    can_rate = False
+    notice = "登录后，成功参加过该同好圈关联活动的用户可以评分。"
+    if current_user:
+        current_rating = CircleRating.query.filter_by(
+            circle_id=circle.id,
+            user_id=current_user.id,
+        ).first()
+        can_rate = _has_completed_circle_activity(current_user.id, circle.id)
+        notice = "" if can_rate else "只有成功参加过该同好圈关联活动后，才可以评分。"
+
+    return {
+        "average_rating": stats["average_rating"],
+        "rating_count": stats["rating_count"],
+        "rating_distribution": stats["rating_distribution"],
+        "recent_reviews": recent_reviews,
+        "current_user_rating": current_rating,
+        "can_rate_circle": can_rate,
+        "circle_rating_notice": notice,
+    }
+
+
 def _decorate_circle(circle):
     circle.cover_image_url = _circle_cover_image(circle)
     circle.active_level = "官方圈子" if circle.is_system else "自定义圈子"
@@ -616,6 +747,7 @@ def _decorate_circle(circle):
         or circle.heat_score >= HOT_CIRCLE_SCORE_THRESHOLD
     )
     circle.can_post = _is_member(circle.id)
+    _apply_circle_rating_stats(circle)
     return circle
 
 
@@ -1002,6 +1134,7 @@ def circle_detail(circle_id):
         return redirect(url_for("circle.circles"))
 
     current_user = _current_user()
+    rating_context = _circle_rating_context(circle, current_user)
     if not _can_view_circle(current_user, circle):
         if circle.status == "private":
             pending_request = None
@@ -1031,6 +1164,7 @@ def circle_detail(circle_id):
                 is_circle_owner=False,
                 circle_members=[],
                 pending_members=[],
+                **rating_context,
                 **_upload_limit_context(),
             )
         flash("同好圈不存在或暂不可见。", "error")
@@ -1136,6 +1270,8 @@ def circle_detail(circle_id):
             + related_registration_counts.get(activity.id, 0),
             "max_participants": activity.max_participants,
             "category": (activity.tags or "").split(",")[0].strip() or "未分类",
+            "circle_rating_average": rating_context["average_rating"],
+            "circle_rating_count": rating_context["rating_count"],
         }
 
     upcoming_activities = [_activity_card_item(activity) for activity in upcoming_activity_rows]
@@ -1186,8 +1322,66 @@ def circle_detail(circle_id):
         pending_members=pending_members,
         private_request_mode=False,
         pending_request=None,
+        **rating_context,
         **_upload_limit_context(),
     )
+
+
+@circle_bp.route("/circle/<int:circle_id>/ratings", methods=["POST"])
+def submit_circle_rating(circle_id):
+    user = _current_user()
+    if user is None:
+        flash("请先登录后再评价同好圈。", "error")
+        return redirect(url_for("auth.login", next=url_for("circle.circle_detail", circle_id=circle_id)))
+
+    circle = Circle.query.get_or_404(circle_id)
+    if not _can_view_circle(user, circle):
+        flash("同好圈不存在或暂不可见。", "error")
+        return redirect(url_for("circle.circles"))
+
+    if not _has_completed_circle_activity(user.id, circle.id):
+        flash("只有成功参加过该同好圈关联活动后，才可以评分。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
+
+    try:
+        rating_value = int(request.form.get("rating", ""))
+    except (TypeError, ValueError):
+        flash("评分必须为 1 到 5 的整数。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
+
+    if rating_value < 1 or rating_value > 5:
+        flash("评分必须为 1 到 5 的整数。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
+
+    comment = request.form.get("comment", "").strip()
+    if len(comment) > 1000:
+        flash("评价内容不能超过 1000 个字符。", "error")
+        return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
+
+    circle_rating = CircleRating.query.filter_by(
+        circle_id=circle.id,
+        user_id=user.id,
+    ).first()
+    is_update = circle_rating is not None
+    if circle_rating is None:
+        circle_rating = CircleRating(circle_id=circle.id, user_id=user.id)
+
+    circle_rating.rating = rating_value
+    circle_rating.comment = comment or None
+    circle_rating.updated_at = datetime.utcnow()
+
+    try:
+        db.session.add(circle_rating)
+        db.session.commit()
+        flash("同好圈评价已更新。" if is_update else "同好圈评价已提交。", "success")
+    except IntegrityError:
+        db.session.rollback()
+        flash("你已经评价过该同好圈，请刷新后更新已有评价。", "error")
+    except Exception:
+        db.session.rollback()
+        flash("同好圈评价保存失败，请稍后重试。", "error")
+
+    return redirect(url_for("circle.circle_detail", circle_id=circle.id, _anchor="circle-ratings"))
 
 
 @circle_bp.route("/circle/<int:circle_id>/join", methods=["POST"])

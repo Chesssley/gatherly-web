@@ -327,68 +327,6 @@
                     {% endif %}
                 </section>
 
-                <section class="user-review-section meetup-detail-rating-section" id="participant-feedback">
-                    <div class="rating-header">
-                        <h3>参与者互评</h3>
-                    </div>
-
-                    {% if can_user_review %}
-                        <p class="rating-notice">点击参与者头像卡片展开评分。</p>
-                        <div class="peer-review-list" data-peer-review-list>
-                        {% for candidate in user_review_candidates %}
-                            <details class="peer-review-item" data-peer-review-item>
-                                <summary class="peer-review-card">
-                                    {% if candidate.user.avatar %}
-                                    <img class="peer-review-avatar" src="{{ candidate.user.avatar }}" alt="{{ candidate.display_name }}">
-                                    {% else %}
-                                    <span class="peer-review-avatar peer-review-placeholder">{{ candidate.display_name[:1]|upper }}</span>
-                                    {% endif %}
-                                    <span class="peer-review-person">
-                                        <strong>{{ candidate.display_name }}</strong>
-                                        <span class="peer-review-role {% if candidate.is_organizer %}is-organizer{% endif %}">{{ candidate.role_label }}</span>
-                                    </span>
-                                    <span class="peer-review-status {% if candidate.has_reviewed %}is-reviewed{% endif %}">
-                                        {{ '已评价' if candidate.has_reviewed else '待评价' }}
-                                    </span>
-                                </summary>
-                                <div class="peer-review-form-panel">
-                                <form class="rating-form user-review-form" method="post" action="{{ url_for('activity.submit_user_review', activity_id=activity.id) }}">
-                                    <input type="hidden" name="reviewee_id" value="{{ candidate.user.id }}">
-                                    <h4 class="peer-review-form-title">评价 {{ candidate.display_name }}</h4>
-                                    {% set dimensions = [
-                                        ('punctuality_score', '守时'),
-                                        ('friendliness_score', '友善'),
-                                        ('communication_score', '沟通'),
-                                        ('reliability_score', '可靠'),
-                                        ('respect_score', '尊重'),
-                                        ('safety_score', '安全')
-                                    ] %}
-                                    {% for field, label in dimensions %}
-                                    <div class="rating-dimension">
-                                        <h4>{{ label }}</h4>
-                                        <div class="star-rating" aria-label="{{ label }}">
-                                            {% for score in [5, 4, 3, 2, 1] %}
-                                                {% set input_id = field ~ '-' ~ candidate.user.id ~ '-' ~ score %}
-                                                <input type="radio" id="{{ input_id }}" name="{{ field }}" value="{{ score }}" {% if candidate.review and candidate.review[field] == score %}checked{% endif %} required>
-                                                <label for="{{ input_id }}">&#9733;</label>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                    <div class="rating-dimension">
-                                        <h4>补充评价</h4>
-                                        <textarea class="rating-comment" name="comment" rows="3" maxlength="1000" placeholder="可选：补充本次同行体验">{{ candidate.review.comment if candidate.review else '' }}</textarea>
-                                    </div>
-                                    <button type="submit" class="btn rating-submit">{{ '更新评价' if candidate.has_reviewed else '提交评价' }}</button>
-                                </form>
-                                </div>
-                            </details>
-                        {% endfor %}
-                        </div>
-                    {% elif user_review_notice %}
-                        <p class="rating-notice">{{ user_review_notice }}</p>
-                    {% endif %}
-                </section>
             </main>
 
             <aside class="meetup-detail-sidebar">
@@ -454,10 +392,10 @@
                         {% if event_cancelled %}
                             <p>活动已取消{% if activity.cancel_reason %}：{{ activity.cancel_reason }}{% endif %}</p>
                         {% elif event_ended %}
-                            <p>活动已结束，参与者互评和评论区域已开放。</p>
-                            <a class="button button-secondary" href="#participant-feedback">前往参与者互评</a>
+                            <p>活动已结束，评论区域已开放。</p>
+                            <a class="button button-secondary" href="#activity-comments">前往评论区</a>
                         {% else %}
-                            <p>{{ '活动尚未开始，可以取消活动。取消时需要选择理由。' if is_cancel_action else '活动正在进行中，可以提前结束活动。结束后将开放参与者互评和评论区域。' }}</p>
+                            <p>{{ '活动尚未开始，可以取消活动。取消时需要选择理由。' if is_cancel_action else '活动正在进行中，可以提前结束活动。结束后将开放评论区域。' }}</p>
                             {% if is_cancel_action %}
                             <details class="meetup-detail-cancel-details">
                                 <summary class="button button-danger">取消活动</summary>
@@ -487,7 +425,7 @@
                             <form class="meetup-detail-management-form"
                                   method="post"
                                   action="{{ url_for('activity.close_activity', activity_id=activity.id) }}"
-                                  onsubmit="return confirm('确定结束这个活动吗？结束后将开放参与者互评。');">
+                                  onsubmit="return confirm('确定结束这个活动吗？结束后将开放评论区域。');">
                                 <button class="button button-danger" type="submit">结束活动</button>
                             </form>
                             {% endif %}

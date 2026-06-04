@@ -18,7 +18,6 @@ from app.models import (
     Registration,
     User,
     UserFollow,
-    UserReview,
     db,
     get_user_display_name,
     skip_non_sqlite_schema_helper,
@@ -543,23 +542,7 @@ def _circle_interactions(user, filters):
             .order_by(Interaction.created_at.desc())
         )
     ]
-    user_reviews = [
-        {
-            "id": review.activity_id,
-            "title": review.activity.title if review.activity else _activity_label(review.activity_id),
-            "type": "user_review",
-            "action": f"评价活动伙伴 {review.average_score}/5",
-            "time": review.created_at,
-            # User reviews currently belong to activities, so the existing
-            # activity detail page is the closest available destination.
-            "url": url_for("activity.activity_detail", activity_id=review.activity_id),
-        }
-        for review in _safe_all(
-            UserReview.query.filter_by(reviewer_id=user.id)
-            .order_by(UserReview.created_at.desc())
-        )
-    ]
-    items = circle_actions + user_reviews
+    items = circle_actions
     if filters["q"]:
         needle = filters["q"].casefold()
         items = [
@@ -1085,7 +1068,7 @@ def my_circle_interactions():
         _circle_interactions,
         "circle_interaction",
         [],
-        _interaction_type_options(user, "circle", "user_review"),
+        _interaction_type_options(user, "circle"),
     )
 
 

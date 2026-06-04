@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from flask import current_app, has_app_context
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import text
+from sqlalchemy import func, text
 from werkzeug.security import generate_password_hash
 
 
@@ -64,15 +64,10 @@ class User(db.Model):
     posts = db.relationship("Post", back_populates="user")
     reviews = db.relationship("Review", back_populates="user")
     activity_reviews = db.relationship("ActivityReview", back_populates="reviewer")
-    given_user_reviews = db.relationship(
-        "UserReview",
-        foreign_keys="UserReview.reviewer_id",
-        back_populates="reviewer",
-    )
-    received_user_reviews = db.relationship(
-        "UserReview",
-        foreign_keys="UserReview.reviewee_id",
-        back_populates="reviewee",
+    circle_ratings = db.relationship(
+        "CircleRating",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
     trust_score_logs = db.relationship(
         "TrustScoreLog",
@@ -246,7 +241,6 @@ class Activity(db.Model):
     )
     reviews = db.relationship("Review", back_populates="activity")
     activity_reviews = db.relationship("ActivityReview", back_populates="activity")
-    user_reviews = db.relationship("UserReview", back_populates="activity")
     comments = db.relationship("Comment", back_populates="activity")
 
 
@@ -807,8 +801,43 @@ class Circle(db.Model):
     posts = db.relationship("Post", back_populates="circle", foreign_keys="Post.circle_id")
     activities = db.relationship("Activity", back_populates="circle")
     members = db.relationship("CircleMember", back_populates="circle")
+    ratings = db.relationship(
+        "CircleRating",
+        back_populates="circle",
+        cascade="all, delete-orphan",
+    )
     owner = db.relationship("User", foreign_keys=[owner_id])
     pinned_post = db.relationship("Post", foreign_keys=[pinned_post_id], post_update=True)
+
+    @property
+    def average_rating(self):
+        value = db.session.query(func.avg(CircleRating.rating)).filter_by(circle_id=self.id).scalar()
+        return round(float(value), 1) if value is not None else None
+
+    @property
+    def rating_count(self):
+        return CircleRating.query.filter_by(circle_id=self.id).count()
+
+    @property
+    def rating_distribution(self):
+        distribution = {score: 0 for score in range(1, 6)}
+        rows = (
+            db.session.query(CircleRating.rating, func.count(CircleRating.id))
+            .filter_by(circle_id=self.id)
+            .group_by(CircleRating.rating)
+            .all()
+        )
+        distribution.update({rating: count for rating, count in rows})
+        return distribution
+
+    def recent_reviews(self, limit=5):
+        return (
+            CircleRating.query.filter_by(circle_id=self.id)
+            .filter(CircleRating.comment.isnot(None))
+            .order_by(CircleRating.updated_at.desc(), CircleRating.id.desc())
+            .limit(limit)
+            .all()
+        )
 
 
 class Post(db.Model):
@@ -880,53 +909,24 @@ class ActivityReview(db.Model):
     reviewer = db.relationship("User", back_populates="activity_reviews")
 
 
-class UserReview(db.Model):
+class CircleRating(db.Model):
     __table_args__ = (
         db.UniqueConstraint(
-            "activity_id",
-            "reviewer_id",
-            "reviewee_id",
-            name="uq_user_review_activity_reviewer_reviewee",
+            "circle_id",
+            "user_id",
+            name="uq_circle_rating_circle_user",
         ),
         db.CheckConstraint(
-            "punctuality_score BETWEEN 1 AND 5",
-            name="ck_user_review_punctuality_score_range",
-        ),
-        db.CheckConstraint(
-            "friendliness_score BETWEEN 1 AND 5",
-            name="ck_user_review_friendliness_score_range",
-        ),
-        db.CheckConstraint(
-            "communication_score BETWEEN 1 AND 5",
-            name="ck_user_review_communication_score_range",
-        ),
-        db.CheckConstraint(
-            "reliability_score BETWEEN 1 AND 5",
-            name="ck_user_review_reliability_score_range",
-        ),
-        db.CheckConstraint(
-            "respect_score BETWEEN 1 AND 5",
-            name="ck_user_review_respect_score_range",
-        ),
-        db.CheckConstraint(
-            "safety_score BETWEEN 1 AND 5",
-            name="ck_user_review_safety_score_range",
+            "rating BETWEEN 1 AND 5",
+            name="ck_circle_rating_rating_range",
         ),
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
-    reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    reviewee_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    punctuality_score = db.Column(db.Integer, nullable=False)
-    friendliness_score = db.Column(db.Integer, nullable=False)
-    communication_score = db.Column(db.Integer, nullable=False)
-    reliability_score = db.Column(db.Integer, nullable=False)
-    respect_score = db.Column(db.Integer, nullable=False)
-    safety_score = db.Column(db.Integer, nullable=False)
-    average_score = db.Column(db.Float, nullable=False)
+    circle_id = db.Column(db.Integer, db.ForeignKey("circle.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text)
-    status = db.Column(db.String(20), default="published", nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(
         db.DateTime,
@@ -935,17 +935,8 @@ class UserReview(db.Model):
         nullable=False,
     )
 
-    activity = db.relationship("Activity", back_populates="user_reviews")
-    reviewer = db.relationship(
-        "User",
-        foreign_keys=[reviewer_id],
-        back_populates="given_user_reviews",
-    )
-    reviewee = db.relationship(
-        "User",
-        foreign_keys=[reviewee_id],
-        back_populates="received_user_reviews",
-    )
+    circle = db.relationship("Circle", back_populates="ratings")
+    user = db.relationship("User", back_populates="circle_ratings")
 
 
 class TrustScoreLog(db.Model):
@@ -1098,8 +1089,7 @@ class AdminLog(db.Model):
     )
 
 
-# Compatibility model: current activity routes still use Review in older flows.
-# Keep it until route and template code migrate to ActivityReview/UserReview.
+# Compatibility model: keep the old activity review table while newer flows use ActivityReview.
 class Review(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     activity_id = db.Column(db.Integer, db.ForeignKey("activity.id"), nullable=False)
