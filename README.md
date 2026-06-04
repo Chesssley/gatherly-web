@@ -15,7 +15,7 @@ The project is intentionally lightweight. It helps users discover activities thr
 - Activity feed, search, filters, detail pages, creation, registration, cancellation, favorites, comments, and reviews.
 - User registration, login, logout, email verification, account settings, profile editing, followers, nearby discovery, notifications, and direct messages.
 - Interest circles with system circles, user-created circles, joining/leaving, announcements, cover images, pinned posts, posts, images, comments, replies, and interactions.
-- Ratings and trust features through legacy `Review`, `ActivityReview`, `UserReview`, and `TrustScoreLog`.
+- Ratings and trust features through legacy `Review`, `ActivityReview`, `CircleRating`, and `TrustScoreLog`.
 - Admin dashboard for users, activities, circles, posts, comments, merchant verification, and admin logs.
 - Cloudflare R2-backed image uploads with local fallback only for development when R2 is not configured.
 
