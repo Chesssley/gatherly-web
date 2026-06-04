@@ -9901,37 +9901,9 @@ textarea.form-input {
 }
 
 .groups-feed-section .home-date-popover {
-  width: 150px;
-  padding: 8px;
-  border-radius: 12px;
-}
-
-.home-date-options {
-  display: grid;
-  gap: 2px;
-}
-
-.home-date-option {
-  display: flex;
-  min-height: 34px;
-  align-items: center;
-  padding: 0 12px;
-  border-radius: 8px;
-  color: #333333;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.home-date-option:hover,
-.home-date-option:focus-visible {
-  background: #f4f2ff;
-  color: #4f2fd7;
-  outline: 0;
-}
-
-.home-date-option.is-active {
-  background: #eee9ff;
-  color: #4f2fd7;
+  width: 280px;
+  padding: 18px 20px 20px;
+  border-radius: 18px;
 }
 
 /* Home group feed grouped list */

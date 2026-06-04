@@ -470,13 +470,36 @@
                         <a class="section-link" href="{{ url_for('activity.search', scope='activities') }}">浏览全部活动 <span aria-hidden="true">&#8594;</span></a>
                         <div class="home-date-filter" data-home-date-filter>
                             <button class="home-today-filter" type="button" aria-expanded="false" data-home-date-toggle>{{ home_group_filter_label|default('今天') }} <span aria-hidden="true">&#8964;</span></button>
-                            <div class="home-date-popover" data-home-date-popover hidden>
-                                <div class="home-date-options">
-                                    {% for option in home_group_time_filters|default([]) %}
-                                    <a class="home-date-option {% if option.value == (home_group_selected_time|default('today')) %}is-active{% endif %}"
-                                       href="{{ url_for('activity.index', category=selected_category, time=option.value) if selected_category else url_for('activity.index', time=option.value) }}#from-your-groups"
-                                       data-time-filter="{{ option.value }}"
-                                       data-home-group-filter-option>{{ option.label }}</a>
+                            <div class="home-date-popover"
+                                 data-home-date-popover
+                                 data-home-calendar-year="{{ home_calendar.year }}"
+                                 data-home-calendar-month="{{ home_calendar.month }}"
+                                 data-home-calendar-selected-date="{{ home_calendar.selected_date }}"
+                                 data-home-calendar-today="{{ home_calendar.today_date }}"
+                                 data-home-date-param="group_date"
+                                 hidden>
+                                <div class="home-date-calendar-header">
+                                    <button type="button" aria-label="上个月" data-home-calendar-previous>&#8249;</button>
+                                    <strong data-home-calendar-title>{{ home_calendar.label }}</strong>
+                                    <button type="button" aria-label="下个月" data-home-calendar-next>&#8250;</button>
+                                </div>
+                                <div class="home-date-weekdays" aria-hidden="true">
+                                    {% for day_name in home_calendar.weekdays %}
+                                    <span>{{ day_name }}</span>
+                                    {% endfor %}
+                                </div>
+                                <div class="home-date-days" data-home-calendar-days>
+                                    {% for week in home_calendar.weeks %}
+                                        {% for day in week %}
+                                        <button class="{% if not day.is_current_month %}is-muted{% endif %} {% if day.is_past %}is-disabled{% endif %} {% if day.is_today %}is-today{% endif %} {% if day.is_selected %}is-selected{% endif %}"
+                                                type="button"
+                                                data-home-date-day="{{ day.day }}"
+                                                data-home-date-value="{{ day.date }}"
+                                                data-home-date-label="{{ day.display_label }}"
+                                                data-home-date-current-month="{{ 'true' if day.is_current_month else 'false' }}"
+                                                aria-pressed="{{ 'true' if day.is_selected else 'false' }}"
+                                                {% if day.is_past %}disabled{% endif %}>{{ day.day }}</button>
+                                        {% endfor %}
                                     {% endfor %}
                                 </div>
                             </div>
