@@ -52,7 +52,6 @@ HOT_CIRCLE_POST_WEIGHT = 3
 HOT_CIRCLE_RECENT_POST_WEIGHT = 5
 HOT_CIRCLE_RECENT_DAYS = 30
 OFFICIAL_CIRCLE_SUFFIX = "同好圈"
-CIRCLE_RATING_RECENT_LIMIT = 12
 DEFAULT_ACTIVITY_TIMEZONE = "Asia/Shanghai"
 CIRCLE_RATING_ACTIVITY_NOT_STARTED_MESSAGE = "该活动尚未开始，活动开始后才可以评分。"
 CIRCLE_RATING_NO_ACTIVITY_MESSAGE = "报名并参与该同好圈活动后，可进行评分。"
@@ -782,11 +781,18 @@ def _circle_rating_context(circle, current_user):
             "rating_distribution": {score: 0 for score in range(1, 6)},
         },
     )
-    recent_reviews = (
+    review_query = (
         CircleRating.query.filter_by(circle_id=circle.id)
         .filter(CircleRating.comment.isnot(None))
-        .order_by(CircleRating.updated_at.desc(), CircleRating.id.desc())
-        .limit(CIRCLE_RATING_RECENT_LIMIT)
+    )
+    if current_user:
+        review_query = review_query.filter(CircleRating.user_id != current_user.id)
+    recent_reviews = (
+        review_query
+        .order_by(
+            func.coalesce(CircleRating.updated_at, CircleRating.created_at).desc(),
+            CircleRating.id.desc(),
+        )
         .all()
     )
     current_rating = None

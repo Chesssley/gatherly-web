@@ -327,40 +327,48 @@
                     <div class="circle-rating-form-panel">
                         {% if current_user %}
                             {% if can_rate_circle %}
-                            <form class="circle-rating-form" method="POST" action="{{ url_for('circle.submit_circle_rating', circle_id=circle.id) }}" data-circle-rating-form>
-                                <div class="circle-rating-form-heading">
-                                    <strong>{{ '你已评价，可修改评价' if current_user_rating else '评价这个同好圈' }}</strong>
-                                    <span>参与该同好圈活动且活动开始后，才可评分与评论。</span>
+                            <div class="circle-rating-collapse" data-circle-rating-collapse>
+                                <button class="circle-rating-collapse-toggle" type="button" data-circle-rating-form-toggle aria-expanded="false" aria-controls="circle-rating-form-body" data-open-label="收起评分表单" data-closed-label="给这个圈子评分">
+                                    <span data-circle-rating-form-toggle-label>给这个圈子评分</span>
+                                    <small>选择已报名活动进行评分</small>
+                                </button>
+                                <div class="circle-rating-form-body" id="circle-rating-form-body" data-circle-rating-form-body hidden>
+                                    <form class="circle-rating-form" method="POST" action="{{ url_for('circle.submit_circle_rating', circle_id=circle.id) }}" data-circle-rating-form>
+                                        <div class="circle-rating-form-heading">
+                                            <strong>{{ '你已评价，可修改评价' if current_user_rating else '评价这个同好圈' }}</strong>
+                                            <span>参与该同好圈活动且活动开始后，才可评分与评论。</span>
+                                        </div>
+                                        <label class="form-label" for="circle-rating-activity">本次评价关联活动</label>
+                                        <select class="form-input" id="circle-rating-activity" name="activity_id" required data-circle-rating-activity-select>
+                                            {% for activity in eligible_rating_activities %}
+                                            <option value="{{ activity.id }}" data-can-rate="{{ 'true' if activity.can_rate else 'false' }}" {% if activity.id == selected_rating_activity_id %}selected{% endif %}>
+                                                {{ activity.rating_time_label }} · {{ activity.title }} · {{ activity.rating_status_label }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="circle-rating-activity-list" aria-label="已报名的圈子关联活动">
+                                            {% for activity in eligible_rating_activities %}
+                                            <div class="circle-rating-activity-item {% if activity.id == selected_rating_activity_id %}is-selected{% endif %}" data-circle-rating-activity-row="{{ activity.id }}">
+                                                <span>
+                                                    <strong>{{ activity.title }}</strong>
+                                                    <small>{{ activity.rating_time_label }}</small>
+                                                </span>
+                                                <em class="circle-rating-status {{ activity.rating_status_class }}">{{ activity.rating_status_label }}</em>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        <label class="form-label" for="circle-rating-value">星级选择</label>
+                                        <select class="form-input" id="circle-rating-value" name="rating" required>
+                                            {% for score in [5, 4, 3, 2, 1] %}
+                                            <option value="{{ score }}" {% if current_user_rating and current_user_rating.rating == score %}selected{% endif %}>{{ score }} 星</option>
+                                            {% endfor %}
+                                        </select>
+                                        <label class="form-label" for="circle-rating-comment">评价内容</label>
+                                        <textarea class="form-input" id="circle-rating-comment" name="comment" rows="3" maxlength="1000" placeholder="可选：分享你参加该同好圈活动后的真实体验">{{ current_user_rating.comment if current_user_rating else '' }}</textarea>
+                                        <button class="button button-small" type="submit">{{ '更新评价' if current_user_rating else '提交评价' }}</button>
+                                    </form>
                                 </div>
-                                <label class="form-label" for="circle-rating-activity">本次评价关联活动</label>
-                                <select class="form-input" id="circle-rating-activity" name="activity_id" required data-circle-rating-activity-select>
-                                    {% for activity in eligible_rating_activities %}
-                                    <option value="{{ activity.id }}" data-can-rate="{{ 'true' if activity.can_rate else 'false' }}" {% if activity.id == selected_rating_activity_id %}selected{% endif %}>
-                                        {{ activity.rating_time_label }} · {{ activity.title }} · {{ activity.rating_status_label }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                                <div class="circle-rating-activity-list" aria-label="已报名的圈子关联活动">
-                                    {% for activity in eligible_rating_activities %}
-                                    <div class="circle-rating-activity-item {% if activity.id == selected_rating_activity_id %}is-selected{% endif %}" data-circle-rating-activity-row="{{ activity.id }}">
-                                        <span>
-                                            <strong>{{ activity.title }}</strong>
-                                            <small>{{ activity.rating_time_label }}</small>
-                                        </span>
-                                        <em class="circle-rating-status {{ activity.rating_status_class }}">{{ activity.rating_status_label }}</em>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                                <label class="form-label" for="circle-rating-value">星级选择</label>
-                                <select class="form-input" id="circle-rating-value" name="rating" required>
-                                    {% for score in [5, 4, 3, 2, 1] %}
-                                    <option value="{{ score }}" {% if current_user_rating and current_user_rating.rating == score %}selected{% endif %}>{{ score }} 星</option>
-                                    {% endfor %}
-                                </select>
-                                <label class="form-label" for="circle-rating-comment">评价内容</label>
-                                <textarea class="form-input" id="circle-rating-comment" name="comment" rows="3" maxlength="1000" placeholder="可选：分享你参加该同好圈活动后的真实体验">{{ current_user_rating.comment if current_user_rating else '' }}</textarea>
-                                <button class="button button-small" type="submit">{{ '更新评价' if current_user_rating else '提交评价' }}</button>
-                            </form>
+                            </div>
                             {% elif circle_rating_notice %}
                             <p class="rating-notice">{{ circle_rating_notice }}</p>
                             {% endif %}
@@ -373,10 +381,10 @@
                     <div class="circle-rating-review-list" id="circle-rating-reviews" data-circle-rating-reviews>
                         <div class="circle-rating-review-heading">
                             <h3>最近评论</h3>
-                            <span>{{ rating_count }} 条</span>
+                            <span>{{ recent_reviews|length }} 条</span>
                         </div>
                         {% for review in recent_reviews %}
-                        <article class="circle-rating-review" data-circle-rating-review {% if loop.index > 3 %}hidden{% endif %}>
+                        <article class="circle-rating-review" data-circle-rating-review {% if loop.index > 4 %}hidden{% endif %}>
                             <div class="circle-rating-review-meta">
                                 {{ member_avatar(review.user) }}
                                 <span>
@@ -401,9 +409,9 @@
                             <p>{{ review.comment }}</p>
                         </article>
                         {% else %}
-                        <p class="circle-sidebar-empty">暂无文字评价。</p>
+                        <p class="circle-sidebar-empty">暂无评价</p>
                         {% endfor %}
-                        {% if recent_reviews|length > 3 %}
+                        {% if recent_reviews|length > 4 %}
                         <button class="circle-rating-toggle" type="button" data-circle-rating-toggle aria-expanded="false">展开更多评价</button>
                         {% endif %}
                     </div>

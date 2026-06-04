@@ -13544,6 +13544,54 @@ body.circle-modal-open {
   line-height: 1.6;
 }
 
+/* Circle rating collapse */
+.circle-rating-collapse {
+  display: grid;
+  gap: 14px;
+}
+
+.circle-rating-collapse-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid rgba(47, 111, 99, 0.2);
+  border-radius: 8px;
+  background: #f8fbf8;
+  color: #172118;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.circle-rating-collapse-toggle:hover,
+.circle-rating-collapse-toggle:focus-visible {
+  border-color: rgba(47, 111, 99, 0.42);
+  background: #f1f7f2;
+  outline: 0;
+}
+
+.circle-rating-collapse-toggle span {
+  color: var(--color-primary-dark);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.circle-rating-collapse-toggle small {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.circle-rating-form-body[hidden] {
+  display: none;
+}
+
 .circle-rating-form {
   display: grid;
   gap: 10px;
@@ -13629,7 +13677,7 @@ body.circle-modal-open {
   background: #edf0ed;
 }
 
-/* Circle review list */
+/* Circle recent reviews */
 .circle-rating-review-list {
   display: grid;
   gap: 12px;
@@ -14031,6 +14079,15 @@ body.circle-modal-open {
 
   .circle-rating-score-card strong {
     font-size: 34px;
+  }
+
+  .circle-rating-collapse-toggle {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .circle-rating-collapse-toggle small {
+    text-align: left;
   }
 
   .circle-rating-review-meta {
