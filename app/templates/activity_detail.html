@@ -12,8 +12,8 @@
         <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>活动已取消</button>
     {% elif event_ended %}
         <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>活动已结束</button>
-    {% elif event_ongoing and not user_registered %}
-        <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>活动进行中</button>
+    {% elif event_ongoing %}
+        <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>活动正在进行中</button>
     {% elif can_cancel_registration %}
         <form class="meetup-detail-register-form"
               action="{{ url_for('activity.cancel_registration', activity_id=activity.id) }}"
@@ -24,7 +24,7 @@
     {% elif user_registered %}
         <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>已报名</button>
     {% elif is_full %}
-        <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>已满员</button>
+        <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>人数已满</button>
     {% elif session.get('user_id') %}
         <form class="meetup-detail-register-form" action="{{ url_for('activity.register_activity', activity_id=activity.id) }}" method="post">
             <button type="submit" class="btn btn-register {{ extra_class }}">立即报名</button>
