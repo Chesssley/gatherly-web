@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}{{ circle.name }} 圈子评分 - Gatherly{% endblock %}
+
+{% block content %}
+{% macro rating_stars(value, label="评分") %}
+    {% set score = value|float if value else 0 %}
+    <span class="rating-stars" style="--rating-width: {{ (score / 5 * 100) if score else 0 }}%;" aria-label="{{ label }}">★★★★★</span>
+{% endmacro %}
+
+{% macro rating_avatar(user) %}
+    {% if user and user.avatar %}
+    <img class="avatar-small" src="{{ user.avatar }}" alt="{{ user.nickname or user.username }}">
+    {% else %}
+    <span class="avatar-small avatar-placeholder">{{ ((user.nickname or user.username) if user else "用户")[:1] }}</span>
+    {% endif %}
+{% endmacro %}
+
+<section class="section circle-ratings-page">
+    <div class="circle-ratings-container">
+        <a class="circle-ratings-back" href="{{ url_for('circle.circle_detail', circle_id=circle.id, _anchor='circle-ratings') }}">返回同好圈</a>
+
+        <header class="circle-ratings-hero">
+            <div>
+                <p class="eyebrow">Circle rating</p>
+                <h1>圈子评分</h1>
+                <p>圈子评价用于帮助成员了解活动体验，并为未来活动提供参考。</p>
+            </div>
+        </header>
+
+        <a class="circle-ratings-summary circle-ratings-circle-card" href="{{ url_for('circle.circle_detail', circle_id=circle.id) }}" aria-label="查看 {{ circle.name }} 同好圈详情">
+            <img src="{{ circle.cover_image_url|asset_url }}" alt="{{ circle.name }} 封面">
+            <div>
+                <strong>{{ circle.name }}</strong>
+                <span>{{ circle.tag or circle.description or "暂无地区或简介信息" }}</span>
+            </div>
+        </a>
+
+        <section class="circle-ratings-score-panel" aria-label="综合评分">
+            <div class="circle-ratings-score-main">
+                {% if rating_count %}
+                <strong>{{ '%.1f'|format(average_rating) }}</strong>
+                {{ rating_stars(average_rating, '同好圈综合评分') }}
+                <span>{{ rating_count }} 条评分</span>
+                {% else %}
+                <strong>暂无评分</strong>
+                {{ rating_stars(0, '暂无评分') }}
+                <span>0 条评分</span>
+                {% endif %}
+            </div>
+            <div class="circle-ratings-distribution">
+                {% for score in [5, 4, 3, 2, 1] %}
+                {% set score_count = rating_distribution.get(score, 0) %}
+                {% set score_percent = (score_count / rating_count * 100) if rating_count else 0 %}
+                <div class="circle-rating-bar-row">
+                    <span>{{ score }} 星</span>
+                    <div class="circle-rating-bar"><i style="width: {{ score_percent }}%;"></i></div>
+                    <strong>{{ score_count }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        {% if feedback_cards %}
+        <section class="circle-ratings-feedback" aria-label="评价标签">
+            {% for card in feedback_cards %}
+            <article>
+                <strong>{{ card.label }}</strong>
+                <span>{{ card.count }} 条</span>
+            </article>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        <section class="circle-all-reviews" aria-labelledby="circle-all-reviews-title">
+            <div class="circle-all-reviews-heading">
+                <div>
+                    <h2 id="circle-all-reviews-title">全部评价 <span>{{ rating_count }}</span></h2>
+                    {% if current_stars or current_sort != 'recent' %}
+                    <p>当前显示 {{ filtered_review_count }} 条筛选结果</p>
+                    {% endif %}
+                </div>
+                <details class="circle-rating-filter" data-circle-rating-filter>
+                    <summary>
+                        <span>{{ current_filter_label }}</span>
+                        <span aria-hidden="true">⌄</span>
+                    </summary>
+                    <div class="circle-rating-filter-menu">
+                        {% for option in filter_options %}
+                        <a class="{{ 'is-active' if option.is_active else '' }}" href="{{ option.url }}">{{ option.label }}</a>
+                        {% endfor %}
+                        <span class="circle-rating-filter-divider" aria-hidden="true"></span>
+                        {% for option in star_filter_options %}
+                        <a class="{{ 'is-active' if option.is_active else '' }}" href="{{ option.url }}">{{ option.label }}</a>
+                        {% endfor %}
+                    </div>
+                </details>
+            </div>
+
+            <div class="circle-all-review-list">
+                {% for review in filtered_reviews %}
+                {% set reviewer_name = (review.user.nickname or review.user.username) if review.user else "已注销用户" %}
+                {% set review_time = review.updated_at or review.created_at %}
+                <article class="circle-all-review-card">
+                    <div class="circle-all-review-meta">
+                        {% if review.user %}
+                        <a class="circle-all-review-user" href="{{ url_for('profile.view_profile', user_id=review.user.id) }}">
+                            {{ rating_avatar(review.user) }}
+                            <strong>{{ reviewer_name }}</strong>
+                        </a>
+                        {% else %}
+                        <span class="circle-all-review-user">
+                            {{ rating_avatar(None) }}
+                            <strong>{{ reviewer_name }}</strong>
+                        </span>
+                        {% endif %}
+                        <div class="circle-all-review-score">
+                            {{ rating_stars(review.rating, review.rating ~ ' 星评价') }}
+                            <time datetime="{{ review_time.isoformat() }}">{{ review_time.strftime("%Y-%m-%d") }}</time>
+                        </div>
+                    </div>
+                    <p>{{ review.comment|trim if review.comment else "未填写文字评价" }}</p>
+                    {% if review.activity_detail_id or review.activity_label %}
+                    <div class="circle-rating-review-activity">
+                        {% if review.activity_detail_id %}
+                            {% if review.activity_date_label %}
+                            <span>{{ review.activity_date_label }}</span>
+                            <span>·</span>
+                            {% endif %}
+                            <a href="{{ url_for('activity.activity_detail', activity_id=review.activity_detail_id) }}">{{ review.activity_title }}</a>
+                        {% else %}
+                            <span>{{ review.activity_label }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </article>
+                {% else %}
+                <div class="circle-all-reviews-empty">
+                    <strong>{{ "暂无评价" if not rating_count else "暂无符合条件的评价" }}</strong>
+                    <p>调整筛选条件后可以查看其它评价。</p>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</section>
+{% endblock %}

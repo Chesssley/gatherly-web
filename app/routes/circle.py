@@ -772,6 +772,20 @@ def _decorate_circle_rating_review(review):
         review.activity_label = "关联活动已不存在"
 
 
+CIRCLE_RATING_SORT_OPTIONS = {
+    "recent": "最新",
+    "oldest": "最早",
+    "highest": "评分最高",
+    "lowest": "评分最低",
+}
+
+
+def _circle_rating_sort_label(current_sort, current_stars=None):
+    if current_stars:
+        return f"{current_stars} 星"
+    return CIRCLE_RATING_SORT_OPTIONS.get(current_sort, CIRCLE_RATING_SORT_OPTIONS["recent"])
+
+
 def _circle_rating_context(circle, current_user):
     stats = _circle_rating_stats([circle.id]).get(
         circle.id,
@@ -787,12 +801,14 @@ def _circle_rating_context(circle, current_user):
     )
     if current_user:
         review_query = review_query.filter(CircleRating.user_id != current_user.id)
+    review_count = review_query.count()
     recent_reviews = (
         review_query
         .order_by(
             func.coalesce(CircleRating.updated_at, CircleRating.created_at).desc(),
             CircleRating.id.desc(),
         )
+        .limit(4)
         .all()
     )
     current_rating = None
@@ -821,6 +837,7 @@ def _circle_rating_context(circle, current_user):
         "rating_count": stats["rating_count"],
         "rating_distribution": stats["rating_distribution"],
         "recent_reviews": recent_reviews,
+        "rating_review_count": review_count,
         "current_user_rating": current_rating,
         "can_rate_circle": can_rate,
         "circle_rating_notice": notice,
@@ -1421,6 +1438,116 @@ def circle_detail(circle_id):
         pending_request=None,
         **rating_context,
         **_upload_limit_context(),
+    )
+
+
+@circle_bp.route("/circle/<int:circle_id>/ratings", methods=["GET"])
+def circle_ratings(circle_id):
+    circle = _get_circle(circle_id)
+    if circle is None:
+        flash("圈子不存在或已被删除。", "error")
+        return redirect(url_for("circle.circles"))
+    if not isinstance(circle, Circle):
+        flash("该圈子还未完成初始化，请刷新后重试。", "error")
+        return redirect(url_for("circle.circles"))
+
+    current_user = _current_user()
+    if not _can_view_circle(current_user, circle):
+        flash("同好圈不存在或暂不可见。", "error")
+        return redirect(url_for("circle.circles"))
+
+    current_sort = request.args.get("sort", "recent")
+    if current_sort not in CIRCLE_RATING_SORT_OPTIONS:
+        current_sort = "recent"
+
+    current_stars = request.args.get("stars", type=int)
+    if current_stars not in {1, 2, 3, 4, 5}:
+        current_stars = None
+
+    stats = _circle_rating_stats([circle.id]).get(
+        circle.id,
+        {
+            "average_rating": None,
+            "rating_count": 0,
+            "rating_distribution": {score: 0 for score in range(1, 6)},
+        },
+    )
+    review_query = CircleRating.query.filter_by(circle_id=circle.id)
+    if current_stars:
+        review_query = review_query.filter(CircleRating.rating == current_stars)
+
+    if current_sort == "oldest":
+        review_query = review_query.order_by(CircleRating.created_at.asc(), CircleRating.id.asc())
+    elif current_sort == "highest":
+        review_query = review_query.order_by(
+            CircleRating.rating.desc(),
+            CircleRating.updated_at.desc(),
+            CircleRating.created_at.desc(),
+            CircleRating.id.desc(),
+        )
+    elif current_sort == "lowest":
+        review_query = review_query.order_by(
+            CircleRating.rating.asc(),
+            CircleRating.updated_at.desc(),
+            CircleRating.created_at.desc(),
+            CircleRating.id.desc(),
+        )
+    else:
+        review_query = review_query.order_by(
+            CircleRating.updated_at.desc(),
+            CircleRating.created_at.desc(),
+            CircleRating.id.desc(),
+        )
+
+    filtered_reviews = review_query.all()
+    for review in filtered_reviews:
+        _decorate_circle_rating_review(review)
+
+    rating_distribution = stats["rating_distribution"]
+    feedback_cards = []
+    if stats["rating_count"]:
+        feedback_cards = [
+            {"label": "五星好评", "count": rating_distribution.get(5, 0)},
+            {"label": "四星评价", "count": rating_distribution.get(4, 0)},
+            {"label": "三星评价", "count": rating_distribution.get(3, 0)},
+            {
+                "label": "待改进评价",
+                "count": rating_distribution.get(1, 0) + rating_distribution.get(2, 0),
+            },
+        ]
+
+    filter_options = [
+        {
+            "label": label,
+            "url": url_for("circle.circle_ratings", circle_id=circle.id, sort=sort_key),
+            "is_active": current_stars is None and current_sort == sort_key,
+        }
+        for sort_key, label in CIRCLE_RATING_SORT_OPTIONS.items()
+    ]
+    star_filter_options = [
+        {
+            "label": f"{score} 星",
+            "url": url_for("circle.circle_ratings", circle_id=circle.id, stars=score),
+            "is_active": current_stars == score,
+        }
+        for score in [5, 4, 3, 2, 1]
+    ]
+
+    return render_template(
+        "circle_ratings.html",
+        circle=_decorate_circle(circle),
+        average_rating=stats["average_rating"],
+        rating_count=stats["rating_count"],
+        rating_distribution=rating_distribution,
+        filtered_reviews=filtered_reviews,
+        filtered_review_count=len(filtered_reviews),
+        current_sort=current_sort,
+        current_stars=current_stars,
+        current_filter_label=_circle_rating_sort_label(current_sort, current_stars),
+        filter_options=filter_options,
+        star_filter_options=star_filter_options,
+        feedback_cards=feedback_cards,
+        current_user=current_user,
     )
 
 

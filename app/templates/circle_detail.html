@@ -297,7 +297,7 @@
                             <p class="eyebrow">评分</p>
                             <h2 id="circle-ratings-title">圈子评分 <span>{{ rating_count }}</span></h2>
                         </div>
-                        <a class="section-link" href="#circle-rating-reviews">查看全部</a>
+                        <a class="section-link" href="{{ url_for('circle.circle_ratings', circle_id=circle.id) }}">查看全部</a>
                     </div>
 
                     <div class="circle-rating-overview">
@@ -381,10 +381,10 @@
                     <div class="circle-rating-review-list" id="circle-rating-reviews" data-circle-rating-reviews>
                         <div class="circle-rating-review-heading">
                             <h3>最近评论</h3>
-                            <span>{{ recent_reviews|length }} 条</span>
+                            <span>{{ rating_review_count }} 条</span>
                         </div>
                         {% for review in recent_reviews %}
-                        <article class="circle-rating-review" data-circle-rating-review {% if loop.index > 4 %}hidden{% endif %}>
+                        <article class="circle-rating-review" data-circle-rating-review>
                             <div class="circle-rating-review-meta">
                                 {{ member_avatar(review.user) }}
                                 <span>
@@ -411,9 +411,6 @@
                         {% else %}
                         <p class="circle-sidebar-empty">暂无评价</p>
                         {% endfor %}
-                        {% if recent_reviews|length > 4 %}
-                        <button class="circle-rating-toggle" type="button" data-circle-rating-toggle aria-expanded="false">展开更多评价</button>
-                        {% endif %}
                     </div>
                 </section>
 
