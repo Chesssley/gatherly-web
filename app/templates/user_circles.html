@@ -26,13 +26,18 @@
 
           {{ list_filters('profile.user_circles', filters, ['active'], ['member', 'owner'], 'circle', reset_url, '', true) }}
 
-          <div class="profile-member-grid">
+          <div class="profile-member-grid profile-circle-grid my-groups-grid">
             {% for item in items %}
-            <a class="profile-member-card" href="{{ url_for('circle.circle_detail', circle_id=item.id) }}">
-              <span class="profile-member-thumb" aria-hidden="true">{{ item.name[:1]|upper }}</span>
-              <span>
+            <a class="my-group-card profile-circle-card" href="{{ url_for('circle.circle_detail', circle_id=item.id) }}">
+              <span class="my-group-cover">
+                <img src="{{ item.cover_image|asset_url if item.cover_image else url_for('static', filename='images/placeholders/circle-placeholder.svg') }}"
+                     alt="{{ item.name }}"
+                     onerror="this.src='{{ url_for('static', filename='images/placeholders/circle-placeholder.svg') }}'">
+              </span>
+              <span class="my-group-copy profile-circle-copy">
                 <strong>{{ item.name }}</strong>
-                <small>{{ item.role }} · {{ item.time.strftime('%Y-%m-%d') if item.time else '-' }}</small>
+                <small>{{ item.member_count or 0 }} 位成员</small>
+                <small class="profile-circle-meta">{{ item.role }} · {{ item.time.strftime('%Y-%m-%d') if item.time else '-' }}</small>
               </span>
             </a>
             {% else %}

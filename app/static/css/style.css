@@ -15497,6 +15497,24 @@ body.circle-modal-open {
   color: #4b5563;
 }
 
+.profile-circle-grid.my-groups-grid {
+  width: 100%;
+  max-width: 720px;
+  margin-top: 24px;
+}
+
+.profile-circle-card.my-group-card {
+  width: 100%;
+  min-width: 0;
+}
+
+.profile-circle-copy .profile-circle-meta {
+  margin-top: -4px;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 @media (max-width: 760px) {
   .my-groups-page {
     padding: 48px 16px 72px;
