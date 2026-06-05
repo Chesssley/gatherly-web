@@ -1892,6 +1892,20 @@ document.addEventListener("DOMContentLoaded", () => {
     setExpanded(false);
   });
 
+  document.querySelectorAll("[data-circle-rating-filter]").forEach(filter => {
+    document.addEventListener("click", event => {
+      if (!filter.contains(event.target)) {
+        filter.open = false;
+      }
+    });
+
+    filter.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        filter.open = false;
+      }
+    });
+  });
+
   document.querySelectorAll("[data-circle-rating-form]").forEach(form => {
     const activitySelect = form.querySelector("[data-circle-rating-activity-select]");
     const notStartedMessage = "该活动尚未开始，活动开始后才可以评分。";
