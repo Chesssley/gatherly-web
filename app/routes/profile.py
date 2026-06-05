@@ -454,12 +454,16 @@ def _registration_items(user, filters):
 def _circle_items(user, filters):
     rows = _safe_all(
         CircleMember.query.filter_by(user_id=user.id, status="active")
+        .join(Circle, CircleMember.circle_id == Circle.id)
+        .filter(Circle.status != "deleted")
         .order_by(CircleMember.joined_at.desc())
     )
     items = [
         {
             "id": row.circle_id,
-            "name": _circle_label(row.circle_id),
+            "name": row.circle.name if row.circle else _circle_label(row.circle_id),
+            "cover_image": row.circle.cover_image if row.circle else "",
+            "member_count": row.circle.member_count if row.circle else 0,
             "role": row.role,
             "status": row.status,
             "time": row.joined_at,
