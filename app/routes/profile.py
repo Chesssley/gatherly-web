@@ -215,10 +215,12 @@ def _refresh_detected_location(user):
 
 
 def _current_request_ip_region(user_to_update=None):
-    if user_to_update:
-        detected = _refresh_detected_location(user_to_update)
-        if detected:
-            return detected
+    if not user_to_update:
+        return None
+
+    detected = _refresh_detected_location(user_to_update)
+    if detected:
+        return detected
     return detect_current_request_location()
 
 
@@ -297,8 +299,13 @@ def _owner_profile_or_404():
     return user, visibility
 
 
+def _profile_ip_region_label(user, current_ip_region=None):
+    if current_ip_region is not None:
+        return format_ip_region(current_ip_region)
+    return format_ip_region(user)
+
+
 def _profile_context(user, visibility, is_owner=True, ip_region=None):
-    ip_region = ip_region or detect_current_request_location()
     circle_count = CircleMember.query.filter_by(user_id=user.id, status="active").count()
     registration_count = Registration.query.filter(
         Registration.user_id == user.id,
@@ -330,7 +337,7 @@ def _profile_context(user, visibility, is_owner=True, ip_region=None):
             "circles": is_owner or visibility.circle_scope == PUBLIC_SCOPE,
             "interactions": is_owner,
         },
-        "ip_region_label": format_ip_region(ip_region),
+        "ip_region_label": _profile_ip_region_label(user, ip_region),
         "interests": _split_interests(user.interests) if (is_owner or bool(visibility.show_interests)) else [],
         "profile_stats": {
             "circles": circle_count if is_owner or visibility.circle_scope == PUBLIC_SCOPE else None,
