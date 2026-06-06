@@ -224,7 +224,7 @@ class ActivityDetailCircleAndManagementTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         db.session.refresh(self.activity)
-        self.assertEqual(self.activity.status, "closed")
+        self.assertEqual(self.activity.status, "open")
         self.assertEqual(self.activity.start_time, new_start)
         self.assertEqual(self.activity.end_time, new_end)
         self.assertIn(new_start.strftime("%Y-%m-%d %H:%M"), html)

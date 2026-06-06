@@ -302,12 +302,12 @@ def _activity_phase(activity, now=None):
         return "ended"
     if activity.status == "cancelled":
         return "cancelled"
-    if activity.status == "closed" or (activity.end_time and now > activity.end_time):
+    if activity.end_time and now >= activity.end_time:
         return "ended"
     if (
         activity.start_time
         and now >= activity.start_time
-        and (not activity.end_time or now <= activity.end_time)
+        and (not activity.end_time or now < activity.end_time)
     ):
         return "ongoing"
     return "upcoming"
@@ -533,6 +533,20 @@ def sync_activity_statuses():
             updated = True
     if updated:
         db.session.commit()
+
+
+def _sync_activity_status_for_time(activity, now=None):
+    if not activity or activity.status == "cancelled":
+        return False
+
+    phase = _activity_phase(activity, now)
+    if phase == "ended" and activity.status in {"open", "hidden"}:
+        activity.status = "closed"
+        return True
+    if phase in {"upcoming", "ongoing"} and activity.status == "closed":
+        activity.status = "open"
+        return True
+    return False
 
 
 @activity_bp.before_app_request
@@ -1835,8 +1849,10 @@ def admin_update_activity_time(activity_id):
 
     old_start_time = db_activity.start_time
     old_end_time = db_activity.end_time
+    old_status = db_activity.status
     db_activity.start_time = start_time
     db_activity.end_time = end_time
+    _sync_activity_status_for_time(db_activity)
     db.session.add(
         AdminLog(
             admin_id=current_user.id,
@@ -1848,7 +1864,8 @@ def admin_update_activity_time(activity_id):
                 f"start_time: {_admin_time_log_value(old_start_time)} -> "
                 f"{_admin_time_log_value(start_time)}; "
                 f"end_time: {_admin_time_log_value(old_end_time)} -> "
-                f"{_admin_time_log_value(end_time)}"
+                f"{_admin_time_log_value(end_time)}; "
+                f"status: {old_status} -> {db_activity.status}"
             ),
             ip_address=get_client_ip(),
         )

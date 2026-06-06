@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from app import create_app
 from app.models import Activity, AdminLog, User, db
@@ -62,6 +63,9 @@ class ActivityAdminTimeManagementTestCase(unittest.TestCase):
     def _login(self, user):
         with self.client.session_transaction() as session:
             session["user_id"] = user.id
+
+    def _now(self):
+        return datetime.now(ZoneInfo("Asia/Shanghai")).replace(tzinfo=None)
 
     def _post_update_time(self, start_time, end_time, follow_redirects=False):
         return self.client.post(
@@ -154,9 +158,58 @@ class ActivityAdminTimeManagementTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 302)
         db.session.refresh(self.activity)
-        self.assertEqual(self.activity.status, "closed")
+        self.assertEqual(self.activity.status, "open")
         self.assertEqual(self.activity.start_time, new_start)
         self.assertEqual(self.activity.end_time, new_end)
+
+    def test_update_closed_activity_to_future_end_stops_showing_ended(self):
+        self.activity.status = "closed"
+        self.activity.start_time = self._now() - timedelta(days=2)
+        self.activity.end_time = self._now() - timedelta(days=1)
+        db.session.commit()
+        self._login(self.admin)
+        new_start = self._now() + timedelta(days=1)
+        new_end = new_start + timedelta(hours=2)
+
+        response = self._post_update_time(new_start, new_end, follow_redirects=True)
+        html = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        db.session.refresh(self.activity)
+        self.assertEqual(self.activity.status, "open")
+        self.assertIn(f'action="/activity/{self.activity.id}/register"', html)
+        self.assertIn("立即报名", html)
+        self.assertNotIn("活动已结束", html)
+
+    def test_update_time_to_ongoing_shows_ongoing_not_ended(self):
+        self.activity.status = "closed"
+        db.session.commit()
+        self._login(self.admin)
+        new_start = self._now() - timedelta(hours=1)
+        new_end = self._now() + timedelta(hours=1)
+
+        response = self._post_update_time(new_start, new_end, follow_redirects=True)
+        html = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        db.session.refresh(self.activity)
+        self.assertEqual(self.activity.status, "open")
+        self.assertIn("活动正在进行中", html)
+        self.assertNotIn("活动已结束", html)
+
+    def test_update_time_to_past_end_marks_closed_and_shows_ended(self):
+        self._login(self.admin)
+        new_start = self._now() - timedelta(hours=3)
+        new_end = self._now() - timedelta(hours=1)
+
+        response = self._post_update_time(new_start, new_end, follow_redirects=True)
+        html = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        db.session.refresh(self.activity)
+        self.assertEqual(self.activity.status, "closed")
+        self.assertIn("活动已结束", html)
+        self.assertNotIn("立即报名", html)
 
 
 if __name__ == "__main__":

@@ -5,8 +5,9 @@
 {% macro registration_button(extra_class="") %}
     {% set activity_status = activity.status|default('', true)|lower %}
     {% set event_cancelled = activity_status == 'cancelled' %}
-    {% set event_ended = activity.is_ended or activity_status in ['ended', 'closed', 'completed', 'expired'] %}
+    {% set event_ended = activity.phase == 'ended' %}
     {% set event_ongoing = activity.phase == 'ongoing' %}
+    {% set event_unavailable = activity_status and activity_status != 'open' %}
     {% set is_full = max_participants is not none and registration_count >= max_participants %}
     {% if event_cancelled %}
         <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>活动已取消</button>
@@ -14,6 +15,8 @@
         <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>活动已结束</button>
     {% elif event_ongoing %}
         <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>活动正在进行中</button>
+    {% elif event_unavailable %}
+        <button class="btn btn-register btn-disabled {{ extra_class }}" type="button" disabled>活动暂不可报名</button>
     {% elif can_cancel_registration %}
         <form class="meetup-detail-register-form"
               action="{{ url_for('activity.cancel_registration', activity_id=activity.id) }}"
@@ -163,7 +166,7 @@
 {% block content %}
 {% set activity_status = activity.status|default('', true)|lower %}
 {% set event_cancelled = activity_status == 'cancelled' %}
-{% set event_ended = activity.is_ended or activity_status in ['ended', 'closed', 'completed', 'expired'] %}
+{% set event_ended = activity.phase == 'ended' %}
 {% set event_ongoing = activity.phase == 'ongoing' %}
 {% set is_full = max_participants is not none and registration_count >= max_participants %}
 {% set remaining_places = max_participants - registration_count if max_participants is not none else none %}
