@@ -10,3 +10,4 @@ Flask-Migrate
 boto3
 Pillow
 requests
+tzdata>=2026.2
