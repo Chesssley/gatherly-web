@@ -104,6 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const initCurrentYear = () => {
+    // Keep displayed years in sync with the current calendar year.
     const year = String(new Date().getFullYear());
     document.querySelectorAll("[data-current-year]").forEach(item => {
       item.textContent = year;
